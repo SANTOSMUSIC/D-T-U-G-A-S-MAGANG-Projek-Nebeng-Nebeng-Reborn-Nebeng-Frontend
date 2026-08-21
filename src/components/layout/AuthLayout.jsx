@@ -1,13 +1,12 @@
-import React from 'react';
 import { ShieldCheck } from 'lucide-react';
 import logoImage from '../../assets/LOGO.png';
 
 export default function AuthLayout({ children, title, subtitle, badgeText = "VERIFIED SECURITY SYSTEM" }) {
   return (
-    <div className="h-screen w-screen flex flex-col md:flex-row bg-white overflow-hidden m-0 p-0">
+    <div className="min-h-screen w-screen flex flex-col md:flex-row md:h-screen bg-white md:overflow-hidden m-0 p-0">
       
-      {/* Sisi Kiri: Banner Gradient 60% */}
-      <div className="relative w-full md:w-[60%] h-full bg-gradient-to-br from-[#322C85] via-[#B019B8] to-[#FC156A] p-10 md:p-16 lg:p-20 flex flex-col justify-between text-white overflow-hidden">
+      {/* Sisi Kiri: Banner Gradient 60% (auto-height saat mobile agar tidak menekan/memotong form di bawahnya) */}
+      <div className="relative w-full md:w-[60%] md:h-full bg-gradient-to-br from-[#322C85] via-[#B019B8] to-[#FC156A] p-10 md:p-16 lg:p-20 flex flex-col justify-between text-white overflow-hidden shrink-0">
         {/* Efek Blur Cahaya Dekoratif */}
         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute top-1/3 right-10 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -38,8 +37,8 @@ export default function AuthLayout({ children, title, subtitle, badgeText = "VER
         </div>
       </div>
 
-      {/* Sisi Kanan: Konten Form 40% */}
-      <div className="w-full md:w-[40%] h-full p-8 md:p-12 lg:p-16 flex flex-col justify-center items-center bg-white overflow-y-auto">
+      {/* Sisi Kanan: Konten Form 40% (punya scroll sendiri di desktop, mengikuti alur halaman di mobile) */}
+      <div className="w-full md:w-[40%] md:h-full p-8 md:p-12 lg:p-16 flex flex-col justify-center items-center bg-white md:overflow-y-auto">
         <div className="w-full max-w-md mx-auto">
           {children}
         </div>

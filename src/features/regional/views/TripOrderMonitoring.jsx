@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Navigation, Search, Eye, CheckCircle2, Clock, MapPin, Car, ArrowRight, X } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
 export default function RegionalTripMonitoringPage() {
-  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
-  const [tripList, setTripList] = useState([
+    const [tripList] = useState([
     {
       id: 'TRIP-9081',
       passenger: 'Siti Aminah',
@@ -51,11 +51,7 @@ export default function RegionalTripMonitoringPage() {
     'Pos Mitra Jebres Stasiun'
   ];
 
-  useEffect(() => {
-    setIsLoadingTrips(true);
-    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
-    return () => clearTimeout(timer);
-  }, [searchQuery, statusFilter, selectedPos]);
+  const isLoadingTrips = useSimulatedLoading([searchQuery, statusFilter, selectedPos], 700);
 
   const handleOpenDetail = (trip) => {
     setCurrentTrip(trip);

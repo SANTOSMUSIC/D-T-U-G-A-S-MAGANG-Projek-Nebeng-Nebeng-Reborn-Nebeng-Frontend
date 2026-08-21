@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Search, Plus, X, Trash2, Pencil, Calendar, MapPin, Shield, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
+import { Users, Search, Plus, X, Trash2, Pencil, Calendar, MapPin, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
 export default function OperatorPosPage() {
   const toast = useToast();
-  const [isLoadingOperators, setIsLoadingOperators] = useState(true);
-  const [operatorList, setOperatorList] = useState([
+    const [operatorList, setOperatorList] = useState([
     { id: 'OP-01', name: 'Rian Hidayat', email: 'rian.hidayat@nebeng.id', pos: 'Pos Mitra Solo Grand Mall', schedule: 'Senin - Jumat (08:00 - 16:00)', status: 'Aktif' },
     { id: 'OP-02', name: 'Dewi Lestari', email: 'dewi.lestari@nebeng.id', pos: 'Pos Mitra Pasar Klewer', schedule: 'Senin - Sabtu (07:00 - 15:00)', status: 'Aktif' },
     { id: 'OP-03', name: 'Fajar Nugroho', email: 'fajar.nugroho@nebeng.id', pos: 'Pos Mitra Jebres Stasiun', schedule: 'Selasa - Minggu (13:00 - 21:00)', status: 'Aktif' },
@@ -74,11 +74,7 @@ export default function OperatorPosPage() {
     o.pos.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  useEffect(() => {
-    setIsLoadingOperators(true);
-    const timer = setTimeout(() => setIsLoadingOperators(false), 700);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const isLoadingOperators = useSimulatedLoading([searchQuery], 700);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">

@@ -1,13 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
-  DollarSign, 
-  Settings, 
   Bike, 
   Car, 
   Percent, 
   Save, 
   Info, 
-  Layers, 
   Scale, 
   Package,
   CheckCircle2

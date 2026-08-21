@@ -1,29 +1,23 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { 
-  DollarSign, 
   ShieldCheck, 
   Wallet, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
   Search, 
-  Printer, 
-  FileText,
+  Printer,
   Lock,
-  Unlock,
-  Building2,
-  Bike
+  Unlock
 } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function AuditFinancialReport() {
   const [activeTab, setActiveTab] = useState('escrow'); // 'escrow' atau 'withdrawal'
-  const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
   // Mock Data: Laporan Arus Kas Escrow System (Dana Ditahan vs Dana Cair)
-  const [escrowLedger, setEscrowLedger] = useState([
+  const [escrowLedger] = useState([
     { id: "ESC-9081", orderId: "ORD-8821", client: "Rian Pratama", amount: "Rp 150.000", type: "Ride Service", status: "Held", time: "19 Agu 2026, 09:30", note: "Dana ditahan di escrow menunggu perjalanan selesai" },
     { id: "ESC-9080", orderId: "ORD-8820", client: "Siti Aminah", amount: "Rp 75.000", type: "Parcel Delivery", status: "Released", time: "19 Agu 2026, 09:15", note: "Dana dicairkan ke kurir setelah paket diterima" },
     { id: "ESC-9079", orderId: "ORD-8819", client: "Joko Anwar", amount: "Rp 320.000", type: "Car Rental / Ride", status: "Released", time: "19 Agu 2026, 08:45", note: "Dana dicairkan ke driver" },
@@ -32,7 +26,7 @@ export default function AuditFinancialReport() {
   ]);
 
   // Mock Data: Riwayat Penarikan Saldo (Withdrawal) oleh Mitra
-  const [withdrawals, setWithdrawals] = useState([
+  const [withdrawals] = useState([
     { id: "WD-5012", partnerName: "Ahmad Driver", partnerType: "Driver Motor", bank: "BCA - 1234567890", amount: "Rp 1.250.000", status: "Success", time: "19 Agu 2026, 07:30" },
     { id: "WD-5011", partnerName: "Sari Logistics Hub", partnerType: "Merchant / Hub", bank: "Mandiri - 0987654321", amount: "Rp 4.500.000", status: "Pending", time: "18 Agu 2026, 21:00" },
     { id: "WD-5010", partnerName: "Dani Mobil", partnerType: "Driver Mobil", bank: "BNI - 1122334455", amount: "Rp 850.000", status: "Success", time: "18 Agu 2026, 18:45" },
@@ -58,6 +52,8 @@ export default function AuditFinancialReport() {
   const handlePrintPDF = () => {
     window.print();
   };
+
+  const isLoadingLedger = useSimulatedLoading([activeTab, searchTerm, statusFilter], 700);
 
   return (
     <div className="p-8 pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
@@ -208,7 +204,9 @@ export default function AuditFinancialReport() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-sm">
-                    {filteredEscrow.length > 0 ? (
+                    {isLoadingLedger ? (
+                      <SkeletonTableRows rows={4} columns={5} />
+                    ) : filteredEscrow.length > 0 ? (
                       filteredEscrow.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                           <td className="py-4 px-6">
@@ -240,8 +238,12 @@ export default function AuditFinancialReport() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="py-8 text-center text-xs font-bold text-gray-400">
-                          Tidak ada data ledger escrow ditemukan.
+                        <td colSpan="5">
+                          <EmptyState
+                            icon={ShieldCheck}
+                            title="Ledger Escrow Tidak Ditemukan"
+                            description="Tidak ada transaksi escrow yang cocok dengan pencarian Anda."
+                          />
                         </td>
                       </tr>
                     )}
@@ -303,7 +305,9 @@ export default function AuditFinancialReport() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-sm">
-                    {filteredWithdrawals.length > 0 ? (
+                    {isLoadingLedger ? (
+                      <SkeletonTableRows rows={4} columns={6} />
+                    ) : filteredWithdrawals.length > 0 ? (
                       filteredWithdrawals.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                           <td className="py-4 px-6">
@@ -340,8 +344,12 @@ export default function AuditFinancialReport() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="py-8 text-center text-xs font-bold text-gray-400">
-                          Tidak ada riwayat penarikan saldo mitra ditemukan.
+                        <td colSpan="6">
+                          <EmptyState
+                            icon={Wallet}
+                            title="Riwayat Penarikan Tidak Ditemukan"
+                            description="Tidak ada riwayat penarikan saldo mitra yang cocok dengan pencarian atau filter."
+                          />
                         </td>
                       </tr>
                     )}

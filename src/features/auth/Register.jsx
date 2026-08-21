@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User, Mail, Phone, Lock, ArrowRight } from 'lucide-react';
 import AuthInput from '../../components/ui/AuthInput';
 import AuthLayout from '../../components/layout/AuthLayout';
+import { useToast } from '../../context/ToastContext';
+import { registerRequest } from '../../services/authService';
 
 export default function Register({ onSwitchToLogin }) {
+  const toast = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -49,10 +53,26 @@ export default function Register({ onSwitchToLogin }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    // TODO: sambungkan ke API register setelah backend siap
+    if (isSubmitting) return; // Cegah submit ganda saat masih diproses
+
+    setIsSubmitting(true);
+
+    try {
+      // registerRequest() masih simulasi (lihat src/services/authService.js) —
+      // ganti isi fungsi itu saat endpoint /auth/register sudah tersedia.
+      await registerRequest(form);
+      toast.success(`Akun untuk ${form.name} berhasil dibuat. Silakan masuk untuk melanjutkan.`, {
+        title: 'Pendaftaran Berhasil',
+      });
+      onSwitchToLogin();
+    } catch {
+      toast.error('Pendaftaran gagal. Silakan coba lagi.', { title: 'Terjadi Kesalahan' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -137,10 +157,21 @@ export default function Register({ onSwitchToLogin }) {
 
         <button 
           type="submit" 
-          className="w-full py-3.5 px-4 bg-gradient-to-r from-purple-700 to-purple-600 hover:from-purple-800 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2"
+          disabled={isSubmitting}
+          aria-busy={isSubmitting}
+          className="w-full py-3.5 px-4 bg-gradient-to-r from-purple-700 to-purple-600 hover:from-purple-800 hover:to-purple-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2"
         >
-          DAFTAR SEKARANG
-          <ArrowRight className="w-4 h-4" />
+          {isSubmitting ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              MEMPROSES...
+            </>
+          ) : (
+            <>
+              DAFTAR SEKARANG
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </form>
 

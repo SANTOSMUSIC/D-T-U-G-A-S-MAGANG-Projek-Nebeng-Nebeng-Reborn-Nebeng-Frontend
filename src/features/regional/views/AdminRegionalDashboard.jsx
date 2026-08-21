@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { MapPin, Compass, CreditCard, ShieldCheck, TrendingUp, Users, ArrowUpRight, ArrowDownRight, AlertTriangle, ShieldAlert, Wrench, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, Compass, ShieldCheck, AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { Skeleton } from '../../../components/ui/Skeleton';
 
 export default function AdminRegionalDashboard() {
   const toast = useToast();
+  const [isLoadingDisrupted, setIsLoadingDisrupted] = useState(true);
   // State untuk daftar Trip Disrupted yang memerlukan penanganan kendala rute
   const [disruptedTrips, setDisruptedTrips] = useState([
     { 
@@ -71,6 +73,11 @@ export default function AdminRegionalDashboard() {
     { id: '4', text: 'Transaksi lokal senilai Rp 145.000 tercatat di Pos Pasar Klewer.', time: '2 jam lalu', type: 'Transaksi' },
   ];
 
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoadingDisrupted(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Handler untuk menyelesaikan penanganan kendala trip yang terganggu
   const handleResolveDisruptedTrip = (tripId) => {
     setDisruptedTrips(disruptedTrips.filter(t => t.id !== tripId));
@@ -137,7 +144,20 @@ export default function AdminRegionalDashboard() {
           </span>
         </div>
 
-        {disruptedTrips.length > 0 ? (
+        {isLoadingDisrupted ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="p-4 rounded-2xl border border-neutral-100 bg-neutral-50/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-20 rounded-full" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-12 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        ) : disruptedTrips.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {disruptedTrips.map((trip) => (
               <div key={trip.id} className="p-4 rounded-2xl border border-red-200 bg-red-50/40 flex flex-col justify-between gap-3">

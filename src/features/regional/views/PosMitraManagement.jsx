@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { MapPin, Search, Plus, X, QrCode, Trash2, Pencil, Printer } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
@@ -6,8 +7,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 
 export default function PosMitraManagement() {
   const toast = useToast();
-  const [isLoadingPos, setIsLoadingPos] = useState(true);
-  const [posList, setPosList] = useState([
+    const [posList, setPosList] = useState([
     { id: 'POS-01', name: 'Pos Mitra Solo Grand Mall', address: 'Jl. Slamet Riyadi No.273, Surakarta', lat: '-7.5561', long: '110.8173', operator: 'Rian Hidayat', status: 'Aktif' },
     { id: 'POS-02', name: 'Pos Mitra Pasar Klewer', address: 'Jl. Dr. Radjiman, Gajahan, Surakarta', lat: '-7.5753', long: '110.8241', operator: 'Dewi Lestari', status: 'Aktif' },
     { id: 'POS-03', name: 'Pos Mitra Jebres Stasiun', address: 'Jl. Perintis Kemerdekaan, Jebres, Surakarta', lat: '-7.5582', long: '110.8435', operator: 'Fajar Nugroho', status: 'Aktif' },
@@ -79,11 +79,7 @@ export default function PosMitraManagement() {
     p.operator.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  useEffect(() => {
-    setIsLoadingPos(true);
-    const timer = setTimeout(() => setIsLoadingPos(false), 700);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const isLoadingPos = useSimulatedLoading([searchQuery], 700);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">

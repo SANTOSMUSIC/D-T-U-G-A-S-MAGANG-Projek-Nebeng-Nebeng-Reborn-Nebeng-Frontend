@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   Store, 
@@ -80,7 +80,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
             </button>
           </div>
 
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-pink-200/70 mb-4 px-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/80 mb-4 px-2">
             MENU WILAYAH
           </p>
 
@@ -115,7 +115,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
             </div>
             <div>
               <p className="text-[11px] font-medium tracking-wide text-white">Keamanan Wilayah</p>
-              <p className="text-[9px] text-pink-200">SYSTEM PROTECTED</p>
+              <p className="text-[10px] text-white/90">SYSTEM PROTECTED</p>
             </div>
           </div>
 
@@ -129,7 +129,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
               </div>
               <div>
                 <p className="text-xs font-semibold text-white">Admin Jateng</p>
-                <p className="text-[10px] text-pink-200 tracking-wider font-medium">REGIONAL ADMIN</p>
+                <p className="text-[10px] text-white/90 tracking-wider font-medium">REGIONAL ADMIN</p>
               </div>
             </div>
           </div>

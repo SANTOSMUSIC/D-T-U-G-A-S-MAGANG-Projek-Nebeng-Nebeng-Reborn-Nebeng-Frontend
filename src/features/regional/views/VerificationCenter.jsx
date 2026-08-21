@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Search, Eye, CheckCircle2, XCircle, AlertTriangle, FileText, UserCheck, X, Camera, Check, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
+import { ShieldCheck, Search, Eye, CheckCircle2, XCircle, X, Camera, Clock } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
 export default function VerificationCenterPage() {
   const toast = useToast();
-  const [isLoadingVerification, setIsLoadingVerification] = useState(true);
-  const [verificationList, setVerificationList] = useState([
+    const [verificationList, setVerificationList] = useState([
     { 
       id: 'VER-001', 
       name: 'Ahmad Fauzi', 
@@ -104,11 +104,7 @@ export default function VerificationCenterPage() {
     item.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  useEffect(() => {
-    setIsLoadingVerification(true);
-    const timer = setTimeout(() => setIsLoadingVerification(false), 700);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const isLoadingVerification = useSimulatedLoading([searchQuery], 700);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">

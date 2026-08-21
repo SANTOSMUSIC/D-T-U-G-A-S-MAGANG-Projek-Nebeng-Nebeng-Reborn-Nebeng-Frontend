@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, ArrowDownLeft, ArrowUpRight, MapPin, CheckCircle2, Clock, ShieldCheck } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function OperatorDashboard() {
-  const [tripsSchedule, setTripsSchedule] = useState([
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
+  const [tripsSchedule] = useState([
     {
       id: 'TRIP-9081',
       type: 'Masuk',
@@ -34,6 +37,11 @@ export default function OperatorDashboard() {
       notes: 'Transit paket logistik regional Jateng.'
     }
   ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
@@ -117,7 +125,19 @@ export default function OperatorDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-              {tripsSchedule.map((trip) => (
+              {isLoadingTrips ? (
+                <SkeletonTableRows rows={4} columns={6} />
+              ) : tripsSchedule.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={Calendar}
+                      title="Belum Ada Jadwal Trip"
+                      description="Belum ada trip mitra yang dijadwalkan masuk atau keluar hari ini."
+                    />
+                  </td>
+                </tr>
+              ) : tripsSchedule.map((trip) => (
                 <tr key={trip.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3">
                     <p className="font-extrabold text-neutral-900 group-hover:text-[#c91882] transition">{trip.id}</p>

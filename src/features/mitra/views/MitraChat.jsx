@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MessageSquare, Send, CheckCheck, Search, Phone } from 'lucide-react';
 
 export default function MitraChat() {

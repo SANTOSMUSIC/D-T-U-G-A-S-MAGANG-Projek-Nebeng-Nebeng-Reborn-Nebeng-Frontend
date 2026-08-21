@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall, X, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Clock, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall, X } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -35,20 +35,23 @@ export default function MitraTripManagement() {
   const [emergencyCategory, setEmergencyCategory] = useState('Kendaraan Mogok');
   const [emergencyDescription, setEmergencyDescription] = useState('');
 
-  // Penguncian Otomatis Kendaraan & Kalkulasi Pendapatan Berdasarkan Jenis
-  useEffect(() => {
-    if (formData.vehicle === 'Motor') {
-      setFormData(prev => ({ ...prev, seats: 1, luggage: 15 }));
-      setEstimatedEarnings(175000);
-    } else {
-      setFormData(prev => ({ ...prev, seats: 4, luggage: 40 }));
-      setEstimatedEarnings(450000);
-    }
-  }, [formData.vehicle]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Penguncian Otomatis Kapasitas & Kalkulasi Pendapatan Berdasarkan Jenis Kendaraan.
+  // Dijalankan langsung di handler perubahan (bukan lewat useEffect terpisah)
+  // supaya default kapasitas & estimasi pendapatan langsung sinkron saat kendaraan diganti.
+  const handleVehicleChange = (e) => {
+    const vehicle = e.target.value;
+    if (vehicle === 'Motor') {
+      setFormData(prev => ({ ...prev, vehicle, seats: 1, luggage: 15 }));
+      setEstimatedEarnings(175000);
+    } else {
+      setFormData(prev => ({ ...prev, vehicle, seats: 4, luggage: 40 }));
+      setEstimatedEarnings(450000);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -73,7 +76,7 @@ export default function MitraTripManagement() {
   const handleCycleStatus = (tripId) => {
     setTrips(trips.map(trip => {
       if (trip.id === tripId) {
-        let nextStatus = 'Aktif';
+        let nextStatus;
         if (trip.status === 'Aktif') nextStatus = 'In Transit';
         else if (trip.status === 'In Transit') nextStatus = 'Selesai';
         else nextStatus = 'Aktif';
@@ -182,7 +185,7 @@ export default function MitraTripManagement() {
               <select 
                 name="vehicle" 
                 value={formData.vehicle} 
-                onChange={handleChange}
+                onChange={handleVehicleChange}
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
               >
                 <option value="Motor">Sepeda Motor</option>

@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
-import { ShieldCheck, KeyRound, Camera, CheckCircle2, UserCheck, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShieldCheck, Camera, CheckCircle2, UserCheck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function OperatorHandover() {
   const toast = useToast();
   const [ticketQr, setTicketQr] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [ktpUploaded, setKtpUploaded] = useState(false);
+  const [isLoadingHandover, setIsLoadingHandover] = useState(true);
   
   const [handoverHistory, setHandoverHistory] = useState([
     { id: 'HO-901', recipient: 'Siti Rahma', ticket: 'PKG-88910', otp: '482910', status: 'Berhasil Diserahkan', time: '11:15 WIB' },
     { id: 'HO-902', recipient: 'Ahmad Fauzi', ticket: 'PKG-88912', otp: '992104', status: 'Berhasil Diserahkan', time: '10:30 WIB' }
   ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoadingHandover(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleHandoverSubmit = (e) => {
     e.preventDefault();
@@ -125,7 +133,19 @@ export default function OperatorHandover() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-                {handoverHistory.map((item) => (
+                {isLoadingHandover ? (
+                  <SkeletonTableRows rows={3} columns={4} />
+                ) : handoverHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <EmptyState
+                        icon={ShieldCheck}
+                        title="Belum Ada Serah Terima"
+                        description="Belum ada riwayat serah terima paket hari ini."
+                      />
+                    </td>
+                  </tr>
+                ) : handoverHistory.map((item) => (
                   <tr key={item.id} className="hover:bg-neutral-50/60 transition">
                     <td className="py-4 px-3">
                       <p className="font-extrabold text-neutral-900">{item.id}</p>

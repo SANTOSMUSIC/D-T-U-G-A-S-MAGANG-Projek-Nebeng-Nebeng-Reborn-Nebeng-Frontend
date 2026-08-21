@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Skeleton dasar — kotak abu-abu berkedip (pulse) sebagai placeholder

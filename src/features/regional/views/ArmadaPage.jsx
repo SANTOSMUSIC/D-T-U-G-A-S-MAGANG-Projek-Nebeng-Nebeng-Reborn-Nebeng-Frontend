@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Truck, Search, Plus, X, Trash2, Pencil, CheckCircle2, MapPin } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function FleetCourierPage() {
   const toast = useToast();
-  const [fleetList, setFleetList] = useState([
+    const [fleetList, setFleetList] = useState([
     {
       id: 'ARM-01',
       courierName: 'Rian Hidayat',
@@ -117,6 +120,8 @@ export default function FleetCourierPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const isLoadingFleet = useSimulatedLoading([searchQuery, statusFilter], 700);
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
       {/* Header Banner */}
@@ -180,7 +185,19 @@ export default function FleetCourierPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-              {filteredFleet.map((item) => (
+              {isLoadingFleet ? (
+                <SkeletonTableRows rows={4} columns={5} />
+              ) : filteredFleet.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={Truck}
+                      title="Armada Tidak Ditemukan"
+                      description="Tidak ada armada yang cocok dengan pencarian atau filter status yang dipilih."
+                    />
+                  </td>
+                </tr>
+              ) : filteredFleet.map((item) => (
                 <tr key={item.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{item.courierName}</p>

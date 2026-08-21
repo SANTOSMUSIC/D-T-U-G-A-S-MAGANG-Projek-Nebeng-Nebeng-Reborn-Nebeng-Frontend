@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, AlertCircle, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, ShieldCheck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
 export default function MitraBalance() {
   const toast = useToast();
   const [availableBalance, setAvailableBalance] = useState(3850000);
-  const [escrowHold, setEscrowHold] = useState(1250000);
+  const [escrowHold] = useState(1250000); // saldo tertahan (escrow); nilai statis sampai backend tersedia
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [bankInfo, setBankInfo] = useState({
+  const [bankInfo] = useState({ // data rekening statis sampai backend tersedia
     bankName: 'Bank BCA',
     accountNumber: '1234567890',
     accountHolder: 'Mitra Pos Utama'
@@ -64,7 +64,7 @@ export default function MitraBalance() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-pink-200">Saldo Boleh Ditarik (Available)</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-white/90">Saldo Boleh Ditarik (Available)</span>
               <span className="bg-white/20 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-300" /> Siap Cair
               </span>

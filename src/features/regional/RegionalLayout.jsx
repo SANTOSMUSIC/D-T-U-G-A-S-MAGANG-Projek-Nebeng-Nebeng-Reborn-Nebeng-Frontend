@@ -1,8 +1,8 @@
-import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import RegionalSidebar from './components/RegionalSidebar';
+import { useAuth } from '../../context/AuthContext';
 
-export const REGIONAL_MENU_PATH = {
+const REGIONAL_MENU_PATH = {
   'Dashboard Wilayah': 'dashboard',
   'Kelola Pos Mitra': 'pos-mitra',
   'Operator Pos': 'operator-pos',
@@ -17,6 +17,7 @@ const PATH_TO_MENU = Object.fromEntries(
 
 export default function RegionalLayout() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const location = useLocation();
   const currentSlug = location.pathname.split('/').pop();
   const activeMenu = PATH_TO_MENU[currentSlug] || 'Dashboard Wilayah';
@@ -26,9 +27,13 @@ export default function RegionalLayout() {
       <RegionalSidebar
         activeMenu={activeMenu}
         onMenuSelect={(name) => navigate(`/regional/${REGIONAL_MENU_PATH[name]}`)}
-        onLogout={() => navigate('/login', { replace: true })}
+        onLogout={() => {
+          logout();
+          navigate('/login', { replace: true });
+        }}
       />
-      <div className="flex-1 lg:ml-64 min-h-screen">
+      {/* pt-16 memberi ruang untuk tombol hamburger mobile (fixed top-4 left-4) agar tidak menimpa konten */}
+      <div className="flex-1 lg:ml-64 min-h-screen pt-16 lg:pt-0">
         <Outlet />
       </div>
     </div>

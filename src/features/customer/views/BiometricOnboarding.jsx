@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { UserCheck, Upload, Camera, CheckCircle2, ArrowRight, RefreshCw } from 'lucide-react';
 
 export default function BiometricOnboarding() {

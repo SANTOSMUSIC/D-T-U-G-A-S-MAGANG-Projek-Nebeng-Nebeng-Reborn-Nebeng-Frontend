@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { 
   ShieldAlert, 
   UserX, 
@@ -7,7 +8,6 @@ import {
   Unlock, 
   Search, 
   AlertTriangle, 
-  CheckCircle2, 
   ShieldCheck, 
   User,
   Mail,
@@ -18,8 +18,7 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
 export default function UserGovernance() {
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  // Mock Data Pengguna Sistem (Super-override Management)
+    // Mock Data Pengguna Sistem (Super-override Management)
   const [users, setUsers] = useState([
     { id: "USR-001", name: "Budi Santoso", email: "budi@nebeng.com", role: "Driver Motor", phone: "+62 812-3456-7890", status: "Active", riskLevel: "Low" },
     { id: "USR-002", name: "Siti Rahma", email: "siti.rahma@gmail.com", role: "Passenger", phone: "+62 813-9876-5432", status: "Suspended", riskLevel: "Medium" },
@@ -43,11 +42,7 @@ export default function UserGovernance() {
     return matchesSearch && matchesStatus;
   });
 
-  useEffect(() => {
-    setIsLoadingUsers(true);
-    const timer = setTimeout(() => setIsLoadingUsers(false), 700);
-    return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter]);
+  const isLoadingUsers = useSimulatedLoading([searchTerm, statusFilter], 700);
 
   // Eksekusi Aksi Super-override
   const handleExecuteAction = () => {

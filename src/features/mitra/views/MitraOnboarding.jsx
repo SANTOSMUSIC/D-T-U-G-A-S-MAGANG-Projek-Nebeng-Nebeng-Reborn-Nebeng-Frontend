@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 export default function MitraOnboarding() {

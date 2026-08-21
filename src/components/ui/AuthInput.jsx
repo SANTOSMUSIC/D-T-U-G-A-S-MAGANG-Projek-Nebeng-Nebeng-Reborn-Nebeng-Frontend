@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import { useId } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function AuthInput({ label, icon: Icon, type = "text", showPassword, togglePassword, error, id, ...props }) {

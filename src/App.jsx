@@ -1,8 +1,8 @@
-import React from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
+import ProtectedRoute from './components/routing/ProtectedRoute';
 
 // Superadmin
 import SuperadminLayout from './features/superadmin/SuperadminLayout';
@@ -79,8 +79,15 @@ export default function App() {
         element={<Register onSwitchToLogin={() => navigate('/login')} />}
       />
 
-      {/* Superadmin */}
-      <Route path="/admin" element={<SuperadminLayout />}>
+      {/* Superadmin — hanya bisa diakses role 'admin' yang sudah login */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <SuperadminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<SuperadminDashboard />} />
         <Route path="wilayah" element={<RegionsManagement />} />
@@ -90,8 +97,15 @@ export default function App() {
         <Route path="governance" element={<UserGovernance />} />
       </Route>
 
-      {/* Admin Regional */}
-      <Route path="/regional" element={<RegionalLayout />}>
+      {/* Admin Regional — hanya bisa diakses role 'regional' yang sudah login */}
+      <Route
+        path="/regional"
+        element={
+          <ProtectedRoute allowedRoles={['regional']}>
+            <RegionalLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminRegionalDashboard />} />
         <Route path="pos-mitra" element={<PosMitraManagement />} />
@@ -102,8 +116,15 @@ export default function App() {
         <Route path="laporan" element={<FinancialReportPage />} />
       </Route>
 
-      {/* Operator Pos */}
-      <Route path="/operator-pos" element={<OperatorLayout />}>
+      {/* Operator Pos — hanya bisa diakses role 'operator' yang sudah login */}
+      <Route
+        path="/operator-pos"
+        element={
+          <ProtectedRoute allowedRoles={['operator']}>
+            <OperatorLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<OperatorDashboard />} />
         <Route path="inspection" element={<OperatorInspection />} />
@@ -111,8 +132,15 @@ export default function App() {
         <Route path="handover" element={<OperatorHandover />} />
       </Route>
 
-      {/* Mitra */}
-      <Route path="/mitra" element={<MitraLayout />}>
+      {/* Mitra — hanya bisa diakses role 'mitra' yang sudah login */}
+      <Route
+        path="/mitra"
+        element={
+          <ProtectedRoute allowedRoles={['mitra']}>
+            <MitraLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<MitraDashboard />} />
         <Route path="onboarding" element={<MitraOnboarding />} />
@@ -122,8 +150,15 @@ export default function App() {
         <Route path="chat" element={<MitraChat />} />
       </Route>
 
-      {/* Customer */}
-      <Route path="/customer" element={<CustomerLayout />}>
+      {/* Customer — hanya bisa diakses role 'customer' yang sudah login */}
+      <Route
+        path="/customer"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <CustomerLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="onboarding" replace />} />
         <Route path="onboarding" element={<BiometricOnboarding />} />
         <Route path="booking" element={<SearchTrip />} />

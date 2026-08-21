@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   ShieldCheck, 
@@ -78,7 +78,7 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
             </button>
           </div>
 
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-purple-200/70 mb-4 px-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/80 mb-4 px-2">
             MENU UTAMA
           </p>
 
@@ -113,7 +113,7 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
             </div>
             <div>
               <p className="text-[11px] font-medium tracking-wide text-white">Keamanan Prioritas</p>
-              <p className="text-[9px] text-purple-200">System Protected</p>
+              <p className="text-[10px] text-white/90">System Protected</p>
             </div>
           </div>
 
@@ -127,7 +127,7 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
               </div>
               <div>
                 <p className="text-xs font-semibold text-white">Gibyan</p>
-                <p className="text-[10px] text-purple-200 tracking-wider font-medium">SUPERADMIN</p>
+                <p className="text-[10px] text-white/90 tracking-wider font-medium">SUPERADMIN</p>
               </div>
             </div>
           </div>

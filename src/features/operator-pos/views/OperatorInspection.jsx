@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PackageCheck, Camera, QrCode, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function OperatorInspection() {
   const toast = useToast();
+  const [isLoadingInspections, setIsLoadingInspections] = useState(true);
   const [formData, setFormData] = useState({
     senderName: '',
     itemType: '',
@@ -14,6 +17,11 @@ export default function OperatorInspection() {
     { id: 'INS-001', sender: 'Budi Santoso', item: 'Elektronik (Laptop)', qr: 'QR-SGL-88910', status: 'Segel Terpasang', date: '19 Agu 2026, 10:00' },
     { id: 'INS-002', sender: 'Siti Aminah', item: 'Makanan Khas Solo', qr: 'QR-SGL-88911', status: 'Segel Terpasang', date: '19 Agu 2026, 09:15' }
   ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoadingInspections(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -133,7 +141,19 @@ export default function OperatorInspection() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-                {inspections.map((item) => (
+                {isLoadingInspections ? (
+                  <SkeletonTableRows rows={3} columns={5} />
+                ) : inspections.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <EmptyState
+                        icon={PackageCheck}
+                        title="Belum Ada Pemeriksaan"
+                        description="Belum ada riwayat pemeriksaan dan segel paket hari ini."
+                      />
+                    </td>
+                  </tr>
+                ) : inspections.map((item) => (
                   <tr key={item.id} className="hover:bg-neutral-50/60 transition">
                     <td className="py-4 px-3">
                       <p className="font-extrabold text-neutral-900">{item.id}</p>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { LayoutDashboard, QrCode, UserCheck, ShieldCheck, LogOut, ClipboardCheck, AlertTriangle, Menu, X } from 'lucide-react';
 
 export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) {
@@ -58,7 +58,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
           </div>
 
           {/* Subheader Menu */}
-          <p className="text-[10px] font-extrabold text-pink-200 uppercase tracking-widest mb-3 px-2">
+          <p className="text-[10px] font-extrabold text-white/90 uppercase tracking-widest mb-3 px-2">
             Menu Pos Utama
           </p>
 
@@ -93,7 +93,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
             </div>
             <div>
               <p className="text-[10px] font-extrabold text-white leading-tight">Keamanan Pos</p>
-              <p className="text-[9px] font-semibold text-pink-200">SYSTEM PROTECTED</p>
+              <p className="text-[10px] font-semibold text-white/90">SYSTEM PROTECTED</p>
             </div>
           </div>
 
@@ -103,7 +103,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-extrabold text-white truncate">Operator Solo</p>
-              <p className="text-[9px] font-semibold text-pink-200 uppercase">OPERATOR POS</p>
+              <p className="text-[10px] font-semibold text-white/90 uppercase">OPERATOR POS</p>
             </div>
           </div>
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { QrCode, Camera, ArrowRightLeft, CheckCircle2, ShieldCheck, Lock, Unlock, KeyRound, UserCheck, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { QrCode, Camera, ArrowRightLeft, CheckCircle2, ShieldCheck, Lock, Unlock, KeyRound, UserCheck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
 export default function OperatorDualScanner() {

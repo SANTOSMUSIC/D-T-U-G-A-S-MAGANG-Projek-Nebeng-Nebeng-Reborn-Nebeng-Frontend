@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { 
   MapPin, 
   Plus, 
@@ -17,8 +18,7 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
 export default function RegionsManagement() {
-  const [isLoadingRegions, setIsLoadingRegions] = useState(true);
-  const [regions, setRegions] = useState([
+    const [regions, setRegions] = useState([
     { id: "JKT-001", name: "Region Jakarta", hub: "Central Hub Cengkareng", activeOrders: 150, revenue: "Rp 150.000.000", status: "Active", description: "Melayani area Jabodetabek dan logistik utama bandara." },
     { id: "YOG-001", name: "Region Yogyakarta", hub: "Hub Malioboro", activeOrders: 120, revenue: "Rp 120.000.000", status: "Active", description: "Pusat distribusi wilayah Jogja dan sekitarnya." },
     { id: "BANY-001", name: "Region Banyumas", hub: "Hub Purwokerto", activeOrders: 110, revenue: "Rp 100.000.000", status: "Active", description: "Hub utama jalur selatan Jawa Tengah." },
@@ -46,11 +46,7 @@ export default function RegionsManagement() {
     region.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  useEffect(() => {
-    setIsLoadingRegions(true);
-    const timer = setTimeout(() => setIsLoadingRegions(false), 700);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  const isLoadingRegions = useSimulatedLoading([searchTerm], 700);
 
   const handleOpenAddModal = () => {
     setIsEditing(false);

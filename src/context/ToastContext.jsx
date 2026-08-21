@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext(null);
@@ -104,6 +104,7 @@ export function ToastProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- pola context umum (Provider + hook satu file); memisahkannya berisiko mematahkan banyak import di seluruh proyek untuk manfaat HMR yang minor
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) {

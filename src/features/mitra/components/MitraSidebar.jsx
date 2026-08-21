@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, UserCheck, Calendar, QrCode, Package, Wallet, MessageSquare, ShieldCheck, LogOut, Menu, X } from 'lucide-react';
+import { useState } from 'react';
+import { LayoutDashboard, UserCheck, Calendar, QrCode, Wallet, MessageSquare, ShieldCheck, LogOut, Menu, X } from 'lucide-react';
 
 export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -59,7 +59,7 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
         </div>
 
         {/* Subheader Menu */}
-        <p className="text-[10px] font-extrabold text-pink-200 uppercase tracking-widest mb-3 px-2">
+        <p className="text-[10px] font-extrabold text-white/90 uppercase tracking-widest mb-3 px-2">
           Menu Mitra Pos
         </p>
 
@@ -94,7 +94,7 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
           </div>
           <div>
             <p className="text-[10px] font-extrabold text-white leading-tight">Mitra Terverifikasi</p>
-            <p className="text-[9px] font-semibold text-pink-200">SYSTEM SECURE</p>
+            <p className="text-[10px] font-semibold text-white/90">SYSTEM SECURE</p>
           </div>
         </div>
 

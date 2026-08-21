@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Compass, Search, MapPin, Calendar, Users, Package, ArrowRight, X, ShieldCheck, AlertCircle, Lock } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -10,8 +11,7 @@ export default function SearchTrip() {
   const [serviceType, setServiceType] = useState('penumpang'); // 'penumpang' atau 'barang'
 
   // Simulasi loading data trip dari API setiap kali kriteria pencarian berubah
-  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
-
+  
   // State untuk Modal Booking & Alur Checkout Keamanan PIN
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [bookingStep, setBookingStep] = useState('form'); // 'form' | 'pin' | 'success'
@@ -29,7 +29,7 @@ export default function SearchTrip() {
   const [itemCount, setItemCount] = useState(1);
   const [itemWeight, setItemWeight] = useState(5); // kg per item
   const [itemSize, setItemSize] = useState('M'); // Pilihan ukuran XXS - XL
-  const [itemPhoto, setItemPhoto] = useState(null);
+  const [, setItemPhoto] = useState(null); // preview foto belum ditampilkan di UI; disiapkan untuk saat upload disambungkan ke backend
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
 
@@ -101,11 +101,7 @@ export default function SearchTrip() {
     return matchOrigin && matchDest && matchDate && matchType;
   });
 
-  useEffect(() => {
-    setIsLoadingTrips(true);
-    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
-    return () => clearTimeout(timer);
-  }, [origin, destination, date, serviceType]);
+  const isLoadingTrips = useSimulatedLoading([origin, destination, date, serviceType], 700);
 
   const totalAccumulatedWeight = itemCount * itemWeight;
   const isOverWeightCapacity = selectedTrip?.type === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingCapacityKg || 0);

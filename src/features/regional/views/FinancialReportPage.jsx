@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { DollarSign, Printer, Calendar, Search, ArrowUpRight, FileText, CheckCircle2, Info, X } from 'lucide-react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
+import { DollarSign, Printer, Calendar, Search, ArrowUpRight, FileText, CheckCircle2, X } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function FinancialReportPage() {
-  const [reportList, setReportList] = useState([
+    const [reportList] = useState([
     {
       id: 'TRX-8801',
       tripId: 'TRIP-9081',
@@ -75,6 +78,8 @@ export default function FinancialReportPage() {
     const matchesPos = selectedPos === 'Semua Pos' || item.posName === selectedPos;
     return matchesSearch && matchesPos;
   });
+
+  const isLoadingReports = useSimulatedLoading([searchQuery, selectedPos], 700);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8 print:p-0 print:bg-white">
@@ -240,7 +245,19 @@ export default function FinancialReportPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium print:divide-neutral-200">
-              {filteredReports.map((item) => (
+              {isLoadingReports ? (
+                <SkeletonTableRows rows={4} columns={6} />
+              ) : filteredReports.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={FileText}
+                      title="Transaksi Tidak Ditemukan"
+                      description="Tidak ada transaksi yang cocok dengan pencarian atau filter pos yang dipilih."
+                    />
+                  </td>
+                </tr>
+              ) : filteredReports.map((item) => (
                 <tr 
                   key={item.id} 
                   onClick={() => setSelectedStatusDetail(item)}

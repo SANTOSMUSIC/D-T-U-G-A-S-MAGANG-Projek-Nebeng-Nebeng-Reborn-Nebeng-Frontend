@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Users, Search, Eye, UserCheck, X, ShieldCheck } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function KurirPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDetail, setSelectedDetail] = useState(null);
-
+  
   const [kurirList] = useState([
     { id: 'KUR-01', name: 'Joko Widodo', role: 'Driver Armada Mobil', pos: 'Pos Mitra Solo Grand Mall', activeShipments: 14, status: 'Bertugas', phone: '081233445566', rating: '4.9' },
     { id: 'KUR-02', name: 'Slamet Riyadi', role: 'Kurir Motor Wilayah', pos: 'Pos Mitra Pasar Klewer', activeShipments: 8, status: 'Standby', phone: '082155667788', rating: '4.8' },
@@ -17,6 +20,8 @@ export default function KurirPage() {
     item.pos.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const isLoadingKurir = useSimulatedLoading([searchQuery], 700);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
@@ -102,7 +107,19 @@ export default function KurirPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-              {filteredKurir.map((item) => (
+              {isLoadingKurir ? (
+                <SkeletonTableRows rows={4} columns={6} />
+              ) : filteredKurir.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={Users}
+                      title="Kurir/Driver Tidak Ditemukan"
+                      description="Tidak ada kurir atau driver yang cocok dengan pencarian Anda."
+                    />
+                  </td>
+                </tr>
+              ) : filteredKurir.map((item) => (
                 <tr key={item.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{item.name}</p>

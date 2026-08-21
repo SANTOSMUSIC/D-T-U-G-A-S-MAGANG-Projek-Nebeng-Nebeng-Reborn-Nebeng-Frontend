@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { 
   Users, 
   Plus, 
@@ -10,13 +11,14 @@ import {
   X, 
   Info,
   Eye,
-  ShieldAlert,
   Mail,
   MapPin
 } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function AdminWilayahManagement() {
-  // Mock data daftar Admin Wilayah & wilayah penempatannya
+    // Mock data daftar Admin Wilayah & wilayah penempatannya
   const [admins, setAdmins] = useState([
     { id: "ADM-001", name: "Budi Santoso", email: "budi.santoso@ne-beng.com", region: "Region Jakarta", hub: "Central Hub Cengkareng", status: "Active", joinedDate: "12 Jan 2025" },
     { id: "ADM-002", name: "Siti Rahmawati", email: "siti.rahmawati@ne-beng.com", region: "Region Yogyakarta", hub: "Hub Malioboro", status: "Active", joinedDate: "15 Feb 2025" },
@@ -56,6 +58,8 @@ export default function AdminWilayahManagement() {
     admin.region.toLowerCase().includes(searchTerm.toLowerCase()) ||
     admin.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const isLoadingAdmins = useSimulatedLoading([searchTerm], 700);
 
   // Buka modal tambah admin baru
   const handleOpenAddModal = () => {
@@ -186,7 +190,9 @@ export default function AdminWilayahManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {filteredAdmins.length > 0 ? (
+              {isLoadingAdmins ? (
+                <SkeletonTableRows rows={4} columns={5} />
+              ) : filteredAdmins.length > 0 ? (
                 filteredAdmins.map((admin) => (
                   <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-4 px-6">
@@ -259,8 +265,12 @@ export default function AdminWilayahManagement() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="py-8 text-center text-xs font-bold text-gray-400">
-                    Tidak ada data admin wilayah yang ditemukan.
+                  <td colSpan="5">
+                    <EmptyState
+                      icon={Users}
+                      title="Admin Wilayah Tidak Ditemukan"
+                      description="Tidak ada admin wilayah yang cocok dengan pencarian Anda."
+                    />
                   </td>
                 </tr>
               )}

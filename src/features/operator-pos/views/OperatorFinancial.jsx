@@ -1,5 +1,4 @@
-import React from 'react';
-import { FileText, DollarSign, Printer, ArrowUpRight } from 'lucide-react';
+import { FileText, DollarSign, Printer } from 'lucide-react';
 
 export default function OperatorFinancial() {
   return (

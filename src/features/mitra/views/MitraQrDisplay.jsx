@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Smartphone, RefreshCw, ShieldCheck, QrCode } from 'lucide-react';
 
 export default function MitraQrDisplay() {

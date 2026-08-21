@@ -1,4 +1,3 @@
-import React from 'react';
 import { Wallet, Star, Calendar, TrendingUp, CheckCircle2, Clock, MapPin, Package } from 'lucide-react';
 
 export default function MitraDashboard() {

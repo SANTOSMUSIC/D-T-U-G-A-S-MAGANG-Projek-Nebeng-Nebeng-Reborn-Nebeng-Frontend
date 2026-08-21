@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Ticket, QrCode, Copy, CheckCircle2, Clock, ArrowRight, Activity, MapPin, BellRing, Star, Award, Gift, Sparkles } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
@@ -7,15 +8,13 @@ import EmptyState from '../../../components/ui/EmptyState';
 export default function MyTickets() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('aktif'); // 'aktif' | 'riwayat' | 'reward'
-  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
-  const [copiedOtp, setCopiedOtp] = useState(null);
+    const [copiedOtp, setCopiedOtp] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [activeModalType, setActiveModalType] = useState(null); // 'qr' | 'tracking' | 'review'
 
   // State untuk form ulasan
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
-  const [reviewedTickets, setReviewedTickets] = useState({});
 
   // Data dummy tiket dengan log status real-time & ulasan
   const [allTickets, setAllTickets] = useState([
@@ -99,11 +98,7 @@ export default function MyTickets() {
     return true;
   });
 
-  useEffect(() => {
-    setIsLoadingTickets(true);
-    const timer = setTimeout(() => setIsLoadingTickets(false), 600);
-    return () => clearTimeout(timer);
-  }, [activeTab]);
+  const isLoadingTickets = useSimulatedLoading([activeTab], 600);
 
   const handleCopyOtp = (otp) => {
     navigator.clipboard.writeText(otp);

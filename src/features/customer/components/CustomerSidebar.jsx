@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { UserCheck, Compass, Ticket, ShieldCheck, LogOut, AlertTriangle, Menu, X } from 'lucide-react';
 
 export default function CustomerSidebar({ activeMenu, onMenuSelect, onLogout }) {
@@ -55,7 +55,7 @@ export default function CustomerSidebar({ activeMenu, onMenuSelect, onLogout }) 
           </div>
 
           {/* Subheader Menu */}
-          <p className="text-[10px] font-extrabold text-pink-200 uppercase tracking-widest mb-3 px-2">
+          <p className="text-[10px] font-extrabold text-white/90 uppercase tracking-widest mb-3 px-2">
             Menu Portal Pelanggan
           </p>
 
@@ -90,7 +90,7 @@ export default function CustomerSidebar({ activeMenu, onMenuSelect, onLogout }) 
             </div>
             <div>
               <p className="text-[10px] font-extrabold text-white leading-tight">Keamanan Pos</p>
-              <p className="text-[9px] font-semibold text-pink-200">SYSTEM PROTECTED</p>
+              <p className="text-[10px] font-semibold text-white/90">SYSTEM PROTECTED</p>
             </div>
           </div>
 
@@ -100,7 +100,7 @@ export default function CustomerSidebar({ activeMenu, onMenuSelect, onLogout }) 
             </div>
             <div>
               <p className="text-[10px] font-extrabold text-white leading-tight">Pelanggan Aktif</p>
-              <p className="text-[9px] font-semibold text-pink-200">CUSTOMER PORTAL</p>
+              <p className="text-[10px] font-semibold text-white/90">CUSTOMER PORTAL</p>
             </div>
           </div>
 
