@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { PackageCheck, Camera, QrCode, CheckCircle2 } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 export default function OperatorInspection() {
+  const toast = useToast();
   const [formData, setFormData] = useState({
     senderName: '',
     itemType: '',
@@ -16,7 +18,7 @@ export default function OperatorInspection() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const newEntry = {
-      id: `INS-00${inspections.length + 1}`,
+      id: `INS-${String(inspections.length + 1).padStart(3, '0')}`,
       sender: formData.senderName || 'Pengirim Umum',
       item: formData.itemType || 'Barang Umum',
       qr: formData.qrCode || 'QR-SGL-99999',
@@ -26,7 +28,7 @@ export default function OperatorInspection() {
     setInspections([newEntry, ...inspections]);
     setFormData({ senderName: '', itemType: '', qrCode: '' });
     setPhotoUploaded(false);
-    alert('Inspeksi fisik berhasil disimpan dan stiker segel QR tercatat!');
+    toast.success('Inspeksi fisik berhasil disimpan dan stiker segel QR tercatat!', { title: 'Inspeksi Tersimpan' });
   };
 
   return (
@@ -37,7 +39,7 @@ export default function OperatorInspection() {
             <PackageCheck className="w-3.5 h-3.5" /> Standar Keamanan & Validasi Pos
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Inspeksi & Sealing (Pemeriksaan Paket)</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Pemeriksaan fisik isi paket bersama pengirim, unggah foto kondisi, dan penempelan segel QR unik.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Pemeriksaan fisik isi paket bersama pengirim, unggah foto kondisi, dan penempelan segel QR unik.</p>
         </div>
       </div>
 
@@ -74,7 +76,7 @@ export default function OperatorInspection() {
               <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-4 text-center hover:bg-neutral-50 transition cursor-pointer">
                 <Camera className="w-6 h-6 text-[#c91882] mx-auto mb-1" />
                 <p className="font-bold text-neutral-700">{photoUploaded ? 'Foto Berhasil Diunggah (1 File)' : 'Klik untuk Unggah Foto Fisik'}</p>
-                <p className="text-[10px] text-neutral-400">PNG, JPG (Maks. 5MB)</p>
+                <p className="text-[10px] text-neutral-500">PNG, JPG (Maks. 5MB)</p>
                 <input 
                   type="file" 
                   className="hidden" 
@@ -122,7 +124,7 @@ export default function OperatorInspection() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+                <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                   <th className="py-4 px-3">ID & WAKTU</th>
                   <th className="py-4 px-3">PENGIRIM</th>
                   <th className="py-4 px-3">JENIS BARANG</th>
@@ -135,7 +137,7 @@ export default function OperatorInspection() {
                   <tr key={item.id} className="hover:bg-neutral-50/60 transition">
                     <td className="py-4 px-3">
                       <p className="font-extrabold text-neutral-900">{item.id}</p>
-                      <p className="text-[10px] text-neutral-400 font-semibold">{item.date}</p>
+                      <p className="text-[10px] text-neutral-500 font-semibold">{item.date}</p>
                     </td>
                     <td className="py-4 px-3 font-bold text-neutral-800">{item.sender}</td>
                     <td className="py-4 px-3 font-semibold text-neutral-600">{item.item}</td>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MapPin, 
   Plus, 
@@ -13,8 +13,11 @@ import {
   Activity,
   DollarSign
 } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function RegionsManagement() {
+  const [isLoadingRegions, setIsLoadingRegions] = useState(true);
   const [regions, setRegions] = useState([
     { id: "JKT-001", name: "Region Jakarta", hub: "Central Hub Cengkareng", activeOrders: 150, revenue: "Rp 150.000.000", status: "Active", description: "Melayani area Jabodetabek dan logistik utama bandara." },
     { id: "YOG-001", name: "Region Yogyakarta", hub: "Hub Malioboro", activeOrders: 120, revenue: "Rp 120.000.000", status: "Active", description: "Pusat distribusi wilayah Jogja dan sekitarnya." },
@@ -42,6 +45,12 @@ export default function RegionsManagement() {
     region.hub.toLowerCase().includes(searchTerm.toLowerCase()) ||
     region.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setIsLoadingRegions(true);
+    const timer = setTimeout(() => setIsLoadingRegions(false), 700);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleOpenAddModal = () => {
     setIsEditing(false);
@@ -156,7 +165,9 @@ export default function RegionsManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {filteredRegions.length > 0 ? (
+              {isLoadingRegions ? (
+                <SkeletonTableRows rows={4} columns={5} />
+              ) : filteredRegions.length > 0 ? (
                 filteredRegions.map((region) => (
                   <tr key={region.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-4 px-6">
@@ -225,8 +236,12 @@ export default function RegionsManagement() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="py-8 text-center text-xs font-bold text-gray-400">
-                    Tidak ada data wilayah yang ditemukan.
+                  <td colSpan="5">
+                    <EmptyState
+                      icon={MapPin}
+                      title="Wilayah Tidak Ditemukan"
+                      description="Tidak ada wilayah yang cocok dengan pencarian Anda."
+                    />
                   </td>
                 </tr>
               )}

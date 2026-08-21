@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Compass, Search, MapPin, Calendar, Users, Package, ArrowRight, X, ShieldCheck, AlertCircle, Lock } from 'lucide-react';
+import { Skeleton } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function SearchTrip() {
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState('');
   const [serviceType, setServiceType] = useState('penumpang'); // 'penumpang' atau 'barang'
+
+  // Simulasi loading data trip dari API setiap kali kriteria pencarian berubah
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
 
   // State untuk Modal Booking & Alur Checkout Keamanan PIN
   const [selectedTrip, setSelectedTrip] = useState(null);
@@ -19,13 +24,24 @@ export default function SearchTrip() {
   const [passengerName, setPassengerName] = useState('');
   const [passengerPhone, setPassengerPhone] = useState('');
 
-  // Form State - Nebeng Barang
+  // Form State - Nebeng Barang (Termasuk Kategori Ukuran XXS - XL & Berat KG)
   const [itemCategory, setItemCategory] = useState('Elektronik');
   const [itemCount, setItemCount] = useState(1);
   const [itemWeight, setItemWeight] = useState(5); // kg per item
+  const [itemSize, setItemSize] = useState('M'); // Pilihan ukuran XXS - XL
   const [itemPhoto, setItemPhoto] = useState(null);
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+
+  // Pilihan kategori ukuran bagasi XXS hingga XL
+  const sizeOptions = [
+    { code: 'XXS', label: 'XXS', desc: 'Pouch / Dompet (< 1 kg)' },
+    { code: 'XS', label: 'XS', desc: 'Tas Kecil / Buku (1-2 kg)' },
+    { code: 'S', label: 'S', desc: 'Kotak Sepatu (2-5 kg)' },
+    { code: 'M', label: 'M', desc: 'Ransel Standar (5-10 kg)' },
+    { code: 'L', label: 'L', desc: 'Kardus Sedang (10-20 kg)' },
+    { code: 'XL', label: 'XL', desc: 'Kardus Besar (> 20 kg)' },
+  ];
 
   // Data mock trip
   const mockTrips = [
@@ -85,8 +101,20 @@ export default function SearchTrip() {
     return matchOrigin && matchDest && matchDate && matchType;
   });
 
+  useEffect(() => {
+    setIsLoadingTrips(true);
+    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
+    return () => clearTimeout(timer);
+  }, [origin, destination, date, serviceType]);
+
   const totalAccumulatedWeight = itemCount * itemWeight;
-  const isOverCapacity = selectedTrip?.type === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingCapacityKg || 0);
+  const isOverWeightCapacity = selectedTrip?.type === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingCapacityKg || 0);
+
+  // Validasi kursi: motor maksimal 1, mobil maksimal sesuai maxSeats trip
+  const maxAllowedSeats = selectedTrip?.vehicleCategory === 'motor' ? 1 : (selectedTrip?.maxSeats || 1);
+  const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (seatCount > maxAllowedSeats || seatCount < 1);
+
+  const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
   const handleOpenBooking = (trip) => {
     setSelectedTrip(trip);
@@ -95,6 +123,7 @@ export default function SearchTrip() {
     setSeatCount(1);
     setItemCount(1);
     setItemWeight(5);
+    setItemSize('M');
   };
 
   const handleProceedToPin = (e) => {
@@ -109,7 +138,6 @@ export default function SearchTrip() {
     newPin[index] = value;
     setPin(newPin);
 
-    // Auto focus next input if value entered
     if (value && index < 5) {
       const nextInput = document.getElementById(`pin-input-${index + 1}`);
       if (nextInput) nextInput.focus();
@@ -122,14 +150,14 @@ export default function SearchTrip() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8">
         <div className="flex items-center gap-2 text-pink-600 font-extrabold text-[11px] uppercase tracking-wider mb-1">
           <Compass className="w-3.5 h-3.5" /> Eksplorasi Layanan
         </div>
         <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Cari & Booking Trip</h1>
-        <p className="text-neutral-400 text-xs mt-0.5">Temukan perjalanan antar kota atau pengiriman barang dengan sistem keamanan Escrow terintegrasi.</p>
+        <p className="text-neutral-500 text-xs mt-0.5">Temukan perjalanan antar kota atau pengiriman barang dengan sistem keamanan Escrow terintegrasi.</p>
       </div>
 
       {/* Form Search & Filter */}
@@ -138,7 +166,7 @@ export default function SearchTrip() {
           <div>
             <label className="block text-xs font-bold text-neutral-700 mb-1">Pos Asal</label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-500">
                 <MapPin className="w-4 h-4" />
               </span>
               <input 
@@ -160,7 +188,7 @@ export default function SearchTrip() {
           <div>
             <label className="block text-xs font-bold text-neutral-700 mb-1">Pos Tujuan</label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-500">
                 <MapPin className="w-4 h-4" />
               </span>
               <input 
@@ -182,7 +210,7 @@ export default function SearchTrip() {
           <div>
             <label className="block text-xs font-bold text-neutral-700 mb-1">Tanggal Keberangkatan</label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-500">
                 <Calendar className="w-4 h-4" />
               </span>
               <input 
@@ -228,7 +256,23 @@ export default function SearchTrip() {
       <div className="space-y-4">
         <h2 className="text-sm font-extrabold text-neutral-900 px-1">Hasil Trip Tersedia ({filteredTrips.length})</h2>
         
-        {filteredTrips.length > 0 ? (
+        {isLoadingTrips ? (
+          <div className="grid grid-cols-1 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-3xl p-6 border border-neutral-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-3 w-full md:w-2/3">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-5 w-56" />
+                  <Skeleton className="h-3 w-full max-w-xs" />
+                </div>
+                <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-10 w-32 rounded-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredTrips.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
             {filteredTrips.map((trip) => (
               <div key={trip.id} className="bg-white rounded-3xl p-6 border border-neutral-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -237,7 +281,7 @@ export default function SearchTrip() {
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${trip.type === 'penumpang' ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-pink-50 text-pink-700 border border-pink-100'}`}>
                       {trip.type === 'penumpang' ? 'Nebeng Penumpang' : 'Nebeng Barang'}
                     </span>
-                    <span className="text-xs text-neutral-400 font-medium">Mitra: <strong className="text-neutral-700">{trip.mitraName}</strong> ({trip.rating})</span>
+                    <span className="text-xs text-neutral-500 font-medium">Mitra: <strong className="text-neutral-700">{trip.mitraName}</strong> ({trip.rating})</span>
                   </div>
                   
                   <div className="flex items-center gap-3 text-sm font-extrabold text-neutral-900">
@@ -255,7 +299,7 @@ export default function SearchTrip() {
 
                 <div className="flex flex-col items-end gap-3 w-full md:w-auto">
                   <div className="text-right">
-                    <span className="text-[10px] text-neutral-400 block">Tarif Layanan</span>
+                    <span className="text-[10px] text-neutral-500 block">Tarif Layanan</span>
                     <span className="text-base font-extrabold text-pink-600">{trip.price}</span>
                   </div>
                   <button 
@@ -269,12 +313,12 @@ export default function SearchTrip() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-3xl p-12 text-center border border-neutral-100 shadow-sm">
-            <div className="w-12 h-12 rounded-full bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto mb-3">
-              <Search className="w-6 h-6" />
-            </div>
-            <h3 className="text-sm font-extrabold text-neutral-900 mb-1">Trip Tidak Ditemukan</h3>
-            <p className="text-xs text-neutral-400">Tidak ada trip yang sesuai dengan filter pencarian Anda.</p>
+          <div className="bg-white rounded-3xl border border-neutral-100 shadow-sm">
+            <EmptyState
+              icon={Search}
+              title="Trip Tidak Ditemukan"
+              description="Tidak ada trip yang sesuai dengan filter pencarian Anda. Coba ubah pos asal, tujuan, atau tanggal."
+            />
           </div>
         )}
       </div>
@@ -317,13 +361,20 @@ export default function SearchTrip() {
                       <input 
                         type="number"
                         min="1"
-                        max={selectedTrip.vehicleCategory === 'motor' ? 1 : selectedTrip.maxSeats}
+                        max={maxAllowedSeats}
                         value={seatCount}
-                        onChange={(e) => setSeatCount(parseInt(e.target.value) || 1)}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value) || 1;
+                          const clamped = Math.min(Math.max(raw, 1), maxAllowedSeats);
+                          setSeatCount(clamped);
+                        }}
                         className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-medium text-neutral-900 focus:outline-none focus:border-pink-600"
                       />
                       {selectedTrip.vehicleCategory === 'motor' && (
                         <p className="text-[10px] text-amber-600 mt-1 font-medium">⚠️ Kendaraan berupa Sepeda Motor dibatasi maksimal 1 kursi penumpang.</p>
+                      )}
+                      {isOverSeatCapacity && (
+                        <p className="text-[10px] text-red-600 mt-1 font-bold">⚠️ Gagal: Jumlah kursi melebihi sisa kapasitas tersedia ({maxAllowedSeats} kursi).</p>
                       )}
                     </div>
 
@@ -389,10 +440,11 @@ export default function SearchTrip() {
                         <label className="block text-xs font-bold text-neutral-700 mb-1">Estimasi Berat per Item (Kg)</label>
                         <input 
                           type="number"
-                          min="1"
+                          min="0.1"
+                          step="0.1"
                           value={itemWeight}
-                          onChange={(e) => setItemWeight(parseFloat(e.target.value) || 1)}
-                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-medium text-neutral-900 focus:outline-none focus:border-pink-600"
+                          onChange={(e) => setItemWeight(parseFloat(e.target.value) || 0.1)}
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-medium text-neutral-900 focus:outline-none focus:border-pink-600 font-mono font-bold"
                         />
                       </div>
 
@@ -404,6 +456,31 @@ export default function SearchTrip() {
                           onChange={(e) => setItemPhoto(e.target.files[0])}
                           className="w-full text-[10px] text-neutral-500 file:mr-2 file:py-2.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 cursor-pointer"
                         />
+                      </div>
+                    </div>
+
+                    {/* PILIHAN KATEGORI UKURAN FISIK (XXS hingga XL) */}
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1.5">Kategori Ukuran Fisik Bagasi (XXS - XL)</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {sizeOptions.map((size) => (
+                          <button
+                            type="button"
+                            key={size.code}
+                            onClick={() => setItemSize(size.code)}
+                            className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                              itemSize === size.code 
+                                ? 'bg-pink-50 border-pink-600 text-pink-900 shadow-sm' 
+                                : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100 text-neutral-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full mb-0.5">
+                              <span className="font-black text-xs">{size.label}</span>
+                              {itemSize === size.code && <span className="text-[10px] text-pink-600 font-bold">✓</span>}
+                            </div>
+                            <span className="text-[9px] text-neutral-500 leading-tight">{size.desc}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
 
@@ -437,7 +514,7 @@ export default function SearchTrip() {
                     <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 ${isOverCapacity ? 'bg-red-50 border-red-200 text-red-700' : 'bg-pink-50/50 border-pink-100 text-neutral-700'}`}>
                       {isOverCapacity ? <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" /> : <ShieldCheck className="w-4 h-4 shrink-0 text-pink-600 mt-0.5" />}
                       <div>
-                        <p className="font-bold">Total Akumulasi Berat: {totalAccumulatedWeight} Kg</p>
+                        <p className="font-bold">Akumulasi: {totalAccumulatedWeight} Kg • Ukuran: {itemSize}</p>
                         <p className="text-[11px] opacity-90 mt-0.5">
                           {isOverCapacity 
                             ? `⚠️ Gagal: Total berat (${totalAccumulatedWeight} kg) melebihi sisa kapasitas bagasi Mitra (${selectedTrip.remainingCapacityKg} kg).`

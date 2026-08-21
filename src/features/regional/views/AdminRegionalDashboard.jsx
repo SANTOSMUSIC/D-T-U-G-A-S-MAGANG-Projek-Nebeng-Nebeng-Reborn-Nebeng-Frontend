@@ -1,7 +1,33 @@
-import React from 'react';
-import { MapPin, Compass, CreditCard, ShieldCheck, TrendingUp, Users, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, Compass, CreditCard, ShieldCheck, TrendingUp, Users, ArrowUpRight, ArrowDownRight, AlertTriangle, ShieldAlert, Wrench, CheckCircle2 } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 export default function AdminRegionalDashboard() {
+  const toast = useToast();
+  // State untuk daftar Trip Disrupted yang memerlukan penanganan kendala rute
+  const [disruptedTrips, setDisruptedTrips] = useState([
+    { 
+      id: 'TRIP-701', 
+      origin: 'Solo (Pos Pusat)', 
+      destination: 'Yogyakarta', 
+      mitra: 'Budi Santoso', 
+      vehicle: 'Motor (AD 1234 XX)', 
+      issue: 'Kendaraan Mogok / Mesin Rusak', 
+      location: 'Km 15 Jalur Solo-Jogja', 
+      time: '15 menit lalu' 
+    },
+    { 
+      id: 'TRIP-804', 
+      origin: 'Solo', 
+      destination: 'Semarang', 
+      mitra: 'Siti Aminah', 
+      vehicle: 'Mobil (H 5678 YY)', 
+      issue: 'Ban Bocor / Kempes', 
+      location: ' Bypass Bawen', 
+      time: '40 menit lalu' 
+    }
+  ]);
+
   // Statistik khusus wilayah operasional
   const regionalStats = [
     {
@@ -21,12 +47,12 @@ export default function AdminRegionalDashboard() {
       color: 'bg-blue-50 text-blue-700 border-blue-100',
     },
     {
-      title: 'Jumlah Transaksi Lokal',
-      value: 'Rp 18.450.000',
-      change: '156 total transaksi lokal',
-      isPositive: true,
-      icon: CreditCard,
-      color: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      title: 'Trip Disrupted (Kendala)',
+      value: `${disruptedTrips.length} Trip`,
+      change: disruptedTrips.length > 0 ? 'Butuh Penanganan Rute' : 'Aman Lancar',
+      isPositive: disruptedTrips.length === 0,
+      icon: AlertTriangle,
+      color: 'bg-red-50 text-red-700 border-red-100',
     },
     {
       title: 'Antrean Verifikasi',
@@ -45,8 +71,13 @@ export default function AdminRegionalDashboard() {
     { id: '4', text: 'Transaksi lokal senilai Rp 145.000 tercatat di Pos Pasar Klewer.', time: '2 jam lalu', type: 'Transaksi' },
   ];
 
+  // Handler untuk menyelesaikan penanganan kendala trip yang terganggu
+  const handleResolveDisruptedTrip = (tripId) => {
+    setDisruptedTrips(disruptedTrips.filter(t => t.id !== tripId));
+    toast.success(`Penanganan untuk Trip ${tripId} telah diselesaikan dan rute dinyatakan normal kembali.`, { title: 'Trip Dipulihkan' });
+  };
+
   return (
-    // ml-64 dihapus karena parent layout sudah mengatur posisi konten terhadap sidebar
     <div className="min-h-screen bg-[#f8f9fa] p-8">
       {/* Header Banner */}
       <div className="bg-white rounded-3xl p-6 border border-neutral-100 shadow-sm mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -55,7 +86,7 @@ export default function AdminRegionalDashboard() {
             <Compass className="w-3.5 h-3.5" /> Portal Admin Regional
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Dashboard Wilayah Operasional</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Pemantauan menyeluruh pos mitra, arus trip, transaksi lokal, dan verifikasi pengguna wilayah.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Pemantauan menyeluruh pos mitra, arus trip, status gangguan rute, dan verifikasi pengguna wilayah.</p>
         </div>
         <div className="flex items-center gap-3 bg-purple-50 px-4 py-3 rounded-2xl border border-purple-100">
           <div className="w-9 h-9 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold">
@@ -68,7 +99,7 @@ export default function AdminRegionalDashboard() {
         </div>
       </div>
 
-      {/* Grid Statistik Utama */}
+      {/* Grid Statistik Utama (Termasuk Statistik Trip Disrupted) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {regionalStats.map((stat, idx) => {
           const Icon = stat.icon;
@@ -78,15 +109,81 @@ export default function AdminRegionalDashboard() {
                 <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${stat.color}`}>
                   <Icon className="w-6 h-6" />
                 </div>
-                <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${stat.isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${stat.isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                   {stat.change}
                 </span>
               </div>
-              <h2 className="text-neutral-400 text-xs font-extrabold uppercase tracking-wider">{stat.title}</h2>
+              <h2 className="text-neutral-500 text-xs font-extrabold uppercase tracking-wider">{stat.title}</h2>
               <p className="text-2xl font-extrabold text-neutral-900 mt-1">{stat.value}</p>
             </div>
           );
         })}
+      </div>
+
+      {/* WIDGET PEMANTAUAN KHUSUS: TRIP DISRUPTED (PENANGANAN KENDALA RUTE) */}
+      <div className="bg-white rounded-3xl p-6 border border-neutral-100 shadow-sm mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-neutral-900">Pemantauan Trip Disrupted (Kendala Rute)</h2>
+              <p className="text-xs text-neutral-500">Daftar perjalanan mitra yang mengalami hambatan darurat di lapangan.</p>
+            </div>
+          </div>
+          <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-extrabold">
+            {disruptedTrips.length} Aktif Membutuhkan Respon
+          </span>
+        </div>
+
+        {disruptedTrips.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {disruptedTrips.map((trip) => (
+              <div key={trip.id} className="p-4 rounded-2xl border border-red-200 bg-red-50/40 flex flex-col justify-between gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full">{trip.id}</span>
+                    <span className="text-[10px] text-neutral-500 font-medium">Dilaporkan {trip.time}</span>
+                  </div>
+                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                    <span>{trip.origin}</span>
+                    <span className="text-red-600">&rarr;</span>
+                    <span>{trip.destination}</span>
+                  </div>
+                  <p className="text-xs font-semibold text-neutral-700">Mitra: <strong className="text-neutral-900">{trip.mitra}</strong> ({trip.vehicle})</p>
+                  <div className="p-2.5 bg-white rounded-xl border border-red-100 text-xs space-y-1">
+                    <p className="text-red-600 font-extrabold flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Kendala: {trip.issue}
+                    </p>
+                    <p className="text-neutral-500 text-[11px]">📍 Posisi: {trip.location}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-red-200/60">
+                  <button 
+                    onClick={() => toast.info(`Menghubungkan ke tim pos terdekat & mitra ${trip.mitra} untuk evakuasi rute...`, { title: 'Bantuan Dikirim' })}
+                    className="flex-1 py-2 px-3 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Kirim Bantuan Lapangan
+                  </button>
+                  <button 
+                    onClick={() => handleResolveDisruptedTrip(trip.id)}
+                    className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Selesaikan Kendala
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-neutral-100">
+            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+            <h3 className="text-xs font-extrabold text-neutral-800">Semua Perjalanan Berjalan Normal</h3>
+            <p className="text-[11px] text-neutral-500 mt-0.5">Tidak ada laporan trip disrupted atau kendala rute aktif di wilayah regional ini.</p>
+          </div>
+        )}
       </div>
 
       {/* Bagian Aktivitas & Pemantauan Terbaru */}
@@ -101,7 +198,7 @@ export default function AdminRegionalDashboard() {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-bold text-neutral-800">{act.text}</p>
-                  <p className="text-[10px] text-neutral-400 mt-0.5">{act.time}</p>
+                  <p className="text-[10px] text-neutral-500 mt-0.5">{act.time}</p>
                 </div>
                 <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700">
                   {act.type}

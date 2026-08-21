@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Truck, Search, Plus, X, Trash2, Pencil, CheckCircle2, MapPin } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 export default function FleetCourierPage() {
+  const toast = useToast();
   const [fleetList, setFleetList] = useState([
     {
       id: 'ARM-01',
@@ -85,7 +87,7 @@ export default function FleetCourierPage() {
   const handleSave = (e) => {
     e.preventDefault();
     if (!formData.courierName || !formData.plateNumber) {
-      alert('Nama kurir dan nomor plat kendaraan wajib diisi!');
+      toast.warning('Nama kurir dan nomor plat kendaraan wajib diisi!', { title: 'Form Belum Lengkap' });
       return;
     }
 
@@ -124,7 +126,7 @@ export default function FleetCourierPage() {
             <Truck className="w-3.5 h-3.5" /> Manajemen Armada & Kurir
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Pengelolaan Armada & Kurir Wilayah</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Kelola daftar kendaraan, plat nomor, penugasan kurir, serta status operasional di pos wilayah Anda.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Kelola daftar kendaraan, plat nomor, penugasan kurir, serta status operasional di pos wilayah Anda.</p>
         </div>
 
         <button 
@@ -143,7 +145,7 @@ export default function FleetCourierPage() {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* Search Input */}
             <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input 
                 type="text"
                 placeholder="Cari kurir, plat nomor..."
@@ -169,7 +171,7 @@ export default function FleetCourierPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                 <th className="py-4 px-3 w-[22%]">ID & NAMA KURIR</th>
                 <th className="py-4 px-3 w-[22%]">JENIS KENDARAAN & PLAT</th>
                 <th className="py-4 px-3 w-[24%]">POS PENUGASAN</th>
@@ -182,7 +184,7 @@ export default function FleetCourierPage() {
                 <tr key={item.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{item.courierName}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold">{item.id}</p>
+                    <p className="text-[10px] text-neutral-500 font-semibold">{item.id}</p>
                   </td>
                   <td className="py-4 px-3 truncate">
                     <p className="font-bold text-neutral-800">{item.vehicleType}</p>
@@ -235,7 +237,7 @@ export default function FleetCourierPage() {
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-6">
               <div>
                 <h2 className="text-base font-extrabold text-neutral-900">{isEditing ? 'Edit Data Armada & Kurir' : 'Tambah Armada & Kurir Baru'}</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Lengkapi informasi kendaraan dan penugasan pos.</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Lengkapi informasi kendaraan dan penugasan pos.</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />

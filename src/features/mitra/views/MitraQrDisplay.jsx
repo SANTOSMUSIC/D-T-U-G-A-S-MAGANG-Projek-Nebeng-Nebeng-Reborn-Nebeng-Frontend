@@ -23,7 +23,7 @@ export default function MitraQrDisplay() {
             <Smartphone className="w-3.5 h-3.5" /> Tampilan Layar Perangkat Mitra
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Digital QR Trip Display</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Tunjukkan QR Code trip aktif ini kepada Operator Pos saat melakukan verifikasi keberangkatan.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Tunjukkan QR Code trip aktif ini kepada Operator Pos saat melakukan verifikasi keberangkatan.</p>
         </div>
       </div>
 
@@ -49,7 +49,7 @@ export default function MitraQrDisplay() {
                   <span className="text-[10px] font-bold text-pink-600 bg-pink-100 px-2 py-0.5 rounded-full">Aktif</span>
                 </div>
                 <p className="text-xs font-bold text-neutral-700">{trip.route}</p>
-                <p className="text-[10px] text-neutral-400 mt-1">{trip.vehicle}</p>
+                <p className="text-[10px] text-neutral-500 mt-1">{trip.vehicle}</p>
               </button>
             ))}
           </div>
@@ -60,7 +60,7 @@ export default function MitraQrDisplay() {
           <div className="w-full max-w-sm bg-gradient-to-b from-neutral-900 to-neutral-800 p-6 rounded-3xl text-white shadow-xl border-4 border-neutral-800 relative">
             
             {/* Status Bar Simulasi HP */}
-            <div className="flex justify-between items-center text-[10px] text-neutral-400 mb-4 px-2">
+            <div className="flex justify-between items-center text-[10px] text-neutral-500 mb-4 px-2">
               <span>Nebeng App Driver</span>
               <span className="flex items-center gap-1 text-emerald-400"><ShieldCheck className="w-3 h-3" /> Secure</span>
             </div>

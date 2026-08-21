@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigation, Search, Eye, CheckCircle2, Clock, MapPin, Car, ArrowRight, X } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function RegionalTripMonitoringPage() {
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [tripList, setTripList] = useState([
     {
       id: 'TRIP-9081',
@@ -48,6 +51,12 @@ export default function RegionalTripMonitoringPage() {
     'Pos Mitra Jebres Stasiun'
   ];
 
+  useEffect(() => {
+    setIsLoadingTrips(true);
+    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
+    return () => clearTimeout(timer);
+  }, [searchQuery, statusFilter, selectedPos]);
+
   const handleOpenDetail = (trip) => {
     setCurrentTrip(trip);
     setIsDetailOpen(true);
@@ -71,7 +80,7 @@ export default function RegionalTripMonitoringPage() {
             <Navigation className="w-3.5 h-3.5" /> Regional Trip & Order Monitoring
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Pemantauan Trip & Order Wilayah</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Pantau daftar perjalanan dan pesanan aktif yang berasal dari atau menuju pos-pos di wilayah operasi Anda.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Pantau daftar perjalanan dan pesanan aktif yang berasal dari atau menuju pos-pos di wilayah operasi Anda.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-purple-50 border border-purple-100 px-4 py-2.5 rounded-2xl flex items-center gap-2">
@@ -89,7 +98,7 @@ export default function RegionalTripMonitoringPage() {
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             {/* Search Input */}
             <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input 
                 type="text"
                 placeholder="Cari ID, penumpang, driver..."
@@ -127,7 +136,7 @@ export default function RegionalTripMonitoringPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                 <th className="py-4 px-3 w-[16%]">ID & WAKTU</th>
                 <th className="py-4 px-3 w-[18%]">PENUMPANG & DRIVER</th>
                 <th className="py-4 px-3 w-[30%]">RUTE POS (ASAL → TUJUAN)</th>
@@ -137,11 +146,23 @@ export default function RegionalTripMonitoringPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-              {filteredTrips.map((trip) => (
+              {isLoadingTrips ? (
+                <SkeletonTableRows rows={4} columns={6} />
+              ) : filteredTrips.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={Navigation}
+                      title="Tidak Ada Trip Ditemukan"
+                      description="Tidak ada trip yang cocok dengan pencarian atau filter yang dipilih."
+                    />
+                  </td>
+                </tr>
+              ) : filteredTrips.map((trip) => (
                 <tr key={trip.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{trip.id}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold">{trip.time}</p>
+                    <p className="text-[10px] text-neutral-500 font-semibold">{trip.time}</p>
                   </td>
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-800">{trip.passenger}</p>
@@ -153,7 +174,7 @@ export default function RegionalTripMonitoringPage() {
                       <span className="truncate">{trip.originPos}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-neutral-500 text-[10px] font-semibold mt-0.5 ml-5">
-                      <ArrowRight className="w-3 h-3 text-neutral-400 shrink-0" />
+                      <ArrowRight className="w-3 h-3 text-neutral-500 shrink-0" />
                       <span className="truncate">{trip.destinationPos}</span>
                     </div>
                   </td>
@@ -198,7 +219,7 @@ export default function RegionalTripMonitoringPage() {
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-6">
               <div>
                 <h2 className="text-base font-extrabold text-neutral-900">Detail Perjalanan: {currentTrip.id}</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Informasi rute, status, dan pihak terkait.</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Informasi rute, status, dan pihak terkait.</p>
               </div>
               <button onClick={() => setIsDetailOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
@@ -208,26 +229,26 @@ export default function RegionalTripMonitoringPage() {
             <div className="space-y-4 text-xs">
               <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-neutral-400 font-semibold">Waktu Pemesanan:</span>
+                  <span className="text-neutral-500 font-semibold">Waktu Pemesanan:</span>
                   <span className="text-neutral-800 font-bold">{currentTrip.time}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-400 font-semibold">Status Trip:</span>
+                  <span className="text-neutral-500 font-semibold">Status Trip:</span>
                   <span className="text-purple-700 font-extrabold">{currentTrip.status}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-400 font-semibold">Tarif:</span>
+                  <span className="text-neutral-500 font-semibold">Tarif:</span>
                   <span className="text-neutral-900 font-extrabold">{currentTrip.fare}</span>
                 </div>
               </div>
 
               <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
                 <div>
-                  <span className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-wider block mb-1">Penumpang</span>
+                  <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-wider block mb-1">Penumpang</span>
                   <span className="text-neutral-900 font-bold">{currentTrip.passenger}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-wider block mb-1">Driver Penugasan</span>
+                  <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-wider block mb-1">Driver Penugasan</span>
                   <span className="text-neutral-900 font-bold">{currentTrip.driver}</span>
                 </div>
               </div>

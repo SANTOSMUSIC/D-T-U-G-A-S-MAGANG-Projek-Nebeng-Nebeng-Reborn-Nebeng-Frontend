@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Ticket, QrCode, Copy, CheckCircle2, Clock, ArrowRight, Activity, MapPin, BellRing, Star, Award, Gift, Sparkles } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
+import { Skeleton } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function MyTickets() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('aktif'); // 'aktif' | 'riwayat' | 'reward'
+  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   const [copiedOtp, setCopiedOtp] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [activeModalType, setActiveModalType] = useState(null); // 'qr' | 'tracking' | 'review'
@@ -94,6 +99,12 @@ export default function MyTickets() {
     return true;
   });
 
+  useEffect(() => {
+    setIsLoadingTickets(true);
+    const timer = setTimeout(() => setIsLoadingTickets(false), 600);
+    return () => clearTimeout(timer);
+  }, [activeTab]);
+
   const handleCopyOtp = (otp) => {
     navigator.clipboard.writeText(otp);
     setCopiedOtp(otp);
@@ -118,11 +129,11 @@ export default function MyTickets() {
       return t;
     }));
     setActiveModalType(null);
-    alert('Ulasan dan rating berhasil dikirim! Terima kasih.');
+    toast.success('Ulasan dan rating berhasil dikirim! Terima kasih.', { title: 'Terkirim' });
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
       {/* Header Halaman */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100 mb-6">
         <div className="flex items-center gap-2 text-pink-600 text-xs font-extrabold uppercase tracking-wider mb-1">
@@ -173,7 +184,19 @@ export default function MyTickets() {
       {/* KONTEN TAB: TIPIK & RIWAYAT */}
       {activeTab !== 'reward' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredTickets.length > 0 ? (
+          {isLoadingTickets ? (
+            Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100 space-y-4">
+                <div className="flex justify-between items-center">
+                  <Skeleton className="h-5 w-28 rounded-full" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-16 w-full rounded-2xl" />
+                <Skeleton className="h-10 w-full rounded-2xl" />
+              </div>
+            ))
+          ) : filteredTickets.length > 0 ? (
             filteredTickets.map((ticket) => (
               <div key={ticket.id} className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100 flex flex-col justify-between">
                 <div>
@@ -181,7 +204,7 @@ export default function MyTickets() {
                     <span className="px-3 py-1 bg-pink-50 text-pink-700 rounded-full text-[10px] font-extrabold tracking-wider uppercase border border-pink-100">
                       {ticket.title}
                     </span>
-                    <span className="text-xs font-bold text-neutral-400">{ticket.id}</span>
+                    <span className="text-xs font-bold text-neutral-500">{ticket.id}</span>
                   </div>
 
                   <div className="flex items-center gap-2 text-sm font-black text-neutral-900 mb-4">
@@ -270,7 +293,7 @@ export default function MyTickets() {
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
                         : 'bg-neutral-100 text-neutral-600'
                     }`}>
-                      {ticket.statusText}
+                      {ticket.status}
                     </span>
 
                     {ticket.status === 'Aktif' && (
@@ -297,9 +320,12 @@ export default function MyTickets() {
               </div>
             ))
           ) : (
-            <div className="col-span-2 text-center py-12 bg-white rounded-3xl border border-neutral-100">
-              <Clock className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
-              <p className="text-xs font-bold text-neutral-600">Belum ada data perjalanan pada kategori ini.</p>
+            <div className="col-span-2 bg-white rounded-3xl border border-neutral-100">
+              <EmptyState
+                icon={Clock}
+                title="Belum Ada Tiket"
+                description="Belum ada data perjalanan pada kategori ini."
+              />
             </div>
           )}
         </div>
@@ -319,7 +345,7 @@ export default function MyTickets() {
               </p>
             </div>
             <button 
-              onClick={() => alert('Fitur penukaran voucher segera hadir di update berikutnya!')}
+              onClick={() => toast.info('Fitur penukaran voucher segera hadir di update berikutnya!', { title: 'Segera Hadir' })}
               className="px-6 py-3.5 bg-white text-[#e61994] rounded-2xl text-xs font-black shadow-xl hover:bg-neutral-50 transition cursor-pointer flex items-center gap-2"
             >
               <Gift className="w-4 h-4" />
@@ -373,7 +399,7 @@ export default function MyTickets() {
             </div>
 
             <h3 className="text-sm font-extrabold text-neutral-900 mb-1">{selectedTicket.title}</h3>
-            <p className="text-xs text-neutral-400 mb-4">{selectedTicket.from} ➔ {selectedTicket.to}</p>
+            <p className="text-xs text-neutral-500 mb-4">{selectedTicket.from} ➔ {selectedTicket.to}</p>
             
             <div className="w-52 h-52 bg-white rounded-2xl mx-auto flex items-center justify-center border-2 border-neutral-100 p-3 shadow-md mb-3">
               <img 
@@ -421,7 +447,7 @@ export default function MyTickets() {
 
             <div>
               <h3 className="text-sm font-black text-neutral-900">{selectedTicket.title}</h3>
-              <p className="text-xs text-neutral-400">ID: {selectedTicket.id}</p>
+              <p className="text-xs text-neutral-500">ID: {selectedTicket.id}</p>
             </div>
 
             <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-4">
@@ -440,10 +466,10 @@ export default function MyTickets() {
                       <span className={`text-xs font-extrabold ${log.active ? 'text-pink-600' : 'text-neutral-900'}`}>
                         {log.status}
                       </span>
-                      <span className="text-[10px] font-bold text-neutral-400">{log.time}</span>
+                      <span className="text-[10px] font-bold text-neutral-500">{log.time}</span>
                     </div>
                     <p className="text-[11px] text-neutral-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3 text-neutral-400" /> {log.location}
+                      <MapPin className="w-3 h-3 text-neutral-500" /> {log.location}
                     </p>
                   </div>
                 </div>

@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Search, Plus, X, QrCode, Trash2, Pencil, Printer } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function PosMitraManagement() {
+  const toast = useToast();
+  const [isLoadingPos, setIsLoadingPos] = useState(true);
   const [posList, setPosList] = useState([
     { id: 'POS-01', name: 'Pos Mitra Solo Grand Mall', address: 'Jl. Slamet Riyadi No.273, Surakarta', lat: '-7.5561', long: '110.8173', operator: 'Rian Hidayat', status: 'Aktif' },
     { id: 'POS-02', name: 'Pos Mitra Pasar Klewer', address: 'Jl. Dr. Radjiman, Gajahan, Surakarta', lat: '-7.5753', long: '110.8241', operator: 'Dewi Lestari', status: 'Aktif' },
@@ -36,7 +41,7 @@ export default function PosMitraManagement() {
   const handleSave = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.address) {
-      alert('Nama Pos dan Alamat wajib diisi!');
+      toast.warning('Nama Pos dan Alamat wajib diisi!', { title: 'Form Belum Lengkap' });
       return;
     }
 
@@ -74,6 +79,12 @@ export default function PosMitraManagement() {
     p.operator.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  useEffect(() => {
+    setIsLoadingPos(true);
+    const timer = setTimeout(() => setIsLoadingPos(false), 700);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
       {/* CSS Khusus untuk Cetak (Hanya Area QR Card yang Tercetak Bersih) */}
@@ -107,7 +118,7 @@ export default function PosMitraManagement() {
             <MapPin className="w-3.5 h-3.5" /> Manajemen Pos Checkpoint
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Manajemen Pos Mitra & Terminal</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Kelola lokasi pos, koordinat lat/long, penugasan operator, serta cetak QR Code Identitas Pos.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Kelola lokasi pos, koordinat lat/long, penugasan operator, serta cetak QR Code Identitas Pos.</p>
         </div>
 
         <button 
@@ -122,7 +133,7 @@ export default function PosMitraManagement() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
           <h2 className="text-base font-extrabold text-neutral-900">Daftar Pos Checkpoint Wilayah</h2>
           <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
               type="text"
               placeholder="Cari pos, alamat, operator..."
@@ -136,7 +147,7 @@ export default function PosMitraManagement() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                 <th className="py-4 px-3 w-[22%]">NAMA & KODE POS</th>
                 <th className="py-4 px-3 w-[26%]">ALAMAT LOKASI</th>
                 <th className="py-4 px-3 w-[16%]">KOORDINAT LAT/LONG</th>
@@ -145,11 +156,23 @@ export default function PosMitraManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-              {filteredPos.map((pos) => (
+              {isLoadingPos ? (
+                <SkeletonTableRows rows={4} columns={5} />
+              ) : filteredPos.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={MapPin}
+                      title="Pos Mitra Tidak Ditemukan"
+                      description="Tidak ada pos yang cocok dengan pencarian, atau belum ada pos terdaftar."
+                    />
+                  </td>
+                </tr>
+              ) : filteredPos.map((pos) => (
                 <tr key={pos.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{pos.name}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold">{pos.id}</p>
+                    <p className="text-[10px] text-neutral-500 font-semibold">{pos.id}</p>
                   </td>
                   <td className="py-4 px-3 truncate font-semibold text-neutral-600">{pos.address}</td>
                   <td className="py-4 px-3 truncate font-mono text-[11px] text-purple-700 font-bold">
@@ -193,7 +216,7 @@ export default function PosMitraManagement() {
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-6">
               <div>
                 <h2 className="text-base font-extrabold text-neutral-900">{isEditing ? 'Edit Pos Checkpoint' : 'Tambah Pos Checkpoint Baru'}</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Lengkapi informasi lokasi dan penugasan operator.</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Lengkapi informasi lokasi dan penugasan operator.</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />

@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Search, Eye, CheckCircle2, XCircle, AlertTriangle, FileText, UserCheck, X, Camera, Check, Clock } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function VerificationCenterPage() {
+  const toast = useToast();
+  const [isLoadingVerification, setIsLoadingVerification] = useState(true);
   const [verificationList, setVerificationList] = useState([
     { 
       id: 'VER-001', 
@@ -75,7 +80,7 @@ export default function VerificationCenterPage() {
   const handleApprove = (id) => {
     setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui' } : item));
     setIsDetailModalOpen(false);
-    alert(`Verifikasi untuk ID ${id} berhasil DISETUJUI.`);
+    toast.success(`Verifikasi untuk ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
   };
 
   const handleOpenRejectModal = (user) => {
@@ -90,7 +95,7 @@ export default function VerificationCenterPage() {
     setVerificationList(prev => prev.map(item => item.id === selectedUser.id ? { ...item, status: `Ditolak: ${selectedReason}` } : item));
     setIsRejectModalOpen(false);
     setIsDetailModalOpen(false);
-    alert(`Verifikasi ID ${selectedUser.id} ditolak dengan alasan: "${selectedReason}"`);
+    toast.error(`Verifikasi ID ${selectedUser.id} ditolak dengan alasan: "${selectedReason}"`, { title: 'Ditolak' });
   };
 
   const filteredData = verificationList.filter(item => 
@@ -98,6 +103,12 @@ export default function VerificationCenterPage() {
     item.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    setIsLoadingVerification(true);
+    const timer = setTimeout(() => setIsLoadingVerification(false), 700);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
@@ -108,7 +119,7 @@ export default function VerificationCenterPage() {
             <ShieldCheck className="w-3.5 h-3.5" /> Pusat Verifikasi & Keamanan
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Verification Center & Face ID Review</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Tinjau antrean berkas identitas pengguna lokal (KTP, SIM, SKCK, STNK) dan validasi Face ID Liveness Scan.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Tinjau antrean berkas identitas pengguna lokal (KTP, SIM, SKCK, STNK) dan validasi Face ID Liveness Scan.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -126,7 +137,7 @@ export default function VerificationCenterPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
           <h2 className="text-base font-extrabold text-neutral-900">Antrean Verifikasi Berkas Pengguna</h2>
           <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
               type="text"
               placeholder="Cari nama, nomor HP, atau ID..."
@@ -140,7 +151,7 @@ export default function VerificationCenterPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                 <th className="py-4 px-3 w-[20%]">ID & NAMA PENGGUNA</th>
                 <th className="py-4 px-3 w-[16%]">PERAN AKUN</th>
                 <th className="py-4 px-3 w-[20%]">WAKTU PENGAJUAN</th>
@@ -150,11 +161,23 @@ export default function VerificationCenterPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
-              {filteredData.map((item) => (
+              {isLoadingVerification ? (
+                <SkeletonTableRows rows={4} columns={6} />
+              ) : filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={ShieldCheck}
+                      title="Tidak Ada Pengajuan Verifikasi"
+                      description="Tidak ada pengajuan yang cocok dengan pencarian, atau semua sudah diproses."
+                    />
+                  </td>
+                </tr>
+              ) : filteredData.map((item) => (
                 <tr key={item.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{item.name}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold">{item.id} • {item.phone}</p>
+                    <p className="text-[10px] text-neutral-500 font-semibold">{item.id} • {item.phone}</p>
                   </td>
                   <td className="py-4 px-3 truncate font-bold text-neutral-700">{item.role}</td>
                   <td className="py-4 px-3 truncate font-semibold text-neutral-500">{item.submissionDate}</td>
@@ -202,7 +225,7 @@ export default function VerificationCenterPage() {
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-6">
               <div>
                 <h2 className="text-base font-extrabold text-neutral-900">Review Berkas Identitas: {selectedUser.name}</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Periksa keaslian KTP, SIM, SKCK, STNK, dan hasil Face ID Liveness Scan secara seksama.</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Periksa keaslian KTP, SIM, SKCK, STNK, dan hasil Face ID Liveness Scan secara seksama.</p>
               </div>
               <button onClick={() => setIsDetailModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
@@ -229,7 +252,7 @@ export default function VerificationCenterPage() {
                   {selectedUser.docs.ktp ? (
                     <img src={selectedUser.docs.ktp} alt="KTP" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[11px] text-neutral-400">Tidak ada data</span>
+                    <span className="text-[11px] text-neutral-500">Tidak ada data</span>
                   )}
                 </div>
               </div>
@@ -241,7 +264,7 @@ export default function VerificationCenterPage() {
                   {selectedUser.docs.sim ? (
                     <img src={selectedUser.docs.sim} alt="SIM" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[11px] text-neutral-400 font-semibold italic">Tidak Diunggah</span>
+                    <span className="text-[11px] text-neutral-500 font-semibold italic">Tidak Diunggah</span>
                   )}
                 </div>
               </div>
@@ -253,7 +276,7 @@ export default function VerificationCenterPage() {
                   {selectedUser.docs.skck ? (
                     <img src={selectedUser.docs.skck} alt="SKCK" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[11px] text-neutral-400 font-semibold italic">Tidak Diunggah</span>
+                    <span className="text-[11px] text-neutral-500 font-semibold italic">Tidak Diunggah</span>
                   )}
                 </div>
               </div>
@@ -265,7 +288,7 @@ export default function VerificationCenterPage() {
                   {selectedUser.docs.stnk ? (
                     <img src={selectedUser.docs.stnk} alt="STNK" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[11px] text-neutral-400 font-semibold italic">Tidak Diunggah</span>
+                    <span className="text-[11px] text-neutral-500 font-semibold italic">Tidak Diunggah</span>
                   )}
                 </div>
               </div>
@@ -297,7 +320,7 @@ export default function VerificationCenterPage() {
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-6">
               <div>
                 <h2 className="text-base font-extrabold text-neutral-900">Konfirmasi Penolakan Berkas</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Pilih alasan penolakan otomatis untuk dikirimkan ke pengguna.</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Pilih alasan penolakan otomatis untuk dikirimkan ke pengguna.</p>
               </div>
               <button onClick={() => setIsRejectModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />

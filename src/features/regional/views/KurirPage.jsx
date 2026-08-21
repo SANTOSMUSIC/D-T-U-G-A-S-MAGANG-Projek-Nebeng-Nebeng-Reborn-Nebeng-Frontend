@@ -26,7 +26,7 @@ export default function KurirPage() {
             <Users className="w-3.5 h-3.5" /> Manajemen SDM Wilayah
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Data Kurir & Driver</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Kelola personel kurir, penugasan pos mitra, serta performa dan rating pengiriman.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Kelola personel kurir, penugasan pos mitra, serta performa dan rating pengiriman.</p>
         </div>
 
         <div className="flex items-center gap-3 bg-neutral-50 px-4 py-3 rounded-2xl border border-neutral-100">
@@ -34,7 +34,7 @@ export default function KurirPage() {
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-neutral-400 font-extrabold uppercase tracking-wider">STATUS PERSONEL</p>
+            <p className="text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider">STATUS PERSONEL</p>
             <p className="text-xs font-extrabold text-emerald-600 flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terverifikasi Aktif
             </p>
@@ -45,8 +45,8 @@ export default function KurirPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center justify-between">
           <div>
-            <p className="text-neutral-400 text-[10px] font-extrabold uppercase tracking-wider mb-1">TOTAL KURIR & DRIVER</p>
-            <p className="text-3xl font-extrabold text-neutral-900">{kurirList.length} <span className="text-sm font-bold text-neutral-400">Orang</span></p>
+            <p className="text-neutral-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">TOTAL KURIR & DRIVER</p>
+            <p className="text-3xl font-extrabold text-neutral-900">{kurirList.length} <span className="text-sm font-bold text-neutral-500">Orang</span></p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center shadow-inner">
             <Users className="w-6 h-6" />
@@ -55,8 +55,8 @@ export default function KurirPage() {
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center justify-between">
           <div>
-            <p className="text-neutral-400 text-[10px] font-extrabold uppercase tracking-wider mb-1">SEDANG BERTUGAS</p>
-            <p className="text-3xl font-extrabold text-indigo-600">{kurirList.filter(k => k.status === 'Bertugas').length} <span className="text-sm font-bold text-neutral-400">Personel</span></p>
+            <p className="text-neutral-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">SEDANG BERTUGAS</p>
+            <p className="text-3xl font-extrabold text-indigo-600">{kurirList.filter(k => k.status === 'Bertugas').length} <span className="text-sm font-bold text-neutral-500">Personel</span></p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
             <UserCheck className="w-6 h-6" />
@@ -65,8 +65,8 @@ export default function KurirPage() {
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center justify-between">
           <div>
-            <p className="text-neutral-400 text-[10px] font-extrabold uppercase tracking-wider mb-1">SIAP SIAGA (STANDBY)</p>
-            <p className="text-3xl font-extrabold text-emerald-600">{kurirList.filter(k => k.status === 'Standby').length} <span className="text-sm font-bold text-neutral-400">Personel</span></p>
+            <p className="text-neutral-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">SIAP SIAGA (STANDBY)</p>
+            <p className="text-3xl font-extrabold text-emerald-600">{kurirList.filter(k => k.status === 'Standby').length} <span className="text-sm font-bold text-neutral-500">Personel</span></p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
             <Users className="w-6 h-6" />
@@ -78,7 +78,7 @@ export default function KurirPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
           <h2 className="text-base font-extrabold text-neutral-900">Daftar Personel Kurir Wilayah</h2>
           <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
               type="text"
               placeholder="Cari nama kurir, peran, pos..."
@@ -92,7 +92,7 @@ export default function KurirPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                 <th className="py-4 px-3 w-[18%]">NAMA KURIR</th>
                 <th className="py-4 px-3 w-[20%]">PERAN / POSISI</th>
                 <th className="py-4 px-3 w-[22%]">POS MITRA</th>
@@ -106,7 +106,7 @@ export default function KurirPage() {
                 <tr key={item.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3 truncate">
                     <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{item.name}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold">{item.phone}</p>
+                    <p className="text-[10px] text-neutral-500 font-semibold">{item.phone}</p>
                   </td>
                   <td className="py-4 px-3 truncate font-extrabold text-neutral-800">{item.role}</td>
                   <td className="py-4 px-3 truncate font-semibold text-neutral-700">{item.pos}</td>
@@ -163,27 +163,27 @@ export default function KurirPage() {
             <div className="space-y-4">
               <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400 font-bold">Status Personel</span>
+                  <span className="text-neutral-500 font-bold">Status Personel</span>
                   <span className="font-extrabold text-neutral-900">{selectedDetail.status}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400 font-bold">Pos Mitra Penugasan</span>
+                  <span className="text-neutral-500 font-bold">Pos Mitra Penugasan</span>
                   <span className="font-extrabold text-neutral-900">{selectedDetail.pos}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400 font-bold">Peran Kurir</span>
+                  <span className="text-neutral-500 font-bold">Peran Kurir</span>
                   <span className="font-extrabold text-neutral-900">{selectedDetail.role}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400 font-bold">Paket Aktif Ditangani</span>
+                  <span className="text-neutral-500 font-bold">Paket Aktif Ditangani</span>
                   <span className="font-extrabold text-blue-600">{selectedDetail.activeShipments} Paket</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400 font-bold">Rating Kinerja</span>
+                  <span className="text-neutral-500 font-bold">Rating Kinerja</span>
                   <span className="font-extrabold text-emerald-600">★ {selectedDetail.rating}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400 font-bold">Nomor Kontak HP</span>
+                  <span className="text-neutral-500 font-bold">Nomor Kontak HP</span>
                   <span className="font-extrabold text-neutral-900">{selectedDetail.phone}</span>
                 </div>
               </div>

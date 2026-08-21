@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, AlertCircle, ShieldCheck } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 export default function MitraBalance() {
+  const toast = useToast();
   const [availableBalance, setAvailableBalance] = useState(3850000);
   const [escrowHold, setEscrowHold] = useState(1250000);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -16,11 +18,11 @@ export default function MitraBalance() {
     e.preventDefault();
     const amount = Number(withdrawAmount);
     if (!amount || amount <= 0) {
-      alert('Masukkan jumlah penarikan yang valid.');
+      toast.warning('Masukkan jumlah penarikan yang valid.', { title: 'Jumlah Tidak Valid' });
       return;
     }
     if (amount > availableBalance) {
-      alert('Jumlah penarikan melebihi Saldo Boleh Ditarik (Available Balance).');
+      toast.warning('Jumlah penarikan melebihi Saldo Boleh Ditarik (Available Balance).', { title: 'Saldo Tidak Cukup' });
       return;
     }
 
@@ -48,7 +50,7 @@ export default function MitraBalance() {
             <Wallet className="w-3.5 h-3.5" /> Keuangan & Sistem Escrow
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Mitra Wallet & Auto-Escrow Earnings</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Pantau saldo tertahan otomatis (escrow) dan lakukan penarikan komisi trip ke rekening bank terdaftar.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Pantau saldo tertahan otomatis (escrow) dan lakukan penarikan komisi trip ke rekening bank terdaftar.</p>
         </div>
       </div>
 
@@ -79,13 +81,13 @@ export default function MitraBalance() {
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">Saldo Ditahan (Escrow Hold)</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Saldo Ditahan (Escrow Hold)</span>
               <span className="bg-amber-100 text-amber-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Terkunci Aman
               </span>
             </div>
             <h2 className="text-3xl font-extrabold text-neutral-900 tracking-tight">Rp {escrowHold.toLocaleString('id-ID')}</h2>
-            <p className="text-neutral-400 text-xs mt-1">Dana trip aktif yang ditahan sementara di sistem escrow sampai paket diserahterimakan di pos tujuan.</p>
+            <p className="text-neutral-500 text-xs mt-1">Dana trip aktif yang ditahan sementara di sistem escrow sampai paket diserahterimakan di pos tujuan.</p>
           </div>
           <div className="mt-6 pt-4 border-t border-neutral-100 flex items-center gap-2 text-xs text-neutral-500">
             <ShieldCheck className="w-4 h-4 text-pink-600" /> 
@@ -125,7 +127,7 @@ export default function MitraBalance() {
                 placeholder="Contoh: 1000000"
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-900 focus:outline-none focus:border-pink-600"
               />
-              <span className="text-[10px] text-neutral-400 mt-1 block">Maksimal penarikan: Rp {availableBalance.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-neutral-500 mt-1 block">Maksimal penarikan: Rp {availableBalance.toLocaleString('id-ID')}</span>
             </div>
 
             <button
@@ -148,7 +150,7 @@ export default function MitraBalance() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-neutral-100 text-[11px] font-extrabold text-neutral-400 uppercase">
+                  <tr className="border-b border-neutral-100 text-[11px] font-extrabold text-neutral-500 uppercase">
                     <th className="py-3 px-3">ID Transaksi</th>
                     <th className="py-3 px-3">Trip Terkait</th>
                     <th className="py-3 px-3">Nominal Escrow</th>
@@ -183,7 +185,7 @@ export default function MitraBalance() {
                 <div key={item.id} className="p-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl flex items-center justify-between">
                   <div>
                     <p className="text-xs font-extrabold text-neutral-900">{item.type}</p>
-                    <p className="text-[10px] text-neutral-400">{item.date} • {item.id}</p>
+                    <p className="text-[10px] text-neutral-500">{item.date} • {item.id}</p>
                   </div>
                   <div className="text-right">
                     <p className={`text-xs font-extrabold ${item.amount < 0 ? 'text-neutral-800' : 'text-emerald-600'}`}>

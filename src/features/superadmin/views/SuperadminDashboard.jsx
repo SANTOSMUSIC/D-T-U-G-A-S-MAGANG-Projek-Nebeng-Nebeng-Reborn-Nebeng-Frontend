@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Activity, 
@@ -10,8 +10,18 @@ import {
   Calendar,
   ShieldCheck
 } from 'lucide-react';
+import { Skeleton, SkeletonStatCard, SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function SuperAdminDashboard() {
+  // TODO: ganti dengan isLoading dari React Query begitu API dashboard sudah siap
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [stats] = useState({
     totalTransactions: "Rp 450.000.000",
     growthRate: "+12.5%",
@@ -68,6 +78,15 @@ export default function SuperAdminDashboard() {
 
       {/* Grid Kartu Metrik Utama */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {isLoading ? (
+          <>
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+          </>
+        ) : (
+        <>
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between relative">
           <div className="flex justify-between items-start mb-4">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-400">TOTAL TRANSAKSI</span>
@@ -131,11 +150,32 @@ export default function SuperAdminDashboard() {
             </span>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Bagian Grafik Garis & Komposisi */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
+        {isLoading ? (
+          <>
+            {/* Skeleton Grafik */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+              <Skeleton className="h-5 w-48 mb-2" />
+              <Skeleton className="h-3 w-64 mb-6" />
+              <Skeleton className="h-72 w-full rounded-2xl" />
+            </div>
+            {/* Skeleton Komposisi */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-3">
+              <Skeleton className="h-5 w-40 mb-1" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-3/4 mb-4" />
+              <Skeleton className="h-16 w-full rounded-2xl" />
+              <Skeleton className="h-16 w-full rounded-2xl" />
+            </div>
+          </>
+        ) : (
+        <>
         {/* Kolom Kiri: Grafik Sesuai Referensi (Skala 0 - 3500) */}
         <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
@@ -303,6 +343,8 @@ export default function SuperAdminDashboard() {
             <span className="text-emerald-600">Sinkronisasi Real-time</span>
           </div>
         </div>
+        </>
+        )}
 
       </div>
 
@@ -325,7 +367,19 @@ export default function SuperAdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {regionalActivities.map((region, index) => (
+              {isLoading ? (
+                <SkeletonTableRows rows={4} columns={4} />
+              ) : regionalActivities.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>
+                    <EmptyState
+                      title="Belum ada aktivitas wilayah"
+                      description="Data akan muncul setelah ada region yang aktif beroperasi."
+                    />
+                  </td>
+                </tr>
+              ) : (
+                regionalActivities.map((region, index) => (
                 <tr key={index} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-3">
@@ -354,7 +408,8 @@ export default function SuperAdminDashboard() {
                     </span>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

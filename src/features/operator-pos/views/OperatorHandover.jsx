@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { ShieldCheck, KeyRound, Camera, CheckCircle2, UserCheck, FileText } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 export default function OperatorHandover() {
+  const toast = useToast();
   const [ticketQr, setTicketQr] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [ktpUploaded, setKtpUploaded] = useState(false);
@@ -14,11 +16,11 @@ export default function OperatorHandover() {
   const handleHandoverSubmit = (e) => {
     e.preventDefault();
     if (!ticketQr || !otpCode) {
-      alert('Mohon masukkan Nomor Resi/QR Paket dan Kode OTP 6-Digit!');
+      toast.warning('Mohon masukkan Nomor Resi/QR Paket dan Kode OTP 6-Digit!', { title: 'Data Belum Lengkap' });
       return;
     }
     if (!ktpUploaded) {
-      alert('Verifikasi foto KTP penerima wajib dilakukan sebelum penyerahan barang!');
+      toast.warning('Verifikasi foto KTP penerima wajib dilakukan sebelum penyerahan barang!', { title: 'Verifikasi KTP Diperlukan' });
       return;
     }
 
@@ -35,7 +37,7 @@ export default function OperatorHandover() {
     setTicketQr('');
     setOtpCode('');
     setKtpUploaded(false);
-    alert('Verifikasi Handover Sukses! OTP & KTP valid, paket berhasil diserahkan kepada penerima.');
+    toast.success('Verifikasi Handover sukses! OTP & KTP valid, paket berhasil diserahkan kepada penerima.', { title: 'Handover Selesai' });
   };
 
   return (
@@ -47,7 +49,7 @@ export default function OperatorHandover() {
             <UserCheck className="w-3.5 h-3.5" /> Keamanan & Validasi Akhir Pos
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Handover Verification & OTP</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Validasi kode OTP 6-digit penerima dan unggah foto KTP fisik sebelum serah terima paket.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Validasi kode OTP 6-digit penerima dan unggah foto KTP fisik sebelum serah terima paket.</p>
         </div>
       </div>
 
@@ -86,7 +88,7 @@ export default function OperatorHandover() {
               <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-4 text-center hover:bg-neutral-50 transition cursor-pointer">
                 <Camera className="w-6 h-6 text-[#c91882] mx-auto mb-1" />
                 <p className="font-bold text-neutral-700">{ktpUploaded ? 'Foto KTP Terverifikasi (1 File)' : 'Ambil / Unggah Foto KTP'}</p>
-                <p className="text-[10px] text-neutral-400">Pastikan wajah & NIK pada KTP terlihat jelas</p>
+                <p className="text-[10px] text-neutral-500">Pastikan wajah & NIK pada KTP terlihat jelas</p>
                 <input 
                   type="file" 
                   className="hidden" 
@@ -115,7 +117,7 @@ export default function OperatorHandover() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+                <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                   <th className="py-4 px-3">HANDOVER ID & WAKTU</th>
                   <th className="py-4 px-3">QR TIKET</th>
                   <th className="py-4 px-3">OTP DIGUNAKAN</th>
@@ -127,7 +129,7 @@ export default function OperatorHandover() {
                   <tr key={item.id} className="hover:bg-neutral-50/60 transition">
                     <td className="py-4 px-3">
                       <p className="font-extrabold text-neutral-900">{item.id}</p>
-                      <p className="text-[10px] text-neutral-400 font-semibold">{item.time}</p>
+                      <p className="text-[10px] text-neutral-500 font-semibold">{item.time}</p>
                     </td>
                     <td className="py-4 px-3 font-mono font-bold text-neutral-800">{item.ticket}</td>
                     <td className="py-4 px-3 font-mono font-extrabold text-[#c91882] tracking-wider">{item.otp}</td>

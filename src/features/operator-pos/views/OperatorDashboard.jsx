@@ -44,7 +44,7 @@ export default function OperatorDashboard() {
             <MapPin className="w-3.5 h-3.5" /> Pos Mitra Solo Grand Mall | Shift Pagi
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Dashboard Operasional Pos</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Pantau jadwal trip mitra yang masuk dan keluar di pos Anda hari ini.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Pantau jadwal trip mitra yang masuk dan keluar di pos Anda hari ini.</p>
         </div>
 
         <div className="flex items-center gap-3 bg-neutral-50 px-4 py-3 rounded-2xl border border-neutral-200">
@@ -57,7 +57,7 @@ export default function OperatorDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider mb-1">Total Trip Masuk Pos</p>
+            <p className="text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1">Total Trip Masuk Pos</p>
             <h3 className="text-2xl font-extrabold text-neutral-900">2 Trip</h3>
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full mt-2">
               <ArrowDownLeft className="w-3 h-3" /> Jadwal aktif hari ini
@@ -70,7 +70,7 @@ export default function OperatorDashboard() {
 
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider mb-1">Total Trip Keluar Pos</p>
+            <p className="text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1">Total Trip Keluar Pos</p>
             <h3 className="text-2xl font-extrabold text-neutral-900">1 Trip</h3>
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full mt-2">
               <ArrowUpRight className="w-3 h-3" /> Siap diberangkatkan
@@ -83,7 +83,7 @@ export default function OperatorDashboard() {
 
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider mb-1">Status Operasional Pos</p>
+            <p className="text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1">Status Operasional Pos</p>
             <h3 className="text-xl font-extrabold text-emerald-600">Buka / Normal</h3>
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full mt-2">
               <ShieldCheck className="w-3 h-3" /> Sistem Terverifikasi
@@ -100,14 +100,14 @@ export default function OperatorDashboard() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-base font-extrabold text-neutral-900">Jadwal Trip Mitra Masuk & Keluar Hari Ini</h2>
-            <p className="text-xs text-neutral-400 mt-0.5">Daftar perjalanan yang dijadwalkan melintasi atau berpusat di pos Anda.</p>
+            <p className="text-xs text-neutral-500 mt-0.5">Daftar perjalanan yang dijadwalkan melintasi atau berpusat di pos Anda.</p>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 font-extrabold uppercase tracking-wider">
+              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
                 <th className="py-4 px-3">ID TRIP & WAKTU</th>
                 <th className="py-4 px-3">TIPE ARAH</th>
                 <th className="py-4 px-3">MITRA & KENDARAAN</th>
@@ -121,7 +121,7 @@ export default function OperatorDashboard() {
                 <tr key={trip.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3">
                     <p className="font-extrabold text-neutral-900 group-hover:text-[#c91882] transition">{trip.id}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold flex items-center gap-1 mt-0.5">
+                    <p className="text-[10px] text-neutral-500 font-semibold flex items-center gap-1 mt-0.5">
                       <Clock className="w-3 h-3" /> {trip.time}
                     </p>
                   </td>
@@ -138,7 +138,7 @@ export default function OperatorDashboard() {
                   </td>
                   <td className="py-4 px-3">
                     <p className="font-bold text-neutral-800">{trip.partnerName}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold">{trip.plateNumber}</p>
+                    <p className="text-[10px] text-neutral-500 font-semibold">{trip.plateNumber}</p>
                   </td>
                   <td className="py-4 px-3 font-semibold text-neutral-600">{trip.service}</td>
                   <td className="py-4 px-3">

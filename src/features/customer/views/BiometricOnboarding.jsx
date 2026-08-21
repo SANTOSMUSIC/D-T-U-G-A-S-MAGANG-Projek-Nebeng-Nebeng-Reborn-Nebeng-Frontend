@@ -29,7 +29,7 @@ export default function BiometricOnboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -37,21 +37,21 @@ export default function BiometricOnboarding() {
             <UserCheck className="w-3.5 h-3.5" /> Keamanan & Verifikasi
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Biometric Onboarding & Face ID</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Lakukan verifikasi identitas resmi untuk mengaktifkan seluruh fitur transaksi aman dan escrow di aplikasi.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Lakukan verifikasi identitas resmi untuk mengaktifkan seluruh fitur transaksi aman dan escrow di aplikasi.</p>
         </div>
       </div>
 
       {/* Indikator Langkah (Stepper) */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className={`p-4 rounded-2xl border transition ${step >= 1 ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-neutral-200 bg-white text-neutral-400'}`}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+        <div className={`p-4 rounded-2xl border transition ${step >= 1 ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-neutral-200 bg-white text-neutral-500'}`}>
           <span className="text-[10px] font-extrabold uppercase">Langkah 1</span>
           <p className="text-xs font-bold">Data Diri & NIK</p>
         </div>
-        <div className={`p-4 rounded-2xl border transition ${step >= 2 ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-neutral-200 bg-white text-neutral-400'}`}>
+        <div className={`p-4 rounded-2xl border transition ${step >= 2 ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-neutral-200 bg-white text-neutral-500'}`}>
           <span className="text-[10px] font-extrabold uppercase">Langkah 2</span>
           <p className="text-xs font-bold">Upload Foto KTP</p>
         </div>
-        <div className={`p-4 rounded-2xl border transition ${step >= 3 ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-neutral-200 bg-white text-neutral-400'}`}>
+        <div className={`p-4 rounded-2xl border transition ${step >= 3 ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-neutral-200 bg-white text-neutral-500'}`}>
           <span className="text-[10px] font-extrabold uppercase">Langkah 3</span>
           <p className="text-xs font-bold">Pemindaian Face ID</p>
         </div>
@@ -86,7 +86,12 @@ export default function BiometricOnboarding() {
             </div>
             <button 
               onClick={() => setStep(2)}
-              className="w-full mt-4 py-3.5 bg-pink-600 hover:bg-pink-700 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-pink-900/20 cursor-pointer flex items-center justify-center gap-2"
+              disabled={!formData.fullName.trim() || !formData.nik.trim()}
+              className={`w-full mt-4 py-3.5 rounded-2xl text-xs font-bold transition shadow-lg flex items-center justify-center gap-2 ${
+                !formData.fullName.trim() || !formData.nik.trim()
+                  ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                  : 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-900/20 cursor-pointer'
+              }`}
             >
               <span>Lanjut ke Upload KTP</span>
               <ArrowRight className="w-4 h-4" />
@@ -110,7 +115,7 @@ export default function BiometricOnboarding() {
                     <Upload className="w-6 h-6" />
                   </div>
                   <p className="text-xs font-bold text-neutral-700">Klik untuk upload atau pilih file foto KTP</p>
-                  <p className="text-[10px] text-neutral-400">Format: JPG, PNG (Maks. 5MB)</p>
+                  <p className="text-[10px] text-neutral-500">Format: JPG, PNG (Maks. 5MB)</p>
                 </div>
               )}
               <input type="file" accept="image/*" onChange={handleKtpUpload} className="mt-4 text-xs cursor-pointer" />
@@ -124,7 +129,12 @@ export default function BiometricOnboarding() {
               </button>
               <button 
                 onClick={() => setStep(3)} 
-                className="w-2/3 py-3.5 bg-pink-600 hover:bg-pink-700 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-pink-900/20 cursor-pointer flex items-center justify-center gap-2"
+                disabled={!ktpPreview}
+                className={`w-2/3 py-3.5 rounded-2xl text-xs font-bold transition shadow-lg flex items-center justify-center gap-2 ${
+                  !ktpPreview
+                    ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                    : 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-900/20 cursor-pointer'
+                }`}
               >
                 <span>Lanjut ke Face ID</span>
                 <ArrowRight className="w-4 h-4" />
@@ -137,7 +147,7 @@ export default function BiometricOnboarding() {
         {step === 3 && (
           <div className="space-y-4 text-center">
             <h2 className="text-base font-extrabold text-neutral-900 mb-1">3. Pemindaian Face ID & Liveness</h2>
-            <p className="text-neutral-400 text-xs mb-4">Posisikan wajah Anda di dalam bingkai lingkaran untuk pengenalan biometrik otomatis.</p>
+            <p className="text-neutral-500 text-xs mb-4">Posisikan wajah Anda di dalam bingkai lingkaran untuk pengenalan biometrik otomatis.</p>
             
             <div className="w-48 h-48 rounded-full border-4 border-dashed border-pink-500 mx-auto flex items-center justify-center relative bg-neutral-900 overflow-hidden shadow-inner">
               {isScanning ? (
@@ -151,7 +161,7 @@ export default function BiometricOnboarding() {
                   <span className="text-xs font-extrabold">Terverifikasi!</span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center text-neutral-400">
+                <div className="flex flex-col items-center text-neutral-500">
                   <Camera className="w-12 h-12 mb-2 text-pink-400" />
                   <span className="text-[10px]">Kamera Siap</span>
                 </div>

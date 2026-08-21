@@ -78,7 +78,7 @@ export default function MitraChat() {
             <MessageSquare className="w-3.5 h-3.5" /> Komunikasi Langsung
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">In-App Messaging Pelanggan</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Berkomunikasi secara langsung dengan pelanggan yang memesan trip atau paket pos Anda.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Berkomunikasi secara langsung dengan pelanggan yang memesan trip atau paket pos Anda.</p>
         </div>
       </div>
 
@@ -89,7 +89,7 @@ export default function MitraChat() {
         <div className="border-r border-neutral-100 flex flex-col col-span-1 bg-neutral-50/50">
           <div className="p-4 border-b border-neutral-100">
             <div className="relative">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+              <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-3.5" />
               <input 
                 type="text" 
                 placeholder="Cari pelanggan atau trip..." 
@@ -113,7 +113,7 @@ export default function MitraChat() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-extrabold text-xs text-neutral-900 truncate">{chat.customerName}</span>
-                    <span className="text-[10px] text-neutral-400 font-medium">{chat.time}</span>
+                    <span className="text-[10px] text-neutral-500 font-medium">{chat.time}</span>
                   </div>
                   <p className="text-[10px] font-bold text-pink-600 mb-1">{chat.tripCode} • {chat.route}</p>
                   <p className="text-[11px] text-neutral-500 truncate">{chat.lastMessage}</p>
@@ -161,7 +161,7 @@ export default function MitraChat() {
                   }`}>
                     <p>{msg.text}</p>
                   </div>
-                  <div className="flex items-center gap-1 mt-1 text-[9px] text-neutral-400">
+                  <div className="flex items-center gap-1 mt-1 text-[9px] text-neutral-500">
                     <span>{msg.time}</span>
                     {isMitra && <CheckCheck className="w-3 h-3 text-pink-600" />}
                   </div>

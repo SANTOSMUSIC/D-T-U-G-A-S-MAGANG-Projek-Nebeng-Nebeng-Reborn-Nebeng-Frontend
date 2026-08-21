@@ -54,7 +54,7 @@ export default function MitraOnboarding() {
             <ShieldCheck className="w-3.5 h-3.5" /> Verifikasi Keamanan Mitra
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Mitra Onboarding & Verification</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Lengkapi data diri, unggah dokumen legalitas, dan lakukan pemindaian Face ID untuk aktivasi akun.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Lengkapi data diri, unggah dokumen legalitas, dan lakukan pemindaian Face ID untuk aktivasi akun.</p>
         </div>
         {submitted && (
           <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-2xl text-xs font-extrabold flex items-center gap-2 border border-emerald-100">
@@ -155,9 +155,9 @@ export default function MitraOnboarding() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* SIM */}
               <div className="p-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
-                <Upload className="w-8 h-8 text-neutral-400 mb-2" />
+                <Upload className="w-8 h-8 text-neutral-500 mb-2" />
                 <p className="text-xs font-extrabold text-neutral-800 mb-1">Foto SIM C/A</p>
-                <p className="text-[10px] text-neutral-400 mb-3">{files.sim ? files.sim : 'Format JPG/PNG (Maks 2MB)'}</p>
+                <p className="text-[10px] text-neutral-500 mb-3">{files.sim ? files.sim : 'Format JPG/PNG (Maks 2MB)'}</p>
                 <label className="px-3 py-1.5 bg-[#312e81] text-white rounded-xl text-[11px] font-bold cursor-pointer hover:bg-[#1e1b4b] transition">
                   Pilih Berkas
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'sim')} className="hidden" />
@@ -166,9 +166,9 @@ export default function MitraOnboarding() {
 
               {/* SKCK */}
               <div className="p-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
-                <Upload className="w-8 h-8 text-neutral-400 mb-2" />
+                <Upload className="w-8 h-8 text-neutral-500 mb-2" />
                 <p className="text-xs font-extrabold text-neutral-800 mb-1">Foto SKCK Aktif</p>
-                <p className="text-[10px] text-neutral-400 mb-3">{files.skck ? files.skck : 'Format PDF/JPG (Maks 2MB)'}</p>
+                <p className="text-[10px] text-neutral-500 mb-3">{files.skck ? files.skck : 'Format PDF/JPG (Maks 2MB)'}</p>
                 <label className="px-3 py-1.5 bg-[#312e81] text-white rounded-xl text-[11px] font-bold cursor-pointer hover:bg-[#1e1b4b] transition">
                   Pilih Berkas
                   <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'skck')} className="hidden" />
@@ -177,9 +177,9 @@ export default function MitraOnboarding() {
 
               {/* STNK */}
               <div className="p-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
-                <Upload className="w-8 h-8 text-neutral-400 mb-2" />
+                <Upload className="w-8 h-8 text-neutral-500 mb-2" />
                 <p className="text-xs font-extrabold text-neutral-800 mb-1">Foto STNK Kendaraan</p>
-                <p className="text-[10px] text-neutral-400 mb-3">{files.stnk ? files.stnk : 'Format JPG/PNG (Maks 2MB)'}</p>
+                <p className="text-[10px] text-neutral-500 mb-3">{files.stnk ? files.stnk : 'Format JPG/PNG (Maks 2MB)'}</p>
                 <label className="px-3 py-1.5 bg-[#312e81] text-white rounded-xl text-[11px] font-bold cursor-pointer hover:bg-[#1e1b4b] transition">
                   Pilih Berkas
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'stnk')} className="hidden" />
@@ -193,7 +193,7 @@ export default function MitraOnboarding() {
             <h2 className="text-base font-extrabold text-neutral-900 flex items-center justify-center gap-2 mb-2">
               <Camera className="w-4 h-4 text-[#312e81]" /> 3. Pendaftaran Data Face ID Scan
             </h2>
-            <p className="text-xs text-neutral-400 mb-6">Sistem memerlukan verifikasi wajah untuk keamanan dan validasi identitas pengemudi mitra.</p>
+            <p className="text-xs text-neutral-500 mb-6">Sistem memerlukan verifikasi wajah untuk keamanan dan validasi identitas pengemudi mitra.</p>
             
             <div className="max-w-xs mx-auto p-6 bg-neutral-900 rounded-3xl text-white flex flex-col items-center justify-center relative overflow-hidden shadow-inner min-h-[220px]">
               {isScanning ? (
@@ -209,7 +209,7 @@ export default function MitraOnboarding() {
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
                   <p className="text-xs font-extrabold text-emerald-400">Face ID Berhasil Didaftarkan!</p>
-                  <p className="text-[10px] text-neutral-400 mt-1">Data biometrik tersimpan aman</p>
+                  <p className="text-[10px] text-neutral-500 mt-1">Data biometrik tersimpan aman</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
@@ -237,7 +237,7 @@ export default function MitraOnboarding() {
               className={`px-8 py-4 rounded-2xl font-extrabold text-xs transition shadow-lg ${
                 faceScanned 
                   ? 'bg-[#312e81] hover:bg-[#1e1b4b] text-white shadow-indigo-900/30 cursor-pointer' 
-                  : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                  : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
               }`}
             >
               Kirim Data Onboarding & Verifikasi

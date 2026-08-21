@@ -6,10 +6,28 @@ import AuthLayout from '../../components/layout/AuthLayout';
 export default function Login({ onSwitchToRegister, onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(''); // State untuk menampung input email
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const nextErrors = {};
+    if (!email.trim()) {
+      nextErrors.email = 'Email wajib diisi';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      nextErrors.email = 'Format email tidak valid';
+    }
+    if (!password) {
+      nextErrors.password = 'Password wajib diisi';
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
+    if (!validate()) return;
+
     const lowerEmail = email.toLowerCase();
     let role = 'admin'; // Default role
 
@@ -36,17 +54,18 @@ export default function Login({ onSwitchToRegister, onLogin }) {
     >
       <div className="mb-6 text-center">
         <h2 className="text-2xl md:text-3xl font-extrabold text-[#69188c] mb-1">Hai... Bagaimana kabarmu?</h2>
-        <p className="text-neutral-400 text-xs md:text-sm">Silahkan Masukkan akun Anda untuk melanjutkan</p>
+        <p className="text-neutral-500 text-xs md:text-sm">Silahkan Masukkan akun Anda untuk melanjutkan</p>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <AuthInput 
           label="EMAIL" 
           icon={Mail} 
           type="email" 
-          placeholder="cth: mitra@nebeng.com" 
+          placeholder=". . . . " 
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          error={errors.email}
         />
         
         <AuthInput 
@@ -54,8 +73,11 @@ export default function Login({ onSwitchToRegister, onLogin }) {
           icon={Lock} 
           type="password" 
           placeholder=". . . . " 
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           showPassword={showPassword} 
           togglePassword={() => setShowPassword(!showPassword)}
+          error={errors.password}
         />
 
         <div className="flex items-center justify-between text-xs pt-1">

@@ -8,13 +8,16 @@ import {
   Truck, 
   FileText, 
   LogOut,
-  AlertTriangle 
+  AlertTriangle,
+  Menu,
+  X
 } from 'lucide-react';
 import logoImage from '../../../assets/LOGO.png';
 
 export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMenuSelect, onLogout }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
     { name: 'Dashboard Wilayah', icon: LayoutDashboard },
@@ -35,17 +38,46 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
     }, 800);
   };
 
+  const handleMenuSelect = (name) => {
+    onMenuSelect && onMenuSelect(name);
+    setIsMobileOpen(false);
+  };
+
   return (
     <>
-      <aside className="w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] flex flex-col justify-between p-6 text-white fixed left-0 top-0 shadow-xl overflow-y-auto z-30">
+      {/* Tombol Hamburger (khusus mobile/tablet) */}
+      <button
+        onClick={() => setIsMobileOpen(true)}
+        aria-label="Buka menu navigasi"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#e61994]"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Overlay saat sidebar terbuka di mobile */}
+      {isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
+        />
+      )}
+
+      <aside className={`w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] flex flex-col justify-between p-6 text-white fixed left-0 top-0 shadow-xl overflow-y-auto z-40 transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div>
           {/* Logo Brand */}
-          <div className="mb-8 px-2">
+          <div className="mb-8 px-2 flex items-center justify-between">
             <img 
               src={logoImage} 
               alt="Logo Nebeng" 
               className="h-10 w-auto object-contain filter brightness-0 invert" 
             />
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              aria-label="Tutup menu navigasi"
+              className="lg:hidden w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           <p className="text-[10px] font-semibold uppercase tracking-widest text-pink-200/70 mb-4 px-2">
@@ -60,7 +92,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
               return (
                 <button
                   key={item.name}
-                  onClick={() => onMenuSelect && onMenuSelect(item.name)}
+                  onClick={() => handleMenuSelect(item.name)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-xs transition text-left cursor-pointer ${
                     isActive 
                       ? 'bg-white text-pink-900 shadow-lg font-bold' 
@@ -104,6 +136,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
 
           <button 
             onClick={() => setShowLogoutModal(true)}
+            aria-label="Keluar dari akun Admin Wilayah"
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold transition shadow-sm active:scale-95 hover:scale-[1.02] hover:shadow-lg cursor-pointer"
           >
             <LogOut className="w-4 h-4" />

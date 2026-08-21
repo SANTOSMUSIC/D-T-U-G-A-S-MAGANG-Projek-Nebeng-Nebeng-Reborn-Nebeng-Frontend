@@ -10,7 +10,7 @@ export default function OperatorFinancial() {
             <FileText className="w-3.5 h-3.5" /> Rekapitulasi Kas & Pendapatan Pos
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Laporan Finansial Pos</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Kelola setoran tunai harian dan pantau pendapatan total pos Anda.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Kelola setoran tunai harian dan pantau pendapatan total pos Anda.</p>
         </div>
         <button 
           onClick={() => window.print()}
@@ -23,7 +23,7 @@ export default function OperatorFinancial() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider mb-1">Total Pendapatan Pos</p>
+            <p className="text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1">Total Pendapatan Pos</p>
             <h3 className="text-2xl font-extrabold text-neutral-900">Rp 155.000</h3>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center">
@@ -33,7 +33,7 @@ export default function OperatorFinancial() {
 
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider mb-1">Setoran Kas ke Regional (15%)</p>
+            <p className="text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1">Setoran Kas ke Regional (15%)</p>
             <h3 className="text-2xl font-extrabold text-emerald-600">Rp 23.250</h3>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center">

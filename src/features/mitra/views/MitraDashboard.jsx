@@ -21,7 +21,7 @@ export default function MitraDashboard() {
             <TrendingUp className="w-3.5 h-3.5" /> Mitra Pos Utama Dashboard
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Ringkasan Aktivitas Mitra</h1>
-          <p className="text-neutral-400 text-xs mt-0.5">Kelola trip mendatang, pantau riwayat perjalanan, statistik rating, dan total saldo dompet Anda.</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Kelola trip mendatang, pantau riwayat perjalanan, statistik rating, dan total saldo dompet Anda.</p>
         </div>
       </div>
 
@@ -44,7 +44,7 @@ export default function MitraDashboard() {
         {/* Statistik Rating */}
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-neutral-400 font-extrabold text-xs uppercase tracking-wider mb-1">Statistik Rating Mitra</p>
+            <p className="text-neutral-500 font-extrabold text-xs uppercase tracking-wider mb-1">Statistik Rating Mitra</p>
             <div className="flex items-center gap-2 mt-1">
               <h2 className="text-3xl font-extrabold text-neutral-900">4.92</h2>
               <div className="flex items-center text-amber-400">
@@ -55,7 +55,7 @@ export default function MitraDashboard() {
                 <Star className="w-5 h-5 fill-current text-amber-200" />
               </div>
             </div>
-            <p className="text-[11px] text-neutral-400 mt-2 font-medium">Berdasarkan 128 ulasan pengirim & pos</p>
+            <p className="text-[11px] text-neutral-500 mt-2 font-medium">Berdasarkan 128 ulasan pengirim & pos</p>
           </div>
           <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shadow-inner">
             <Star className="w-7 h-7" />
@@ -111,7 +111,7 @@ export default function MitraDashboard() {
                   <span className="text-xs font-extrabold text-emerald-600">{history.earnings}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
-                  <MapPin className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <MapPin className="w-4 h-4 text-neutral-500 shrink-0" />
                   <span>{history.route}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-neutral-100 text-[11px] text-neutral-500 font-medium">

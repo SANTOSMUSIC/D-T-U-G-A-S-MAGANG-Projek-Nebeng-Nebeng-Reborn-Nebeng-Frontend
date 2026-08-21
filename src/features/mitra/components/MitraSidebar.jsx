@@ -1,7 +1,9 @@
-import React from 'react';
-import { LayoutDashboard, UserCheck, Calendar, QrCode, Package, Wallet, MessageSquare, ShieldCheck, LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, UserCheck, Calendar, QrCode, Package, Wallet, MessageSquare, ShieldCheck, LogOut, Menu, X } from 'lucide-react';
 
 export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
   const menuItems = [
     { name: 'Dashboard Mitra', icon: LayoutDashboard },
     { name: 'Onboarding & Verifikasi', icon: UserCheck },
@@ -11,17 +13,49 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
     { name: 'Chat Pelanggan', icon: MessageSquare },
   ];
 
+  const handleMenuSelect = (name) => {
+    onMenuSelect(name);
+    setIsMobileOpen(false);
+  };
+
   return (
-    <aside className="w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] text-white flex flex-col justify-between fixed top-0 left-0 print:hidden z-30 select-none shadow-xl">
+    <>
+      {/* Tombol Hamburger (khusus mobile/tablet) */}
+      <button
+        onClick={() => setIsMobileOpen(true)}
+        aria-label="Buka menu navigasi"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#312e81] print:hidden"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Overlay saat sidebar terbuka di mobile */}
+      {isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
+        />
+      )}
+
+    <aside className={`w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] text-white flex flex-col justify-between fixed top-0 left-0 print:hidden z-40 select-none shadow-xl transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="p-6 overflow-y-auto">
         {/* Logo Brand */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-2xl bg-white text-[#312e81] flex items-center justify-center font-extrabold shadow-md">
-            M
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white text-[#312e81] flex items-center justify-center font-extrabold shadow-md">
+              M
+            </div>
+            <div>
+              <span className="text-white font-extrabold text-lg tracking-wider">Nebeng Mitra</span>
+            </div>
           </div>
-          <div>
-            <span className="text-white font-extrabold text-lg tracking-wider">Nebeng Mitra</span>
-          </div>
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            aria-label="Tutup menu navigasi"
+            className="lg:hidden w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Subheader Menu */}
@@ -37,7 +71,7 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
             return (
               <button
                 key={item.name}
-                onClick={() => onMenuSelect(item.name)}
+                onClick={() => handleMenuSelect(item.name)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
                   isActive
                     ? 'bg-white text-[#312e81] shadow-md'
@@ -66,6 +100,7 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
 
         <button 
           onClick={onLogout}
+          aria-label="Keluar dari akun Mitra"
           className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-red-900/30 cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
@@ -73,5 +108,6 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }

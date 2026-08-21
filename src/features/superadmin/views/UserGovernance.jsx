@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, 
   UserX, 
@@ -14,8 +14,11 @@ import {
   Phone,
   Filter
 } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function UserGovernance() {
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   // Mock Data Pengguna Sistem (Super-override Management)
   const [users, setUsers] = useState([
     { id: "USR-001", name: "Budi Santoso", email: "budi@nebeng.com", role: "Driver Motor", phone: "+62 812-3456-7890", status: "Active", riskLevel: "Low" },
@@ -39,6 +42,12 @@ export default function UserGovernance() {
     const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setIsLoadingUsers(true);
+    const timer = setTimeout(() => setIsLoadingUsers(false), 700);
+    return () => clearTimeout(timer);
+  }, [searchTerm, statusFilter]);
 
   // Eksekusi Aksi Super-override
   const handleExecuteAction = () => {
@@ -171,7 +180,9 @@ export default function UserGovernance() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {filteredUsers.length > 0 ? (
+              {isLoadingUsers ? (
+                <SkeletonTableRows rows={4} columns={5} />
+              ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-4 px-6">
@@ -237,8 +248,12 @@ export default function UserGovernance() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="py-8 text-center text-xs font-bold text-gray-400">
-                    Tidak ada data pengguna ditemukan.
+                  <td colSpan="5">
+                    <EmptyState
+                      icon={User}
+                      title="Pengguna Tidak Ditemukan"
+                      description="Tidak ada pengguna yang cocok dengan pencarian atau filter status yang dipilih."
+                    />
                   </td>
                 </tr>
               )}
