@@ -12,7 +12,7 @@ export default function MitraDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
@@ -27,7 +27,7 @@ export default function MitraDashboard() {
       {/* Grid Statistik Atas (Wallet & Rating) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Total Saldo Wallet */}
-        <div className="bg-gradient-to-br from-[#196be6] to-[#b819b8] text-white p-6 rounded-3xl shadow-sm flex items-center justify-between">
+        <div className="bg-gradient-to-br from-[#196be6] to-brand-role-start text-white p-6 rounded-3xl shadow-sm flex items-center justify-between">
           <div>
             <p className="text-blue-100 font-extrabold text-xs uppercase tracking-wider mb-1">Total Saldo Wallet</p>
             <h2 className="text-3xl font-extrabold tracking-tight">Rp 4.850.000</h2>

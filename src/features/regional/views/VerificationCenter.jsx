@@ -77,20 +77,35 @@ export default function VerificationCenterPage() {
     setIsDetailModalOpen(true);
   };
 
+  // FIX: sebelumnya pengajuan yang sudah "Disetujui"/"Ditolak" masih bisa
+  // diproses ulang berkali-kali (approve setelah reject, atau sebaliknya)
+  // tanpa jejak keputusan sebelumnya. Sekarang keputusan yang sudah final
+  // tidak bisa diproses ulang.
+  const isDecided = (user) => !!user && user.status !== 'Menunggu Review';
+
   const handleApprove = (id) => {
+    const target = verificationList.find(item => item.id === id);
+    if (isDecided(target)) {
+      toast.warning('Pengajuan ini sudah diputuskan sebelumnya dan tidak dapat diproses ulang.', { title: 'Sudah Diputuskan' });
+      return;
+    }
     setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui' } : item));
     setIsDetailModalOpen(false);
     toast.success(`Verifikasi untuk ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
   };
 
   const handleOpenRejectModal = (user) => {
+    if (isDecided(user)) {
+      toast.warning('Pengajuan ini sudah diputuskan sebelumnya dan tidak dapat diproses ulang.', { title: 'Sudah Diputuskan' });
+      return;
+    }
     setSelectedUser(user);
     setIsRejectModalOpen(true);
   };
 
   const handleConfirmReject = (e) => {
     e.preventDefault();
-    if (!selectedUser) return;
+    if (!selectedUser || isDecided(selectedUser)) return;
 
     setVerificationList(prev => prev.map(item => item.id === selectedUser.id ? { ...item, status: `Ditolak: ${selectedReason}` } : item));
     setIsRejectModalOpen(false);
@@ -107,7 +122,7 @@ export default function VerificationCenterPage() {
   const isLoadingVerification = useSimulatedLoading([searchQuery], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
@@ -223,10 +238,22 @@ export default function VerificationCenterPage() {
                 <h2 className="text-base font-extrabold text-neutral-900">Review Berkas Identitas: {selectedUser.name}</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Periksa keaslian KTP, SIM, SKCK, STNK, dan hasil Face ID Liveness Scan secara seksama.</p>
               </div>
-              <button onClick={() => setIsDetailModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setIsDetailModalOpen(false)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* FIX: tampilkan status keputusan sebelumnya bila pengajuan sudah final */}
+            {isDecided(selectedUser) && (
+              <div className={`mb-6 p-4 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
+                selectedUser.status === 'Disetujui'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  : 'bg-rose-50 border-rose-200 text-rose-700'
+              }`}>
+                {selectedUser.status === 'Disetujui' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
+                <span>Pengajuan ini sudah diputuskan: {selectedUser.status}. Tidak dapat diproses ulang.</span>
+              </div>
+            )}
 
             {/* Grid Berkas */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -290,21 +317,23 @@ export default function VerificationCenterPage() {
               </div>
             </div>
 
-            {/* Aksi Approve / Reject */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">
-              <button 
-                onClick={() => handleOpenRejectModal(selectedUser)}
-                className="px-6 py-3 rounded-2xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <XCircle className="w-4 h-4" /> Tolak Berkas
-              </button>
-              <button 
-                onClick={() => handleApprove(selectedUser.id)}
-                className="px-6 py-3 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-lg shadow-emerald-600/25 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Setujui (Approve)
-              </button>
-            </div>
+            {/* Aksi Approve / Reject — disembunyikan jika pengajuan sudah final */}
+            {!isDecided(selectedUser) && (
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">
+                <button 
+                  onClick={() => handleOpenRejectModal(selectedUser)}
+                  className="px-6 py-3 rounded-2xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <XCircle className="w-4 h-4" /> Tolak Berkas
+                </button>
+                <button 
+                  onClick={() => handleApprove(selectedUser.id)}
+                  className="px-6 py-3 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-lg shadow-emerald-600/25 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Setujui (Approve)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -318,7 +347,7 @@ export default function VerificationCenterPage() {
                 <h2 className="text-base font-extrabold text-neutral-900">Konfirmasi Penolakan Berkas</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Pilih alasan penolakan otomatis untuk dikirimkan ke pengguna.</p>
               </div>
-              <button onClick={() => setIsRejectModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setIsRejectModalOpen(false)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

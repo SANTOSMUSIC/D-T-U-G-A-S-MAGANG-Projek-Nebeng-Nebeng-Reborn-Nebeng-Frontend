@@ -24,7 +24,7 @@ export default function KurirPage() {
   const isLoadingKurir = useSimulatedLoading([searchQuery], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
           <div className="flex items-center gap-2 text-purple-700 font-extrabold text-[11px] uppercase tracking-wider mb-1">
@@ -171,6 +171,7 @@ export default function KurirPage() {
               </div>
               <button 
                 onClick={() => setSelectedDetail(null)}
+                aria-label="Tutup"
                 className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer"
               >
                 <X className="w-4 h-4" />

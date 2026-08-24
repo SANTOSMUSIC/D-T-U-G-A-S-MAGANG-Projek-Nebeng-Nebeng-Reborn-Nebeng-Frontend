@@ -44,11 +44,11 @@ export default function OperatorDashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Informasi Pos & Tanggal */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 text-[#c91882] font-extrabold text-[11px] uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-brand-operator font-extrabold text-[11px] uppercase tracking-wider mb-1">
             <MapPin className="w-3.5 h-3.5" /> Pos Mitra Solo Grand Mall | Shift Pagi
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Dashboard Operasional Pos</h1>
@@ -56,7 +56,7 @@ export default function OperatorDashboard() {
         </div>
 
         <div className="flex items-center gap-3 bg-neutral-50 px-4 py-3 rounded-2xl border border-neutral-200">
-          <Calendar className="w-4 h-4 text-[#c91882]" />
+          <Calendar className="w-4 h-4 text-brand-operator" />
           <span className="text-xs font-bold text-neutral-700">19 Agu 2026</span>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function OperatorDashboard() {
               <ArrowDownLeft className="w-3 h-3" /> Jadwal aktif hari ini
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-pink-50 text-[#c91882] flex items-center justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-pink-50 text-brand-operator flex items-center justify-center">
             <ArrowDownLeft className="w-6 h-6" />
           </div>
         </div>
@@ -140,14 +140,14 @@ export default function OperatorDashboard() {
               ) : tripsSchedule.map((trip) => (
                 <tr key={trip.id} className="hover:bg-neutral-50/60 transition group">
                   <td className="py-4 px-3">
-                    <p className="font-extrabold text-neutral-900 group-hover:text-[#c91882] transition">{trip.id}</p>
+                    <p className="font-extrabold text-neutral-900 group-hover:text-brand-operator transition">{trip.id}</p>
                     <p className="text-[10px] text-neutral-500 font-semibold flex items-center gap-1 mt-0.5">
                       <Clock className="w-3 h-3" /> {trip.time}
                     </p>
                   </td>
                   <td className="py-4 px-3">
                     {trip.type === 'Masuk' ? (
-                      <span className="inline-flex items-center gap-1 bg-pink-50 text-[#c91882] font-extrabold text-[10px] px-2.5 py-1 rounded-full">
+                      <span className="inline-flex items-center gap-1 bg-pink-50 text-brand-operator font-extrabold text-[10px] px-2.5 py-1 rounded-full">
                         <ArrowDownLeft className="w-3 h-3" /> Masuk Pos
                       </span>
                     ) : (

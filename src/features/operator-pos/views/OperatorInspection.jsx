@@ -40,10 +40,10 @@ export default function OperatorInspection() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 text-[#c91882] font-extrabold text-[11px] uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-brand-operator font-extrabold text-[11px] uppercase tracking-wider mb-1">
             <PackageCheck className="w-3.5 h-3.5" /> Standar Keamanan & Validasi Pos
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Inspeksi & Sealing (Pemeriksaan Paket)</h1>
@@ -63,7 +63,7 @@ export default function OperatorInspection() {
                 placeholder="cth: Budi Santoso"
                 value={formData.senderName}
                 onChange={(e) => setFormData({...formData, senderName: e.target.value})}
-                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#c91882] font-medium"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-brand-operator font-medium"
               />
             </div>
 
@@ -75,14 +75,14 @@ export default function OperatorInspection() {
                 placeholder="cth: Dokumen / Elektronik / Makanan"
                 value={formData.itemType}
                 onChange={(e) => setFormData({...formData, itemType: e.target.value})}
-                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#c91882] font-medium"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-brand-operator font-medium"
               />
             </div>
 
             <div>
               <label className="block font-bold text-neutral-600 mb-1">UPLOAD FOTO KONDISI BARANG</label>
               <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-4 text-center hover:bg-neutral-50 transition cursor-pointer">
-                <Camera className="w-6 h-6 text-[#c91882] mx-auto mb-1" />
+                <Camera className="w-6 h-6 text-brand-operator mx-auto mb-1" />
                 <p className="font-bold text-neutral-700">{photoUploaded ? 'Foto Berhasil Diunggah (1 File)' : 'Klik untuk Unggah Foto Fisik'}</p>
                 <p className="text-[10px] text-neutral-500">PNG, JPG (Maks. 5MB)</p>
                 <input 
@@ -91,7 +91,7 @@ export default function OperatorInspection() {
                   onChange={() => setPhotoUploaded(true)} 
                   id="upload-foto-barang"
                 />
-                <label htmlFor="upload-foto-barang" className="mt-2 inline-block px-3 py-1 bg-pink-50 text-[#c91882] font-extrabold rounded-lg text-[10px] cursor-pointer">
+                <label htmlFor="upload-foto-barang" className="mt-2 inline-block px-3 py-1 bg-pink-50 text-brand-operator font-extrabold rounded-lg text-[10px] cursor-pointer">
                   Pilih Berkas Foto
                 </label>
               </div>
@@ -106,12 +106,12 @@ export default function OperatorInspection() {
                   placeholder="Scan atau Ketik Kode QR"
                   value={formData.qrCode}
                   onChange={(e) => setFormData({...formData, qrCode: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#c91882] font-medium"
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-brand-operator font-medium"
                 />
                 <button 
                   type="button" 
                   onClick={() => setFormData({...formData, qrCode: `QR-SGL-${Math.floor(10000 + Math.random() * 90000)}`})}
-                  className="px-4 bg-pink-50 text-[#c91882] font-extrabold rounded-xl hover:bg-pink-100 transition shrink-0 flex items-center gap-1 cursor-pointer"
+                  className="px-4 bg-pink-50 text-brand-operator font-extrabold rounded-xl hover:bg-pink-100 transition shrink-0 flex items-center gap-1 cursor-pointer"
                 >
                   <QrCode className="w-4 h-4" /> Scan
                 </button>
@@ -120,7 +120,7 @@ export default function OperatorInspection() {
 
             <button 
               type="submit"
-              className="w-full py-3.5 bg-[#c91882] hover:bg-[#b51474] text-white font-bold rounded-xl shadow-lg shadow-[#c91882]/25 transition cursor-pointer mt-2"
+              className="w-full py-3.5 bg-brand-operator hover:bg-brand-magenta-dark text-white font-bold rounded-xl shadow-lg shadow-brand-operator/25 transition cursor-pointer mt-2"
             >
               Simpan & Kunci Paket
             </button>
@@ -161,7 +161,7 @@ export default function OperatorInspection() {
                     </td>
                     <td className="py-4 px-3 font-bold text-neutral-800">{item.sender}</td>
                     <td className="py-4 px-3 font-semibold text-neutral-600">{item.item}</td>
-                    <td className="py-4 px-3 font-mono font-extrabold text-[#c91882]">{item.qr}</td>
+                    <td className="py-4 px-3 font-mono font-extrabold text-brand-operator">{item.qr}</td>
                     <td className="py-4 px-3">
                       <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1 w-fit">
                         <CheckCircle2 className="w-3 h-3" /> {item.status}

@@ -59,7 +59,7 @@ export default function Login({ onSwitchToRegister, onLogin }) {
       badgeText="VERIFIED SECURITY SYSTEM"
     >
       <div className="mb-6 text-center">
-        <h2 className="text-2xl md:text-3xl font-extrabold text-[#69188c] mb-1">Hai... Bagaimana kabarmu?</h2>
+        <h2 className="text-2xl md:text-3xl font-extrabold text-brand-login mb-1">Hai... Bagaimana kabarmu?</h2>
         <p className="text-neutral-500 text-xs md:text-sm">Silahkan Masukkan akun Anda untuk melanjutkan</p>
       </div>
 
@@ -87,9 +87,27 @@ export default function Login({ onSwitchToRegister, onLogin }) {
         />
 
         <div className="flex items-center justify-between text-xs pt-1">
-          <label className="flex items-center gap-2 cursor-pointer text-neutral-600 select-none">
-            <input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-purple-600 focus:ring-purple-500 accent-purple-600" />
-            <span className="font-bold text-neutral-500 tracking-wider text-[11px]">INGAT SAYA</span>
+          {/* FIX (CACAT LOGIKA): checkbox ini sebelumnya tidak terhubung ke state
+              apa pun (tidak ada value/onChange) — user bisa mencentangnya tapi
+              tidak berpengaruh sama sekali, padahal terlihat seperti fitur yang
+              aktif. Karena sesi login memang sudah selalu disimpan ke
+              localStorage (lihat AuthContext) tanpa opsi "sesi sementara", opsi
+              ini belum benar-benar bisa dibedakan perilakunya. Sambil menunggu
+              implementasi sesi sementara vs. sesi persisten, checkbox
+              dinonaktifkan dengan tooltip — konsisten dengan perlakuan tombol
+              "Lupa Password?" di sebelahnya — daripada membiarkan user mengira
+              fitur ini berfungsi.  */}
+          <label
+            title="Fitur ini akan segera hadir"
+            className="flex items-center gap-2 cursor-not-allowed text-neutral-400 select-none"
+          >
+            <input
+              type="checkbox"
+              disabled
+              aria-disabled="true"
+              className="w-4 h-4 rounded border-neutral-300 text-purple-600 focus:ring-purple-500 accent-purple-600 cursor-not-allowed"
+            />
+            <span className="font-bold text-neutral-300 tracking-wider text-[11px]">INGAT SAYA</span>
           </label>
           <button
             type="button"

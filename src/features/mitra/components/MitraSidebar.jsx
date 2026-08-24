@@ -37,7 +37,7 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
         />
       )}
 
-    <aside className={`w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] text-white flex flex-col justify-between fixed top-0 left-0 print:hidden z-40 select-none shadow-xl transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+    <aside className={`w-64 h-screen bg-gradient-to-b from-brand-role-start via-brand-role-mid to-brand-role-end text-white flex flex-col justify-between fixed top-0 left-0 print:hidden z-40 select-none shadow-xl transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="p-6 overflow-y-auto">
         {/* Logo Brand */}
         <div className="flex items-center justify-between mb-8">
@@ -87,7 +87,7 @@ export default function MitraSidebar({ activeMenu, onMenuSelect, onLogout }) {
       </div>
 
       {/* Bagian Bawah: Keamanan & Tombol Keluar */}
-      <div className="p-6 space-y-3 bg-[#b51474]/40 border-t border-white/10">
+      <div className="p-6 space-y-3 bg-brand-magenta-dark/40 border-t border-white/10">
         <div className="bg-white/10 p-3 rounded-2xl border border-white/10 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-pink-600/30 flex items-center justify-center text-pink-200">
             <ShieldCheck className="w-4 h-4" />

@@ -1,15 +1,20 @@
 import { useState } from 'react';
-import { LayoutDashboard, QrCode, UserCheck, ShieldCheck, LogOut, ClipboardCheck, AlertTriangle, Menu, X } from 'lucide-react';
+import { LayoutDashboard, QrCode, ShieldCheck, LogOut, ClipboardCheck, AlertTriangle, Menu, X } from 'lucide-react';
 
 export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  // CATATAN LOGIKA: menu "Handover Verification" terpisah sudah dihapus
+  // karena duplikat dengan "Dual QR Scanner" -> tab "Scan 2 (Destination)",
+  // yang sejak awal memang dirancang untuk memicu verifikasi handover
+  // (OTP + foto KTP) sebelum dana escrow dicairkan. Dua halaman terpisah
+  // dengan riwayat log yang tidak saling terhubung membingungkan operator
+  // pos soal alur mana yang harus dipakai.
   const menuItems = [
     { name: 'Dashboard Pos', icon: LayoutDashboard },
     { name: 'Inspection & Sealing', icon: ClipboardCheck },
     { name: 'Dual QR Scanner', icon: QrCode },
-    { name: 'Handover Verification', icon: UserCheck },
   ];
 
   const handleMenuSelect = (name) => {
@@ -23,7 +28,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#c91882] print:hidden"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-brand-operator print:hidden"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -36,12 +41,12 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
         />
       )}
 
-      <aside className={`w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] text-white flex flex-col justify-between fixed top-0 left-0 print:hidden z-40 select-none shadow-xl transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside className={`w-64 h-screen bg-gradient-to-b from-brand-role-start via-brand-role-mid to-brand-role-end text-white flex flex-col justify-between fixed top-0 left-0 print:hidden z-40 select-none shadow-xl transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="p-6 overflow-y-auto">
           {/* Logo Brand */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white text-[#c91882] flex items-center justify-center font-extrabold shadow-md">
+              <div className="w-10 h-10 rounded-2xl bg-white text-brand-operator flex items-center justify-center font-extrabold shadow-md">
                 N
               </div>
               <div>
@@ -73,7 +78,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
                   onClick={() => handleMenuSelect(item.name)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
                     isActive
-                      ? 'bg-white text-[#c91882] shadow-md'
+                      ? 'bg-white text-brand-operator shadow-md'
                       : 'text-pink-100 hover:bg-white/10 hover:text-white'
                   }`}
                 >
@@ -86,7 +91,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
         </div>
 
         {/* Bagian Bawah: Keamanan, Profil, & Tombol Keluar */}
-        <div className="p-6 space-y-3 bg-[#b51474]/40 border-t border-white/10">
+        <div className="p-6 space-y-3 bg-brand-magenta-dark/40 border-t border-white/10">
           <div className="bg-white/10 p-3 rounded-2xl border border-white/10 flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white">
               <ShieldCheck className="w-4 h-4" />
@@ -98,7 +103,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
           </div>
 
           <div className="bg-white/10 p-3 rounded-2xl border border-white/10 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-white text-[#c91882] flex items-center justify-center font-extrabold text-xs">
+            <div className="w-8 h-8 rounded-xl bg-white text-brand-operator flex items-center justify-center font-extrabold text-xs">
               OP
             </div>
             <div className="overflow-hidden">
@@ -130,7 +135,7 @@ export default function OperatorSidebar({ activeMenu, onMenuSelect, onLogout }) 
             <div>
               <h3 className="text-base font-black text-neutral-900 mb-1">Konfirmasi Keluar Sistem</h3>
               <p className="text-xs text-neutral-500 leading-relaxed">
-                Apakah Anda yakin ingin mengakhiri sesi aktif wilayah ini? Anda harus masuk kembali untuk mengakses operator pos.
+                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus masuk kembali untuk mengakses operator pos.
               </p>
             </div>
 

@@ -67,7 +67,7 @@ export default function UserGovernance() {
   };
 
   return (
-    <div className="p-8 pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>

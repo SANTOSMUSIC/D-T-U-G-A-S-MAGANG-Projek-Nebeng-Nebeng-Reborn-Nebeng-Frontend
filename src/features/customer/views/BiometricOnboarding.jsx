@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserCheck, Upload, Camera, CheckCircle2, ArrowRight, RefreshCw } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function BiometricOnboarding() {
+  const navigate = useNavigate();
+  const { markCustomerVerified } = useAuth();
   const [step, setStep] = useState(1); // 1: Data Diri, 2: Upload KTP, 3: Face ID
   const [formData, setFormData] = useState({
     fullName: '',
@@ -12,12 +16,27 @@ export default function BiometricOnboarding() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
 
+  // FIX: sebelumnya URL.createObjectURL() dipanggil setiap kali user
+  // mengganti foto KTP tanpa pernah di-revoke, sehingga object URL lama
+  // menumpuk di memori browser (memory leak) — terutama kalau user
+  // bolak-balik mengganti foto sebelum submit.
   const handleKtpUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setKtpPreview(URL.createObjectURL(file));
+      setKtpPreview((prevUrl) => {
+        if (prevUrl) URL.revokeObjectURL(prevUrl);
+        return URL.createObjectURL(file);
+      });
     }
   };
+
+  // Bersihkan object URL foto KTP saat komponen unmount, supaya tidak bocor memori.
+  useEffect(() => {
+    return () => {
+      if (ktpPreview) URL.revokeObjectURL(ktpPreview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hanya perlu cleanup saat unmount
+  }, []);
 
   const startFaceScan = () => {
     setIsScanning(true);
@@ -29,7 +48,7 @@ export default function BiometricOnboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -78,17 +97,25 @@ export default function BiometricOnboarding() {
               <label className="block text-xs font-bold text-neutral-700 mb-1">Nomor Induk Kependudukan (NIK)</label>
               <input 
                 type="text" 
+                inputMode="numeric"
+                maxLength={16}
                 placeholder="3372xxxxxxxxxxxx"
                 value={formData.nik}
-                onChange={(e) => setFormData({...formData, nik: e.target.value})}
+                onChange={(e) => setFormData({...formData, nik: e.target.value.replace(/\D/g, '')})}
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-medium text-neutral-900 focus:outline-none focus:border-pink-600"
               />
+              {/* FIX (CACAT LOGIKA): sebelumnya NIK hanya dicek "tidak kosong",
+                  sehingga 1 karakter apa pun (bukan 16 digit angka sesuai
+                  format KTP asli) tetap lolos ke step berikutnya. */}
+              {formData.nik.length > 0 && formData.nik.length !== 16 && (
+                <p className="text-[10px] text-red-600 mt-1 font-medium">⚠️ NIK harus terdiri dari 16 digit angka ({formData.nik.length}/16).</p>
+              )}
             </div>
             <button 
               onClick={() => setStep(2)}
-              disabled={!formData.fullName.trim() || !formData.nik.trim()}
+              disabled={!formData.fullName.trim() || formData.nik.length !== 16}
               className={`w-full mt-4 py-3.5 rounded-2xl text-xs font-bold transition shadow-lg flex items-center justify-center gap-2 ${
-                !formData.fullName.trim() || !formData.nik.trim()
+                !formData.fullName.trim() || formData.nik.length !== 16
                   ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
                   : 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-900/20 cursor-pointer'
               }`}
@@ -181,11 +208,14 @@ export default function BiometricOnboarding() {
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-bold flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> Onboarding Biometrik Sukses & Akun Aktif!
                 </div>
-                <button 
-                  onClick={() => setStep(1)} 
+                <button
+                  onClick={() => {
+                    markCustomerVerified();
+                    navigate('/customer/booking');
+                  }}
                   className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl text-xs font-bold transition cursor-pointer"
                 >
-                  Selesai & Kembali ke Beranda
+                  Selesai & Mulai Cari Trip
                 </button>
               </div>
             )}

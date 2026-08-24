@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   TrendingUp, 
   Activity, 
@@ -10,17 +10,12 @@ import {
   Calendar,
   ShieldCheck
 } from 'lucide-react';
+import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Skeleton, SkeletonStatCard, SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
 export default function SuperAdminDashboard() {
-  // TODO: ganti dengan isLoading dari React Query begitu API dashboard sudah siap
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 700);
-    return () => clearTimeout(timer);
-  }, []);
+  const isLoading = useSimulatedLoading();
 
   const [stats] = useState({
     totalTransactions: "Rp 450.000.000",
@@ -48,7 +43,7 @@ export default function SuperAdminDashboard() {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   return (
-    <div className="p-8 pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
       {/* Header Utama */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <div>

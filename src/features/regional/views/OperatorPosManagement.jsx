@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Users, Search, Plus, X, Trash2, Pencil, Calendar, MapPin, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -12,6 +12,13 @@ export default function OperatorPosPage() {
     { id: 'OP-02', name: 'Dewi Lestari', email: 'dewi.lestari@nebeng.id', pos: 'Pos Mitra Pasar Klewer', schedule: 'Senin - Sabtu (07:00 - 15:00)', status: 'Aktif' },
     { id: 'OP-03', name: 'Fajar Nugroho', email: 'fajar.nugroho@nebeng.id', pos: 'Pos Mitra Jebres Stasiun', schedule: 'Selasa - Minggu (13:00 - 21:00)', status: 'Aktif' },
   ]);
+
+  // FIX (CACAT LOGIKA): ID akun operator baru sebelumnya dibuat dari
+  // `operatorList.length + 1`, sehingga setelah salah satu akun dihapus,
+  // akun baru yang dibuat bisa mendapat ID yang sama dengan akun lain yang
+  // masih aktif. Counter di ref ini hanya pernah naik, tidak pernah dipakai
+  // ulang, jadi ID selalu unik.
+  const nextOperatorIdRef = useRef(operatorList.length + 1);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,10 +60,11 @@ export default function OperatorPosPage() {
       setOperatorList(prev => prev.map(o => o.id === currentOp.id ? { ...o, ...formData } : o));
     } else {
       const newOperator = {
-        id: `OP-0${operatorList.length + 1}`,
+        id: `OP-${String(nextOperatorIdRef.current).padStart(2, '0')}`,
         ...formData,
         status: 'Aktif'
       };
+      nextOperatorIdRef.current += 1;
       setOperatorList([newOperator, ...operatorList]);
     }
     setIsModalOpen(false);
@@ -77,7 +85,7 @@ export default function OperatorPosPage() {
   const isLoadingOperators = useSimulatedLoading([searchQuery], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
@@ -191,7 +199,7 @@ export default function OperatorPosPage() {
                 <h2 className="text-base font-extrabold text-neutral-900">{isEditing ? 'Edit Akun & Penugasan Operator' : 'Buat Akun operator_pos Baru'}</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Tentukan kredensial akun, lokasi pos, dan jadwal shift.</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setIsModalOpen(false)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

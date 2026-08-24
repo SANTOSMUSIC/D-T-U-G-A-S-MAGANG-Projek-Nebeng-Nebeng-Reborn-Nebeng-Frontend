@@ -27,12 +27,26 @@ export function AuthProvider({ children }) {
     setSession(null);
   }, []);
 
+  // Menandai customer yang sedang login sudah menyelesaikan Biometric
+  // Onboarding, supaya kunjungan berikutnya ke /customer bisa langsung
+  // diarahkan ke halaman booking, bukan selalu kembali ke onboarding.
+  const markCustomerVerified = useCallback(() => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, customerVerified: true };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const value = {
     session,
     isAuthenticated: !!session,
     role: session?.role ?? null,
+    isCustomerVerified: !!session?.customerVerified,
     login,
     logout,
+    markCustomerVerified,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

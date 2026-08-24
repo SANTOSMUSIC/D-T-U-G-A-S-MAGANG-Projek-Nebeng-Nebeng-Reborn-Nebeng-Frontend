@@ -82,7 +82,7 @@ export default function FinancialReportPage() {
   const isLoadingReports = useSimulatedLoading([searchQuery, selectedPos], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8 print:p-0 print:bg-white">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8 print:p-0 print:bg-white">
       {/* CSS Khusus Print untuk Mengatur Posisi dan Lebar Kertas PDF secara Sempurna */}
       <style>{`
         @media print {
@@ -294,7 +294,7 @@ export default function FinancialReportPage() {
                 <h2 className="text-base font-extrabold text-neutral-900">Detail Status Transaksi: {selectedStatusDetail.id}</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Informasi lengkap verifikasi & metode pembayaran.</p>
               </div>
-              <button onClick={() => setSelectedStatusDetail(null)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setSelectedStatusDetail(null)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

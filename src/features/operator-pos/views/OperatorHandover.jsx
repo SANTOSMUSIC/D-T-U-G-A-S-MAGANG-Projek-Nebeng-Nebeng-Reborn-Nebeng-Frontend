@@ -49,11 +49,11 @@ export default function OperatorHandover() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 text-[#c91882] font-extrabold text-[11px] uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-brand-operator font-extrabold text-[11px] uppercase tracking-wider mb-1">
             <UserCheck className="w-3.5 h-3.5" /> Keamanan & Validasi Akhir Pos
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Handover Verification & OTP</h1>
@@ -74,7 +74,7 @@ export default function OperatorHandover() {
                 placeholder="cth: PKG-88910"
                 value={ticketQr}
                 onChange={(e) => setTicketQr(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#c91882] font-mono font-medium"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-brand-operator font-mono font-medium"
               />
             </div>
 
@@ -87,14 +87,14 @@ export default function OperatorHandover() {
                 placeholder="cth: 482910"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#c91882] font-mono tracking-widest text-center text-base font-extrabold"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:border-brand-operator font-mono tracking-widest text-center text-base font-extrabold"
               />
             </div>
 
             <div>
               <label className="block font-bold text-neutral-600 mb-1">VERIFIKASI FOTO KTP PENERIMA</label>
               <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-4 text-center hover:bg-neutral-50 transition cursor-pointer">
-                <Camera className="w-6 h-6 text-[#c91882] mx-auto mb-1" />
+                <Camera className="w-6 h-6 text-brand-operator mx-auto mb-1" />
                 <p className="font-bold text-neutral-700">{ktpUploaded ? 'Foto KTP Terverifikasi (1 File)' : 'Ambil / Unggah Foto KTP'}</p>
                 <p className="text-[10px] text-neutral-500">Pastikan wajah & NIK pada KTP terlihat jelas</p>
                 <input 
@@ -103,7 +103,7 @@ export default function OperatorHandover() {
                   onChange={() => setKtpUploaded(true)} 
                   id="upload-ktp"
                 />
-                <label htmlFor="upload-ktp" className="mt-2 inline-block px-3 py-1 bg-pink-50 text-[#c91882] font-extrabold rounded-lg text-[10px] cursor-pointer">
+                <label htmlFor="upload-ktp" className="mt-2 inline-block px-3 py-1 bg-pink-50 text-brand-operator font-extrabold rounded-lg text-[10px] cursor-pointer">
                   {ktpUploaded ? 'Ganti Foto KTP' : 'Unggah Foto KTP'}
                 </label>
               </div>
@@ -111,7 +111,7 @@ export default function OperatorHandover() {
 
             <button 
               type="submit"
-              className="w-full py-3.5 bg-[#c91882] hover:bg-[#b51474] text-white font-bold rounded-xl shadow-lg shadow-[#c91882]/25 transition cursor-pointer flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3.5 bg-brand-operator hover:bg-brand-magenta-dark text-white font-bold rounded-xl shadow-lg shadow-brand-operator/25 transition cursor-pointer flex items-center justify-center gap-2 mt-2"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>Verifikasi OTP & Selesaikan Serah Terima</span>
@@ -152,7 +152,7 @@ export default function OperatorHandover() {
                       <p className="text-[10px] text-neutral-500 font-semibold">{item.time}</p>
                     </td>
                     <td className="py-4 px-3 font-mono font-bold text-neutral-800">{item.ticket}</td>
-                    <td className="py-4 px-3 font-mono font-extrabold text-[#c91882] tracking-wider">{item.otp}</td>
+                    <td className="py-4 px-3 font-mono font-extrabold text-brand-operator tracking-wider">{item.otp}</td>
                     <td className="py-4 px-3">
                       <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1 w-fit">
                         <CheckCircle2 className="w-3 h-3" /> {item.status}

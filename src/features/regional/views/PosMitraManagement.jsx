@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { MapPin, Search, Plus, X, QrCode, Trash2, Pencil, Printer } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -12,6 +12,14 @@ export default function PosMitraManagement() {
     { id: 'POS-02', name: 'Pos Mitra Pasar Klewer', address: 'Jl. Dr. Radjiman, Gajahan, Surakarta', lat: '-7.5753', long: '110.8241', operator: 'Dewi Lestari', status: 'Aktif' },
     { id: 'POS-03', name: 'Pos Mitra Jebres Stasiun', address: 'Jl. Perintis Kemerdekaan, Jebres, Surakarta', lat: '-7.5582', long: '110.8435', operator: 'Fajar Nugroho', status: 'Aktif' },
   ]);
+
+  // FIX (CACAT LOGIKA): sebelumnya ID pos baru dibuat dari `posList.length + 1`,
+  // sehingga setelah salah satu pos dihapus, pos baru yang ditambahkan bisa
+  // mendapat ID yang sama persis dengan pos lain yang masih ada di daftar
+  // (mis. hapus POS-02 dari 3 data -> tambah baru -> ID hasilnya "POS-03",
+  // bentrok dengan POS-03 yang sudah ada). Counter di ref ini hanya pernah
+  // naik, tidak pernah dipakai ulang, jadi ID selalu unik.
+  const nextPosIdRef = useRef(posList.length + 1);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,10 +57,11 @@ export default function PosMitraManagement() {
       setPosList(prev => prev.map(p => p.id === currentPos.id ? { ...p, ...formData } : p));
     } else {
       const newPos = {
-        id: `POS-0${posList.length + 1}`,
+        id: `POS-${String(nextPosIdRef.current).padStart(2, '0')}`,
         ...formData,
         status: 'Aktif'
       };
+      nextPosIdRef.current += 1;
       setPosList([newPos, ...posList]);
     }
     setIsModalOpen(false);
@@ -82,7 +91,7 @@ export default function PosMitraManagement() {
   const isLoadingPos = useSimulatedLoading([searchQuery], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* CSS Khusus untuk Cetak (Hanya Area QR Card yang Tercetak Bersih) */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
@@ -214,7 +223,7 @@ export default function PosMitraManagement() {
                 <h2 className="text-base font-extrabold text-neutral-900">{isEditing ? 'Edit Pos Checkpoint' : 'Tambah Pos Checkpoint Baru'}</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Lengkapi informasi lokasi dan penugasan operator.</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setIsModalOpen(false)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -308,7 +317,7 @@ export default function PosMitraManagement() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-neutral-100 text-center animate-in fade-in zoom-in duration-200">
             <div className="flex justify-end mb-2 no-print">
-              <button onClick={() => setIsQrModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setIsQrModalOpen(false)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

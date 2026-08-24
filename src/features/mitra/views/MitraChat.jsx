@@ -4,6 +4,7 @@ import { MessageSquare, Send, CheckCheck, Search, Phone } from 'lucide-react';
 export default function MitraChat() {
   const [selectedChat, setSelectedChat] = useState(1);
   const [messageText, setMessageText] = useState('');
+  const [chatSearchTerm, setChatSearchTerm] = useState('');
   
   const [chats, setChats] = useState([
     {
@@ -35,6 +36,15 @@ export default function MitraChat() {
   ]);
 
   const activeChat = chats.find(c => c.id === selectedChat) || chats[0];
+
+  const filteredChats = chats.filter((chat) => {
+    const term = chatSearchTerm.toLowerCase();
+    return (
+      chat.customerName.toLowerCase().includes(term) ||
+      chat.tripCode.toLowerCase().includes(term) ||
+      chat.route.toLowerCase().includes(term)
+    );
+  });
 
   // Fungsi untuk memilih chat sekaligus mereset notif unread menjadi 0
   const handleSelectChat = (chatId) => {
@@ -70,7 +80,7 @@ export default function MitraChat() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8 flex flex-col">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8 flex flex-col">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -93,13 +103,21 @@ export default function MitraChat() {
               <input 
                 type="text" 
                 placeholder="Cari pelanggan atau trip..." 
+                value={chatSearchTerm}
+                onChange={(e) => setChatSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-neutral-200 rounded-2xl text-xs font-medium focus:outline-none focus:border-pink-600"
               />
             </div>
           </div>
 
           <div className="overflow-y-auto flex-1 divide-y divide-neutral-100">
-            {chats.map((chat) => (
+            {filteredChats.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-xs font-bold text-neutral-500">Tidak ada percakapan ditemukan</p>
+                <p className="text-[10px] text-neutral-400 mt-1">Coba kata kunci lain.</p>
+              </div>
+            ) : (
+              filteredChats.map((chat) => (
               <button
                 key={chat.id}
                 onClick={() => handleSelectChat(chat.id)}
@@ -124,7 +142,8 @@ export default function MitraChat() {
                   </span>
                 )}
               </button>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

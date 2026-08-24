@@ -56,7 +56,7 @@ export default function AuditFinancialReport() {
   const isLoadingLedger = useSimulatedLoading([activeTab, searchTerm, statusFilter], 700);
 
   return (
-    <div className="p-8 pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
       {/* CSS Khusus Print: Menyembunyikan segalanya di luar area laporan saat dicetak */}
       <style>{`
         @media print {

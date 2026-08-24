@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Ticket, QrCode, Copy, CheckCircle2, Clock, ArrowRight, Activity, MapPin, BellRing, Star, Award, Gift, Sparkles } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { useTickets } from '../../../context/TicketsContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 
@@ -16,68 +17,10 @@ export default function MyTickets() {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
-  // Data dummy tiket dengan log status real-time & ulasan
-  const [allTickets, setAllTickets] = useState([
-    {
-      id: 'TKT-2026-001',
-      type: 'penumpang',
-      title: 'Nebeng Penumpang',
-      from: 'Pos Solo Kota',
-      to: 'Pos Semarang Indah',
-      mitra: 'Budi Santoso',
-      vehicle: 'Toyota Avanza (H 1234 AB)',
-      schedule: '2026-08-25 • 08:00 WIB',
-      detail: '2 Kursi (Nomor 1A, 1B)',
-      status: 'Aktif',
-      currentStatusText: 'In Transit (Menuju Semarang)',
-      otp: null,
-      trackingLogs: [
-        { status: 'Checked-in at Pos', location: 'Pos Solo Kota', time: '07:45 WIB', completed: true, active: false },
-        { status: 'In Transit', location: 'Perjalanan Tol Batang-Semarang', time: '08:30 WIB', completed: true, active: true },
-        { status: 'Arrived at Pos Destination', location: 'Pos Semarang Indah', time: 'Estimasi 10:00 WIB', completed: false, active: false }
-      ]
-    },
-    {
-      id: 'TKT-2026-002',
-      type: 'barang',
-      title: 'Nebeng Barang (Paket Elektronik)',
-      from: 'Pos Solo Kota',
-      to: 'Pos Yogyakarta Pusat',
-      mitra: 'Siti Aminah',
-      vehicle: 'Yamaha NMAX (AD 5678 CD)',
-      schedule: '2026-08-25 • 10:30 WIB',
-      detail: '1 Item - 5 Kg (Elektronik)',
-      otp: '482910',
-      status: 'Aktif',
-      currentStatusText: 'Checked-in at Pos Asal',
-      trackingLogs: [
-        { status: 'Checked-in at Pos', location: 'Pos Solo Kota', time: '10:15 WIB', completed: true, active: true },
-        { status: 'In Transit', location: 'Menunggu Driver Berangkat', time: '-', completed: false, active: false },
-        { status: 'Arrived at Pos Destination', location: 'Pos Yogyakarta Pusat', time: '-', completed: false, active: false }
-      ]
-    },
-    {
-      id: 'TKT-2026-003',
-      type: 'penumpang',
-      title: 'Nebeng Penumpang',
-      from: 'Pos Yogyakarta Pusat',
-      to: 'Pos Solo Kota',
-      mitra: 'Joko Widodo',
-      vehicle: 'Honda Mobilio (AB 1234 XY)',
-      schedule: '2026-08-20 • 14:00 WIB',
-      detail: '1 Kursi (Nomor 2C)',
-      status: 'Selesai',
-      currentStatusText: 'Perjalanan Selesai',
-      otp: null,
-      rating: 5,
-      review: 'Driver sangat ramah dan tepat waktu! Pos pengantaran aman.',
-      trackingLogs: [
-        { status: 'Checked-in at Pos', location: 'Pos Yogyakarta Pusat', time: '13:45 WIB', completed: true, active: false },
-        { status: 'In Transit', location: 'Jalur Jogja-Solo', time: '14:15 WIB', completed: true, active: false },
-        { status: 'Arrived at Pos Destination', location: 'Pos Solo Kota', time: '16:00 WIB', completed: true, active: false }
-      ]
-    }
-  ]);
+  // Tiket diambil dari TicketsContext (dipakai bersama dengan SearchTrip.jsx)
+  // supaya tiket hasil booking baru langsung muncul di sini, bukan data
+  // dummy lokal yang terpisah.
+  const { tickets: allTickets, updateTicket } = useTickets();
 
   // Data dummy riwayat poin reward
   const rewardData = {
@@ -117,18 +60,37 @@ export default function MyTickets() {
 
   const submitReview = (e) => {
     e.preventDefault();
-    setAllTickets(prev => prev.map(t => {
-      if (t.id === selectedTicket.id) {
-        return { ...t, rating, review: reviewText };
-      }
-      return t;
-    }));
+    updateTicket(selectedTicket.id, { rating, review: reviewText });
     setActiveModalType(null);
     toast.success('Ulasan dan rating berhasil dikirim! Terima kasih.', { title: 'Terkirim' });
   };
 
+  // FIX (CACAT LOGIKA): sebelumnya tidak ada satupun jalan di frontend untuk
+  // membuat tiket "Aktif" berpindah menjadi "Selesai" — status itu hanya
+  // muncul lewat satu data seed statis. Akibatnya alur booking -> check-in ->
+  // handover -> selesai -> beri ulasan tidak pernah bisa benar-benar dicoba
+  // ujung ke ujung, dan fitur "Beri Ulasan" praktis tidak bisa diuji dari
+  // tiket yang baru dibuat. Karena belum ada backend yang benar-benar
+  // memicu transisi ini dari sisi Operator Pos, tombol simulasi berikut
+  // hanya untuk keperluan demo/pengujian alur di frontend.
+  const handleSimulateComplete = (ticket) => {
+    updateTicket(ticket.id, {
+      status: 'Selesai',
+      currentStatusText: 'Perjalanan Selesai',
+      trackingLogs: ticket.trackingLogs.map((log) => ({
+        ...log,
+        completed: true,
+        active: false,
+        time: log.time === '-' ? 'Selesai' : log.time,
+      })),
+    });
+    toast.success(`Trip ${ticket.id} ditandai selesai (simulasi demo). Silakan beri ulasan.`, {
+      title: 'Perjalanan Selesai',
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100 mb-6">
         <div className="flex items-center gap-2 text-pink-600 text-xs font-extrabold uppercase tracking-wider mb-1">
@@ -147,7 +109,7 @@ export default function MyTickets() {
           onClick={() => setActiveTab('aktif')}
           className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer shadow-sm ${
             activeTab === 'aktif'
-              ? 'bg-[#e61994] text-white shadow-pink-500/20'
+              ? 'bg-brand-role-mid text-white shadow-pink-500/20'
               : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
           }`}
         >
@@ -157,7 +119,7 @@ export default function MyTickets() {
           onClick={() => setActiveTab('riwayat')}
           className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer shadow-sm ${
             activeTab === 'riwayat'
-              ? 'bg-[#e61994] text-white shadow-pink-500/20'
+              ? 'bg-brand-role-mid text-white shadow-pink-500/20'
               : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
           }`}
         >
@@ -167,7 +129,7 @@ export default function MyTickets() {
           onClick={() => setActiveTab('reward')}
           className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer shadow-sm flex items-center gap-2 ${
             activeTab === 'reward'
-              ? 'bg-[#e61994] text-white shadow-pink-500/20'
+              ? 'bg-brand-role-mid text-white shadow-pink-500/20'
               : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
           }`}
         >
@@ -292,13 +254,25 @@ export default function MyTickets() {
                     </span>
 
                     {ticket.status === 'Aktif' && (
-                      <button
-                        onClick={() => openModal(ticket, 'qr')}
-                        className="px-4 py-2 bg-[#e61994] hover:bg-[#d01484] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <QrCode className="w-4 h-4" />
-                        <span>Tampilkan QR Pos</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {/* Tombol simulasi demo: menandai trip selesai supaya alur
+                            "beri ulasan" bisa diuji tanpa menunggu backend/Operator Pos. */}
+                        <button
+                          onClick={() => handleSimulateComplete(ticket)}
+                          title="Simulasi demo: tandai trip ini selesai (belum ada backend yang memicu ini otomatis)"
+                          className="px-3 py-2 bg-white border border-neutral-200 text-neutral-500 rounded-xl text-[10px] font-bold transition flex items-center gap-1.5 cursor-pointer hover:bg-neutral-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Simulasikan Selesai</span>
+                        </button>
+                        <button
+                          onClick={() => openModal(ticket, 'qr')}
+                          className="px-4 py-2 bg-brand-role-mid hover:bg-brand-role-mid-dark text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm"
+                        >
+                          <QrCode className="w-4 h-4" />
+                          <span>Tampilkan QR Pos</span>
+                        </button>
+                      </div>
                     )}
 
                     {ticket.status === 'Selesai' && (
@@ -328,7 +302,7 @@ export default function MyTickets() {
         /* KONTEN TAB: POIN & REWARD */
         <div className="space-y-6">
           {/* Banner Saldo Poin */}
-          <div className="bg-gradient-to-r from-purple-700 via-[#e61994] to-pink-500 rounded-3xl p-8 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="bg-gradient-to-r from-purple-700 via-brand-role-mid to-pink-500 rounded-3xl p-8 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-2 text-center md:text-left">
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider text-pink-100">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -341,7 +315,7 @@ export default function MyTickets() {
             </div>
             <button 
               onClick={() => toast.info('Fitur penukaran voucher segera hadir di update berikutnya!', { title: 'Segera Hadir' })}
-              className="px-6 py-3.5 bg-white text-[#e61994] rounded-2xl text-xs font-black shadow-xl hover:bg-neutral-50 transition cursor-pointer flex items-center gap-2"
+              className="px-6 py-3.5 bg-white text-brand-role-mid rounded-2xl text-xs font-black shadow-xl hover:bg-neutral-50 transition cursor-pointer flex items-center gap-2"
             >
               <Gift className="w-4 h-4" />
               <span>Tukar Poin Reward</span>
@@ -387,6 +361,7 @@ export default function MyTickets() {
               <span className="text-[10px] font-extrabold text-pink-600 uppercase tracking-widest">Live Digital QR Pos</span>
               <button 
                 onClick={() => setSelectedTicket(null)}
+                aria-label="Tutup"
                 className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-neutral-200 transition cursor-pointer text-xs font-bold"
               >
                 ✕
@@ -434,6 +409,7 @@ export default function MyTickets() {
               </div>
               <button 
                 onClick={() => setSelectedTicket(null)}
+                aria-label="Tutup"
                 className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-neutral-200 transition cursor-pointer text-xs font-bold"
               >
                 ✕
@@ -494,6 +470,7 @@ export default function MyTickets() {
               <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-widest">Beri Rating & Ulasan Mitra</span>
               <button 
                 onClick={() => setSelectedTicket(null)}
+                aria-label="Tutup"
                 className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-neutral-200 transition cursor-pointer text-xs font-bold"
               >
                 ✕

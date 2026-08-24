@@ -96,7 +96,20 @@ export default function RegionsManagement() {
     setIsModalOpen(false);
   };
 
+  // FIX: sebelumnya nonaktifkan/aktifkan wilayah langsung terjadi tanpa
+  // konfirmasi apa pun (beda dengan pola aksi serupa di UserGovernance.jsx
+  // yang sudah pakai modal konfirmasi). Menonaktifkan sebuah region adalah
+  // aksi berdampak besar (memutus akses seluruh Admin Wilayah, Mitra,
+  // Operator Pos di region tsb), jadi sekarang wajib dikonfirmasi dulu.
   const handleToggleStatus = (id) => {
+    const region = regions.find(r => r.id === id);
+    if (!region) return;
+    const willDeactivate = region.status === 'Active';
+    const confirmMessage = willDeactivate
+      ? `Nonaktifkan wilayah "${region.name}"? Seluruh Admin Wilayah, Mitra, dan Operator Pos di wilayah ini akan kehilangan akses sementara.`
+      : `Aktifkan kembali wilayah "${region.name}"?`;
+    if (!window.confirm(confirmMessage)) return;
+
     setRegions(regions.map(reg => {
       if (reg.id === id) {
         const newStatus = reg.status === 'Active' ? 'Inactive' : 'Active';
@@ -107,7 +120,7 @@ export default function RegionsManagement() {
   };
 
   return (
-    <div className="p-8 pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
       {/* Header Halaman */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <div>

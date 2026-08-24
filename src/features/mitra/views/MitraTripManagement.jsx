@@ -54,8 +54,16 @@ export default function MitraTripManagement() {
     }
   };
 
+  // FIX: sebelumnya Pos Asal dan Pos Tujuan boleh sama persis (mis. keduanya
+  // "Solo (Pos Pusat)") dan tetap diterbitkan sebagai trip valid.
+  const isSameOriginDestination = formData.origin === formData.destination;
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSameOriginDestination) {
+      toast.warning('Pos Asal dan Pos Tujuan tidak boleh sama. Silakan pilih rute yang berbeda.', { title: 'Rute Tidak Valid' });
+      return;
+    }
     const newTrip = {
       id: `TRIP-70${trips.length + 1}`,
       origin: formData.origin,
@@ -72,18 +80,25 @@ export default function MitraTripManagement() {
     toast.success('Trip baru berhasil dibuat dan dijadwalkan ke sistem!', { title: 'Trip Dibuat' });
   };
 
-  // Fungsi untuk mengubah status perjalanan (Aktif -> In Transit -> Selesai)
+  // FIX: sebelumnya status di-cycle tanpa batas (Aktif -> In Transit -> Selesai
+  // -> Aktif -> ...) sehingga trip yang sudah "Selesai" (yang di alur Operator
+  // Pos berarti escrow sudah dicairkan ke mitra) bisa "dibuka lagi" hanya
+  // dengan satu klik. Sekarang "Selesai" bersifat final — tidak bisa diklik
+  // untuk berubah status lagi, dan transisi lain butuh konfirmasi.
   const handleCycleStatus = (tripId) => {
-    setTrips(trips.map(trip => {
-      if (trip.id === tripId) {
-        let nextStatus;
-        if (trip.status === 'Aktif') nextStatus = 'In Transit';
-        else if (trip.status === 'In Transit') nextStatus = 'Selesai';
-        else nextStatus = 'Aktif';
-        return { ...trip, status: nextStatus };
-      }
-      return trip;
-    }));
+    const trip = trips.find(t => t.id === tripId);
+    if (!trip || trip.status === 'Selesai') return; // status final, tidak bisa diubah lagi
+
+    const nextStatus = trip.status === 'Aktif' ? 'In Transit' : 'Selesai';
+    const confirmMessage =
+      nextStatus === 'Selesai'
+        ? `Tandai trip ${trip.id} sebagai SELESAI? Setelah selesai, status ini bersifat final dan tidak bisa diubah kembali.`
+        : `Ubah status trip ${trip.id} dari "Aktif" menjadi "In Transit"?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setTrips(trips.map(t => (t.id === tripId ? { ...t, status: nextStatus } : t)));
+    toast.success(`Status trip ${trip.id} berhasil diubah menjadi "${nextStatus}".`, { title: 'Status Diperbarui' });
   };
 
   // Handler Buka Modal Emergency
@@ -105,7 +120,7 @@ export default function MitraTripManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -113,7 +128,7 @@ export default function MitraTripManagement() {
             <Calendar className="w-3.5 h-3.5" /> Manajemen Jadwal Trip Mitra
           </div>
           <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Create & Manage Trip</h1>
-          <p className="text-neutral-500 text-xs mt-0.5">Buat jadwal perjalanan baru, tentukan kapasitas otomatis kendaraan, dan pantau status serta laporan darurat perjalanan[cite: 6].</p>
+          <p className="text-neutral-500 text-xs mt-0.5">Buat jadwal perjalanan baru, tentukan kapasitas otomatis kendaraan, dan pantau status serta laporan darurat perjalanan.</p>
         </div>
       </div>
 
@@ -235,9 +250,18 @@ export default function MitraTripManagement() {
               <DollarSign className="w-8 h-8 text-pink-200 opacity-80" />
             </div>
 
+            {isSameOriginDestination && (
+              <p className="text-[10px] text-red-600 font-bold -mt-2">⚠️ Pos Asal dan Pos Tujuan tidak boleh sama.</p>
+            )}
+
             <button 
               type="submit"
-              className="w-full py-3.5 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-pink-900/20 cursor-pointer"
+              disabled={isSameOriginDestination}
+              className={`w-full py-3.5 px-4 rounded-2xl text-xs font-bold transition shadow-lg ${
+                isSameOriginDestination
+                  ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                  : 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-900/20 cursor-pointer'
+              }`}
             >
               Publikasikan Trip Jadwal
             </button>
@@ -250,7 +274,7 @@ export default function MitraTripManagement() {
             <h2 className="text-base font-extrabold text-neutral-900 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-pink-600" /> Daftar Trip Terjadwal
             </h2>
-            <span className="text-[11px] text-neutral-500 font-medium">Klik status trip untuk simulasi perubahan status (*Aktif $\leftrightarrow$ In Transit*)</span>
+            <span className="text-[11px] text-neutral-500 font-medium">Klik status trip untuk mengubah (Aktif → In Transit → Selesai). Status "Selesai" bersifat final.</span>
           </div>
 
           <div className="space-y-4">
@@ -278,19 +302,20 @@ export default function MitraTripManagement() {
                     <div className="flex items-center gap-2">
                       <span className="font-extrabold text-xs text-neutral-900">{trip.id}</span>
                       
-                      {/* Status Badge clickable untuk simulasi */}
+                      {/* Status Badge — "Selesai" bersifat final dan tidak lagi bisa diklik */}
                       <button 
                         onClick={() => handleCycleStatus(trip.id)}
-                        title="Klik untuk ubah status trip"
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold cursor-pointer transition ${
+                        disabled={trip.status === 'Selesai'}
+                        title={trip.status === 'Selesai' ? 'Status final, tidak dapat diubah' : 'Klik untuk ubah status trip'}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold transition ${
                           trip.status === 'In Transit' 
-                            ? 'bg-amber-500 text-white animate-pulse' 
+                            ? 'bg-amber-500 text-white animate-pulse cursor-pointer' 
                             : trip.status === 'Selesai' 
-                            ? 'bg-emerald-600 text-white' 
-                            : 'bg-pink-100 text-pink-700'
+                            ? 'bg-emerald-600 text-white cursor-default' 
+                            : 'bg-pink-100 text-pink-700 cursor-pointer'
                         }`}
                       >
-                        Status: {trip.status} 🔄
+                        Status: {trip.status} {trip.status !== 'Selesai' && '🔄'}
                       </button>
 
                       <span className="bg-neutral-200 text-neutral-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1">
@@ -353,6 +378,7 @@ export default function MitraTripManagement() {
               </div>
               <button 
                 onClick={() => setIsEmergencyModalOpen(false)}
+                aria-label="Tutup"
                 className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-neutral-200 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />

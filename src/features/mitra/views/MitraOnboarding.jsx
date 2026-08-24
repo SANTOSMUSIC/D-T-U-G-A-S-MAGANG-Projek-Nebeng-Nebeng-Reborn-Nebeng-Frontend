@@ -23,7 +23,12 @@ export default function MitraOnboarding() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // FIX (CACAT LOGIKA): NIK sebelumnya hanya divalidasi lewat atribut
+    // HTML `required` (asal tidak kosong), sehingga 1 karakter apa pun tetap
+    // lolos meski placeholder-nya menunjukkan format 16 digit angka KTP.
+    // Sekarang input NIK disaring agar hanya menerima digit angka.
+    const nextValue = name === 'nik' ? value.replace(/\D/g, '').slice(0, 16) : value;
+    setFormData(prev => ({ ...prev, [name]: nextValue }));
   };
 
   const handleFileChange = (e, field) => {
@@ -40,13 +45,21 @@ export default function MitraOnboarding() {
     }, 2000);
   };
 
+  // FIX: sebelumnya tombol submit hanya bergantung pada `faceScanned`,
+  // sehingga mitra bisa mengirim pengajuan onboarding tanpa mengunggah satu
+  // pun dokumen legalitas (SIM/SKCK/STNK) walau UI menyebutnya wajib.
+  const missingDocuments = ['sim', 'skck', 'stnk'].filter((field) => !files[field]);
+  const isNikValid = formData.nik.length === 16;
+  const isFormComplete = faceScanned && missingDocuments.length === 0 && isNikValid;
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!isFormComplete) return;
     setSubmitted(true);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -89,11 +102,16 @@ export default function MitraOnboarding() {
                   type="text" 
                   name="nik" 
                   required
+                  inputMode="numeric"
+                  maxLength={16}
                   placeholder="3372xxxxxxxxxxxx"
                   value={formData.nik} 
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
                 />
+                {formData.nik.length > 0 && !isNikValid && (
+                  <p className="text-[10px] text-red-600 mt-1 font-bold">⚠️ NIK harus terdiri dari 16 digit angka ({formData.nik.length}/16).</p>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Nomor Telepon / WhatsApp</label>
@@ -230,12 +248,21 @@ export default function MitraOnboarding() {
           </div>
 
           {/* Tombol Kirim */}
-          <div className="flex justify-end">
+          <div className="flex flex-col items-end gap-2">
+            {!isNikValid && (
+              <p className="text-[10px] text-red-600 font-bold">⚠️ NIK harus terdiri dari 16 digit angka.</p>
+            )}
+            {missingDocuments.length > 0 && (
+              <p className="text-[10px] text-red-600 font-bold">⚠️ Dokumen belum lengkap: {missingDocuments.map(d => d.toUpperCase()).join(', ')}</p>
+            )}
+            {!faceScanned && (
+              <p className="text-[10px] text-red-600 font-bold">⚠️ Face ID Scan belum dilakukan.</p>
+            )}
             <button 
               type="submit"
-              disabled={!faceScanned}
+              disabled={!isFormComplete}
               className={`px-8 py-4 rounded-2xl font-extrabold text-xs transition shadow-lg ${
-                faceScanned 
+                isFormComplete 
                   ? 'bg-[#312e81] hover:bg-[#1e1b4b] text-white shadow-indigo-900/30 cursor-pointer' 
                   : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
               }`}

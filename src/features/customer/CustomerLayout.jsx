@@ -28,7 +28,8 @@ export default function CustomerLayout() {
           navigate('/login', { replace: true });
         }}
       />
-      <div className="flex-1 lg:ml-64 min-h-screen">
+      {/* pt-16 memberi ruang untuk tombol hamburger mobile (fixed top-4 left-4) agar tidak menimpa konten */}
+      <div className="flex-1 lg:ml-64 min-h-screen pt-16 lg:pt-0">
         <Outlet />
       </div>
     </div>

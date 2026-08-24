@@ -49,7 +49,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#e61994]"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-brand-role-mid"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -62,7 +62,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
         />
       )}
 
-      <aside className={`w-64 h-screen bg-gradient-to-b from-[#b819b8] via-[#e61994] to-[#fc156a] flex flex-col justify-between p-6 text-white fixed left-0 top-0 shadow-xl overflow-y-auto z-40 transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside className={`w-64 h-screen bg-gradient-to-b from-brand-role-start via-brand-role-mid to-brand-role-end flex flex-col justify-between p-6 text-white fixed left-0 top-0 shadow-xl overflow-y-auto z-40 transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div>
           {/* Logo Brand */}
           <div className="mb-8 px-2 flex items-center justify-between">
@@ -125,7 +125,7 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
                 <div className="w-10 h-10 rounded-full bg-pink-300 overflow-hidden border-2 border-white/20 flex items-center justify-center font-bold text-pink-900">
                   A
                 </div>
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#b819b8]"></div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-brand-role-start"></div>
               </div>
               <div>
                 <p className="text-xs font-semibold text-white">Admin Jateng</p>

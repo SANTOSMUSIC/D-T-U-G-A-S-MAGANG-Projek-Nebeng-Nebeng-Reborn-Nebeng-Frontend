@@ -82,7 +82,7 @@ export default function Register({ onSwitchToLogin }) {
       badgeText="DATA PRIVACY GUARANTEED"
     >
       <div className="mb-5 text-center">
-        <h2 className="text-2xl md:text-3xl font-extrabold text-[#992C9F] mb-1">Buat Akun Baru</h2>
+        <h2 className="text-2xl md:text-3xl font-extrabold text-brand-register mb-1">Buat Akun Baru</h2>
         <p className="text-neutral-500 text-xs md:text-sm">Lengkapi data diri Anda untuk memulai perjalanan.</p>
       </div>
 

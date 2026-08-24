@@ -124,8 +124,19 @@ export default function AdminWilayahManagement() {
     setIsModalOpen(false);
   };
 
-  // Toggle status aktif/nonaktif akun admin
+  // FIX: sebelumnya nonaktifkan/aktifkan akun Admin Wilayah langsung terjadi
+  // tanpa konfirmasi (beda dengan pola aksi serupa di UserGovernance.jsx).
+  // Menonaktifkan akun admin regional berarti mereka langsung kehilangan
+  // akses ke sistem, jadi sekarang wajib dikonfirmasi dulu.
   const handleToggleStatus = (id) => {
+    const admin = admins.find(a => a.id === id);
+    if (!admin) return;
+    const willDeactivate = admin.status === 'Active';
+    const confirmMessage = willDeactivate
+      ? `Nonaktifkan akun Admin Wilayah "${admin.name}"? Akun ini akan langsung kehilangan akses ke sistem.`
+      : `Aktifkan kembali akun Admin Wilayah "${admin.name}"?`;
+    if (!window.confirm(confirmMessage)) return;
+
     setAdmins(admins.map(adm => {
       if (adm.id === id) {
         const newStatus = adm.status === 'Active' ? 'Inactive' : 'Active';
@@ -136,7 +147,7 @@ export default function AdminWilayahManagement() {
   };
 
   return (
-    <div className="p-8 pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
       {/* Header Halaman */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <div>

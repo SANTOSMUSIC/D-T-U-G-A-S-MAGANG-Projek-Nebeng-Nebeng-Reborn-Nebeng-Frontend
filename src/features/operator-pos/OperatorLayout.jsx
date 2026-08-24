@@ -6,7 +6,6 @@ const OPERATOR_MENU_PATH = {
   'Dashboard Pos': 'dashboard',
   'Inspection & Sealing': 'inspection',
   'Dual QR Scanner': 'scanner',
-  'Handover Verification': 'handover',
 };
 const PATH_TO_MENU = Object.fromEntries(
   Object.entries(OPERATOR_MENU_PATH).map(([name, path]) => [path, name])

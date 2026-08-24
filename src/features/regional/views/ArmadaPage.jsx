@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Truck, Search, Plus, X, Trash2, Pencil, CheckCircle2, MapPin } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
@@ -33,6 +33,13 @@ export default function FleetCourierPage() {
       status: 'Aktif / Siap Tugas'
     }
   ]);
+
+  // FIX (CACAT LOGIKA): ID armada baru sebelumnya dibuat dari
+  // `fleetList.length + 1`, sehingga setelah salah satu armada dihapus,
+  // armada baru yang ditambahkan bisa mendapat ID yang sama dengan armada
+  // lain yang masih ada. Counter di ref ini hanya pernah naik, tidak pernah
+  // dipakai ulang, jadi ID selalu unik.
+  const nextFleetIdRef = useRef(fleetList.length + 1);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
@@ -98,9 +105,10 @@ export default function FleetCourierPage() {
       setFleetList(prev => prev.map(f => f.id === currentFleet.id ? { ...f, ...formData } : f));
     } else {
       const newFleet = {
-        id: `ARM-0${fleetList.length + 1}`,
+        id: `ARM-${String(nextFleetIdRef.current).padStart(2, '0')}`,
         ...formData
       };
+      nextFleetIdRef.current += 1;
       setFleetList([newFleet, ...fleetList]);
     }
     setIsModalOpen(false);
@@ -123,7 +131,7 @@ export default function FleetCourierPage() {
   const isLoadingFleet = useSimulatedLoading([searchQuery, statusFilter], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
         <div>
@@ -256,7 +264,7 @@ export default function FleetCourierPage() {
                 <h2 className="text-base font-extrabold text-neutral-900">{isEditing ? 'Edit Data Armada & Kurir' : 'Tambah Armada & Kurir Baru'}</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Lengkapi informasi kendaraan dan penugasan pos.</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
+              <button onClick={() => setIsModalOpen(false)} aria-label="Tutup" className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

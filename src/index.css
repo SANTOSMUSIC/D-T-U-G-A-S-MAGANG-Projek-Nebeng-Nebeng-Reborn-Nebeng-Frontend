@@ -19,6 +19,47 @@
   --text-base--line-height: 1.625rem;
   --text-lg: 1.1875rem;
   --text-lg--line-height: 1.75rem;
+
+  /*
+   * TOKEN WARNA BRAND (SUMBER KEBENARAN TUNGGAL)
+   * ---------------------------------------------------------------
+   * Sebelumnya setiap file menuliskan hex yang sama secara manual
+   * berkali-kali (mis. `bg-[#e61994]`, `from-[#b819b8]`), sehingga
+   * beberapa nilai sempat tertulis dengan huruf kapital berbeda
+   * (`#FC156A` vs `#fc156a`) tanpa satu sumber acuan. Token di bawah
+   * ini dipakai lewat class Tailwind biasa, mis. `bg-brand-role-mid`,
+   * `from-brand-auth-deep`, `text-brand-operator` — bukan lagi
+   * `bg-[#e61994]`. Kalau warna brand berubah nanti, cukup ubah di
+   * satu tempat ini.
+   *
+   * - brand-auth-*   : gradient sampul kiri halaman Login/Register
+   *                    dan sidebar Superadmin (indigo tua -> ungu -> pink terang)
+   * - brand-role-*   : gradient sidebar role Customer/Mitra/Regional/
+   *                    Operator Pos (magenta -> pink)
+   * - brand-operator     : aksen warna khas area Operator Pos
+   * - brand-magenta-dark : shade magenta gelap — dipakai sebagai overlay
+   *                        footer di sidebar Customer/Mitra/Operator, DAN
+   *                        sebagai warna hover tombol di area Operator Pos.
+   *                        Nama sengaja netral (bukan "operator-dark")
+   *                        karena dipakai lintas role, bukan eksklusif
+   *                        milik satu role.
+   * - brand-login        : warna judul di halaman Login
+   * - brand-register     : warna judul di halaman Register
+   */
+  --color-brand-auth-deep: #322c85;
+  --color-brand-auth-mid: #b019b8;
+  --color-brand-auth-bright: #fc156a;
+
+  --color-brand-role-start: #b819b8;
+  --color-brand-role-mid: #e61994;
+  --color-brand-role-mid-dark: #d01484;
+  --color-brand-role-end: #fc156a;
+
+  --color-brand-operator: #c91882;
+  --color-brand-magenta-dark: #b51474;
+
+  --color-brand-login: #69188c;
+  --color-brand-register: #992c9f;
 }
 
 body {

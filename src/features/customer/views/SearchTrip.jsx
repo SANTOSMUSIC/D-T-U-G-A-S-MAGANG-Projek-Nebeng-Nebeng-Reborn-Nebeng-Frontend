@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Compass, Search, MapPin, Calendar, Users, Package, ArrowRight, X, ShieldCheck, AlertCircle, Lock } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
+import { useTickets } from '../../../context/TicketsContext';
 
 export default function SearchTrip() {
+  const navigate = useNavigate();
+  const { addTicket } = useTickets();
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState('');
@@ -19,6 +23,15 @@ export default function SearchTrip() {
   // State PIN 6-digit
   const [pin, setPin] = useState(['', '', '', '', '', '']);
 
+  // ID tiket yang baru dibuat setelah checkout sukses, dipakai tombol
+  // "Lihat Tiket Saya" di layar sukses untuk mengarahkan ke My Tickets.
+  const [createdTicketId, setCreatedTicketId] = useState(null);
+
+  // FIX: mencegah submit ganda saat "Konfirmasi Pembayaran" di-klik cepat
+  // berkali-kali, yang sebelumnya bisa membuat lebih dari satu tiket untuk
+  // satu kali booking.
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+
   // Form State - Nebeng Penumpang
   const [seatCount, setSeatCount] = useState(1);
   const [passengerName, setPassengerName] = useState('');
@@ -29,7 +42,8 @@ export default function SearchTrip() {
   const [itemCount, setItemCount] = useState(1);
   const [itemWeight, setItemWeight] = useState(5); // kg per item
   const [itemSize, setItemSize] = useState('M'); // Pilihan ukuran XXS - XL
-  const [, setItemPhoto] = useState(null); // preview foto belum ditampilkan di UI; disiapkan untuk saat upload disambungkan ke backend
+  const [itemPhoto, setItemPhoto] = useState(null);
+  const [itemPhotoPreviewUrl, setItemPhotoPreviewUrl] = useState(null);
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
 
@@ -112,15 +126,47 @@ export default function SearchTrip() {
 
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
+  // FIX: sebelumnya field penumpang/penerima (nama, no HP, kategori barang)
+  // tidak direset saat membuka booking baru — kalau user membatalkan booking
+  // trip A lalu membuka booking trip B, data trip A masih terisi di form
+  // trip B. Sekarang seluruh form direset setiap kali booking baru dibuka.
   const handleOpenBooking = (trip) => {
     setSelectedTrip(trip);
     setBookingStep('form');
     setPin(['', '', '', '', '', '']);
+    setIsCheckingOut(false);
     setSeatCount(1);
+    setPassengerName('');
+    setPassengerPhone('');
+    setItemCategory('Elektronik');
     setItemCount(1);
     setItemWeight(5);
     setItemSize('M');
+    setItemPhoto(null);
+    setItemPhotoPreviewUrl((prevUrl) => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      return null;
+    });
+    setReceiverName('');
+    setReceiverPhone('');
+    setCreatedTicketId(null);
   };
+
+  const handleItemPhotoChange = (file) => {
+    setItemPhoto(file || null);
+    setItemPhotoPreviewUrl((prevUrl) => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  };
+
+  // Bersihkan object URL preview saat komponen unmount, supaya tidak bocor memori.
+  useEffect(() => {
+    return () => {
+      if (itemPhotoPreviewUrl) URL.revokeObjectURL(itemPhotoPreviewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hanya perlu cleanup saat unmount
+  }, []);
 
   const handleProceedToPin = (e) => {
     e.preventDefault();
@@ -140,13 +186,61 @@ export default function SearchTrip() {
     }
   };
 
+  // FIX: kotak PIN sebelumnya hanya bisa maju otomatis saat diisi, tapi
+  // tidak bisa mundur ke kotak sebelumnya saat ditekan Backspace pada kotak
+  // yang sudah kosong — UX pengisian PIN jadi kurang natural.
+  const handlePinKeyDown = (e, index) => {
+    if (e.key === 'Backspace' && !pin[index] && index > 0) {
+      const prevInput = document.getElementById(`pin-input-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
   const handleVerifyPinAndCheckout = () => {
     if (pin.some(p => p === '')) return;
+    if (isCheckingOut) return; // FIX: cegah submit ganda (double-click) membuat lebih dari satu tiket
+    setIsCheckingOut(true);
+
+    // CATATAN LOGIKA: sebelumnya langkah ini hanya menampilkan layar "Booking
+    // Berhasil" tanpa benar-benar membuat tiket apa pun — sehingga tiket
+    // hasil booking tidak pernah muncul di halaman "My Tickets". Sekarang
+    // sebuah tiket nyata ditambahkan ke TicketsContext (dipakai bersama
+    // dengan MyTickets.jsx) supaya alur booking -> punya tiket benar-benar
+    // tersambung.
+    const isBarang = selectedTrip.type === 'barang';
+    const newTicketId = `TKT-${selectedTrip.id}-${Date.now().toString().slice(-6)}`;
+
+    addTicket({
+      id: newTicketId,
+      type: selectedTrip.type,
+      title: isBarang ? `Nebeng Barang (Paket ${itemCategory})` : 'Nebeng Penumpang',
+      from: selectedTrip.origin,
+      to: selectedTrip.destination,
+      mitra: selectedTrip.mitraName,
+      vehicle: selectedTrip.vehicle,
+      schedule: `${selectedTrip.date} • Sesuai Jadwal Trip Mitra`,
+      detail: isBarang
+        ? `${itemCount} Item - ${totalAccumulatedWeight} Kg (${itemCategory}, Ukuran ${itemSize})`
+        : `${seatCount} Kursi • Atas Nama ${passengerName || '-'}`,
+      status: 'Aktif',
+      currentStatusText: 'Menunggu Check-in di Pos Asal',
+      // Kode OTP pengambilan hanya relevan untuk layanan barang (diserahkan
+      // oleh penerima saat serah terima di pos tujuan).
+      otp: isBarang ? String(Math.floor(100000 + Math.random() * 900000)) : null,
+      trackingLogs: [
+        { status: 'Booking Dikonfirmasi & Dana Diamankan (Escrow)', location: selectedTrip.origin, time: 'Baru saja', completed: true, active: true },
+        { status: 'Checked-in at Pos', location: selectedTrip.origin, time: '-', completed: false, active: false },
+        { status: 'In Transit', location: `Menuju ${selectedTrip.destination}`, time: '-', completed: false, active: false },
+        { status: 'Arrived at Pos Destination', location: selectedTrip.destination, time: '-', completed: false, active: false }
+      ]
+    });
+
+    setCreatedTicketId(newTicketId);
     setBookingStep('success');
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 pt-20 sm:p-6 sm:pt-20 lg:p-8 lg:pt-8">
+    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
       {/* Header Halaman */}
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8">
         <div className="flex items-center gap-2 text-pink-600 font-extrabold text-[11px] uppercase tracking-wider mb-1">
@@ -334,6 +428,7 @@ export default function SearchTrip() {
               </div>
               <button 
                 onClick={() => setSelectedTrip(null)}
+                aria-label="Tutup"
                 className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-neutral-200 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -449,9 +544,29 @@ export default function SearchTrip() {
                         <input 
                           type="file"
                           accept="image/*"
-                          onChange={(e) => setItemPhoto(e.target.files[0])}
+                          onChange={(e) => handleItemPhotoChange(e.target.files[0])}
                           className="w-full text-[10px] text-neutral-500 file:mr-2 file:py-2.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 cursor-pointer"
                         />
+                        {itemPhotoPreviewUrl && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="relative w-16 h-16 shrink-0">
+                              <img
+                                src={itemPhotoPreviewUrl}
+                                alt="Pratinjau foto paket"
+                                className="w-16 h-16 object-cover rounded-xl border border-neutral-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleItemPhotoChange(null)}
+                                aria-label="Hapus foto paket"
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-neutral-900 text-white flex items-center justify-center shadow-md cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <span className="text-[10px] text-neutral-500 truncate max-w-[120px]">{itemPhoto?.name}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -568,6 +683,7 @@ export default function SearchTrip() {
                       maxLength="1"
                       value={digit}
                       onChange={(e) => handlePinChange(e.target.value.replace(/\D/g, ''), index)}
+                      onKeyDown={(e) => handlePinKeyDown(e, index)}
                       className="w-11 h-12 text-center text-lg font-extrabold bg-neutral-50 border border-neutral-300 rounded-xl focus:outline-none focus:border-pink-600 focus:bg-white text-neutral-900 shadow-sm"
                     />
                   ))}
@@ -583,15 +699,15 @@ export default function SearchTrip() {
                   </button>
                   <button
                     type="button"
-                    disabled={pin.some(p => p === '')}
+                    disabled={pin.some(p => p === '') || isCheckingOut}
                     onClick={handleVerifyPinAndCheckout}
                     className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold transition shadow-lg ${
-                      pin.some(p => p === '')
+                      pin.some(p => p === '') || isCheckingOut
                         ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
                         : 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-600/30 cursor-pointer'
                     }`}
                   >
-                    Konfirmasi Pembayaran
+                    {isCheckingOut ? 'Memproses...' : 'Konfirmasi Pembayaran'}
                   </button>
                 </div>
               </div>
@@ -604,15 +720,31 @@ export default function SearchTrip() {
                   <ShieldCheck className="w-8 h-8" />
                 </div>
                 <h4 className="text-lg font-extrabold text-neutral-900">Booking & Pembayaran Berhasil!</h4>
+                {createdTicketId && (
+                  <p className="text-[11px] font-mono font-bold text-neutral-500 bg-neutral-50 inline-block py-1.5 px-3 rounded-xl border border-neutral-200">
+                    ID Tiket: {createdTicketId}
+                  </p>
+                )}
                 <p className="text-xs text-neutral-500 max-w-xs mx-auto">
-                  PIN terotentikasi. Dana Anda telah diamankan melalui sistem Escrow terintegrasi. Silakan lakukan verifikasi dan serah terima di pos.
+                  PIN terotentikasi. Dana Anda telah diamankan melalui sistem Escrow terintegrasi. Tiket sudah tersedia di halaman My Tickets — silakan lakukan verifikasi dan serah terima di pos.
                 </p>
-                <button
-                  onClick={() => setSelectedTrip(null)}
-                  className="py-3 px-6 bg-pink-600 text-white rounded-2xl text-xs font-bold shadow-md hover:bg-pink-700 transition cursor-pointer"
-                >
-                  Tutup & Kembali
-                </button>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => setSelectedTrip(null)}
+                    className="py-3 px-6 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-2xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTrip(null);
+                      navigate('/customer/tickets');
+                    }}
+                    className="py-3 px-6 bg-pink-600 text-white rounded-2xl text-xs font-bold shadow-md hover:bg-pink-700 transition cursor-pointer"
+                  >
+                    Lihat Tiket Saya
+                  </button>
+                </div>
               </div>
             )}
           </div>
