@@ -45,6 +45,20 @@ export default function OperatorDashboard() {
     return () => clearTimeout(timer);
   }, []);
 
+  // FIX: sebelumnya angka "2 Trip" / "1 Trip" di StatCard ditulis tetap,
+  // jadi tidak akan sinkron kalau jadwal trip berubah. Sekarang dihitung
+  // langsung dari tripsSchedule.
+  const incomingCount = tripsSchedule.filter((trip) => trip.type === 'Masuk').length;
+  const outgoingCount = tripsSchedule.filter((trip) => trip.type === 'Keluar').length;
+
+  // FIX: tanggal sebelumnya ditulis tetap ("19 Agu 2026") padahal labelnya
+  // "TANGGAL HARI INI" — sekarang selalu mengikuti tanggal sistem.
+  const todayLabel = new Date().toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -69,7 +83,7 @@ export default function OperatorDashboard() {
           </div>
           <div>
             <p className="text-[8px] font-bold text-[#4B2172] uppercase tracking-wider">TANGGAL HARI INI</p>
-            <p className="text-[10px] font-bold text-neutral-800">19 Agu 2026</p>
+            <p className="text-[10px] font-bold text-neutral-800">{todayLabel}</p>
           </div>
         </div>
       </div>
@@ -77,13 +91,13 @@ export default function OperatorDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard
           title="TOTAL TRIP MASUK POS"
-          value="2 Trip"
+          value={`${incomingCount} Trip`}
           subtitle="Jadwal aktif hari ini"
           icon={ArrowDownLeft}
         />
         <StatCard
           title="TOTAL TRIP KELUAR POS"
-          value="1 Trip"
+          value={`${outgoingCount} Trip`}
           subtitle="Siap diberangkatkan"
           icon={ArrowUpRight}
         />

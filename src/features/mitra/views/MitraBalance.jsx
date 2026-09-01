@@ -1,34 +1,33 @@
 import { useState } from 'react';
-import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, Eye, EyeOff, Pencil, Clock3 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { useMitraData } from '../../../context/MitraDataContext';
+
+const STATUS_LABEL = { 'Aktif': 'Menunggu Keberangkatan', 'In Transit': 'Dalam Perjalanan (Escrow Hold)' };
 
 export default function MitraBalance() {
   const toast = useToast();
-  const [availableBalance, setAvailableBalance] = useState(3850000);
-  const [escrowHold] = useState(1250000);
+  const {
+    trips,
+    availableBalance,
+    escrowHold,
+    walletHistory,
+    bankInfo,
+    setBankInfo,
+    requestWithdrawal,
+  } = useMitraData();
+
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [showAccountPii, setShowAccountPii] = useState(false);
+  const [isEditingBank, setIsEditingBank] = useState(false);
+  const [bankDraft, setBankDraft] = useState(bankInfo);
   const MIN_WITHDRAWAL = 50000;
 
-  const [bankInfo] = useState({
-    bankName: 'Bank BCA',
-    accountNumber: '1234567890',
-    accountHolder: 'Budi Santoso (Mitra)'
-  });
-
-  const [walletHistory, setWalletHistory] = useState([
-    { id: 'WD-401', date: '20 Agu 2026', type: 'Pencairan (Withdrawal)', amount: -2500000, status: 'Berhasil ke BCA' },
-    { id: 'IN-882', date: '19 Agu 2026', type: 'Komisi Trip TRIP-699', amount: 1400000, status: 'Masuk ke Available Balance' },
-  ]);
-
-  const escrowTransactions = [
-    { id: 'TRX-901', trip: 'TRIP-701 (Solo - Jogja)', amount: 750000, status: 'Menunggu Verifikasi Pos Tujuan' },
-    { id: 'TRX-902', trip: 'TRIP-702 (Solo - Semarang)', amount: 500000, status: 'Dalam Perjalanan (Escrow Hold)' }
-  ];
+  const escrowTransactions = trips.filter((t) => t.status === 'Aktif' || t.status === 'In Transit');
 
   const maskAccountNumber = (accNum) => {
     if (!accNum || accNum.length < 6) return accNum;
@@ -48,19 +47,30 @@ export default function MitraBalance() {
       return;
     }
 
-    setAvailableBalance(prev => prev - amount);
-    
-    const newTx = {
-      id: `WD-${Math.floor(100 + Math.random() * 900)}`,
-      date: 'Hari ini',
-      type: 'Pencairan (Withdrawal)',
-      amount: -amount,
-      status: `Berhasil ke ${bankInfo.bankName} (${maskAccountNumber(bankInfo.accountNumber)})`
-    };
-    setWalletHistory([newTx, ...walletHistory]);
+    const result = requestWithdrawal(amount);
+    if (!result.ok) {
+      toast.warning('Penarikan gagal diproses. Silakan coba lagi.', { title: 'Gagal' });
+      return;
+    }
 
     setWithdrawAmount('');
     setIsSuccessModalOpen(true);
+  };
+
+  const handleStartEditBank = () => {
+    setBankDraft(bankInfo);
+    setIsEditingBank(true);
+  };
+
+  const handleSaveBank = (e) => {
+    e.preventDefault();
+    if (!bankDraft.bankName.trim() || !bankDraft.accountNumber.trim() || !bankDraft.accountHolder.trim()) {
+      toast.warning('Semua field rekening bank wajib diisi.', { title: 'Data Tidak Lengkap' });
+      return;
+    }
+    setBankInfo(bankDraft);
+    setIsEditingBank(false);
+    toast.success('Rekening bank berhasil diperbarui.', { title: 'Rekening Diperbarui' });
   };
 
   return (
@@ -103,29 +113,87 @@ export default function MitraBalance() {
             <ArrowUpRight className="w-4 h-4 text-[#4B2172]" /> Tarik Saldo (Withdrawal)
           </h3>
 
-          <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-50 text-[#4B2172] flex items-center justify-center font-bold shrink-0">
-                  <Building2 className="w-4 h-4" />
+          {!isEditingBank ? (
+            <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 text-[#4B2172] flex items-center justify-center font-bold shrink-0">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-neutral-800">
+                      {bankInfo.bankName} - {showAccountPii ? bankInfo.accountNumber : maskAccountNumber(bankInfo.accountNumber)}
+                    </p>
+                    <p className="text-[8px] text-neutral-400 font-medium">{bankInfo.accountHolder}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold text-neutral-800">
-                    {bankInfo.bankName} - {showAccountPii ? bankInfo.accountNumber : maskAccountNumber(bankInfo.accountNumber)}
-                  </p>
-                  <p className="text-[8px] text-neutral-400 font-medium">{bankInfo.accountHolder}</p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAccountPii(!showAccountPii)}
+                    className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
+                    title={showAccountPii ? "Sembunyikan Nomor Rekening" : "Tampilkan Nomor Rekening"}
+                  >
+                    {showAccountPii ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartEditBank}
+                    className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
+                    title="Ubah Rekening Bank"
+                  >
+                    <Pencil size={13} />
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAccountPii(!showAccountPii)}
-                className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
-                title={showAccountPii ? "Sembunyikan Nomor Rekening" : "Tampilkan Nomor Rekening"}
-              >
-                {showAccountPii ? <EyeOff size={13} /> : <Eye size={13} />}
-              </button>
             </div>
-          </div>
+          ) : (
+            <form onSubmit={handleSaveBank} className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2.5 text-[10px]">
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nama Bank</label>
+                <input
+                  type="text"
+                  value={bankDraft.bankName}
+                  onChange={(e) => setBankDraft((prev) => ({ ...prev, bankName: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                />
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Rekening</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={bankDraft.accountNumber}
+                  onChange={(e) => setBankDraft((prev) => ({ ...prev, accountNumber: e.target.value.replace(/\D/g, '') }))}
+                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                />
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nama Pemilik Rekening</label>
+                <input
+                  type="text"
+                  value={bankDraft.accountHolder}
+                  onChange={(e) => setBankDraft((prev) => ({ ...prev, accountHolder: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingBank(false)}
+                  className="flex-1 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg font-bold transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-lg font-bold transition cursor-pointer"
+                >
+                  Simpan
+                </button>
+              </div>
+            </form>
+          )}
 
           <form onSubmit={handleWithdraw} className="space-y-3.5 text-[10px]">
             <div>
@@ -143,7 +211,8 @@ export default function MitraBalance() {
 
             <button
               type="submit"
-              className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer"
+              disabled={isEditingBank}
+              className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer"
             >
               Cairkan ke Rekening Bank
             </button>
@@ -159,20 +228,24 @@ export default function MitraBalance() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-neutral-100 text-[#9px] text-neutral-400 uppercase font-semibold">
-                    <th className="py-3 px-3">ID Transaksi</th>
+                    <th className="py-3 px-3">ID Trip</th>
                     <th className="py-3 px-3">Trip Terkait</th>
                     <th className="py-3 px-3">Nominal Escrow</th>
                     <th className="py-3 px-3">Status Sistem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100 text-[9px]">
-                  {escrowTransactions.map((tx) => (
+                  {escrowTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-neutral-400 font-medium">Tidak ada dana escrow aktif saat ini.</td>
+                    </tr>
+                  ) : escrowTransactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-neutral-50/60 transition">
                       <td className="py-3.5 px-3 font-bold text-neutral-800 font-mono">{tx.id}</td>
-                      <td className="py-3.5 px-3 font-semibold text-neutral-700">{tx.trip}</td>
-                      <td className="py-3.5 px-3 font-bold text-neutral-800">Rp {tx.amount.toLocaleString('id-ID')}</td>
+                      <td className="py-3.5 px-3 font-semibold text-neutral-700">{tx.origin} - {tx.destination}</td>
+                      <td className="py-3.5 px-3 font-bold text-neutral-800">Rp {tx.escrowAmount.toLocaleString('id-ID')}</td>
                       <td className="py-3.5 px-3">
-                        <StatusBadge variant="amber">{tx.status}</StatusBadge>
+                        <StatusBadge variant="amber">{STATUS_LABEL[tx.status] ?? tx.status}</StatusBadge>
                       </td>
                     </tr>
                   ))}
@@ -189,14 +262,21 @@ export default function MitraBalance() {
               {walletHistory.map((item) => (
                 <div key={item.id} className="p-3 bg-neutral-50/70 border border-neutral-100 rounded-xl flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold text-neutral-800">{item.type}</p>
+                    <p className="text-[10px] font-bold text-neutral-800 flex items-center gap-1.5">
+                      {item.type}
+                      {item.status === 'processing' && (
+                        <span className="inline-flex items-center gap-0.5 text-amber-600 text-[8px] font-bold">
+                          <Clock3 className="w-2.5 h-2.5" /> Diproses
+                        </span>
+                      )}
+                    </p>
                     <p className="text-[8px] text-neutral-400">{item.date} • {item.id}</p>
                   </div>
                   <div className="text-right">
                     <p className={`text-[10px] font-bold ${item.amount < 0 ? 'text-neutral-800' : 'text-emerald-600'}`}>
                       {item.amount < 0 ? `- Rp ${Math.abs(item.amount).toLocaleString('id-ID')}` : `+ Rp ${item.amount.toLocaleString('id-ID')}`}
                     </p>
-                    <p className="text-[8px] text-neutral-400 font-medium">{item.status}</p>
+                    <p className="text-[8px] text-neutral-400 font-medium">{item.statusLabel}</p>
                   </div>
                 </div>
               ))}
@@ -216,7 +296,7 @@ export default function MitraBalance() {
           <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-5 h-5" />
           </div>
-          <p className="text-neutral-500">Dana Anda sedang diproses oleh Payment Gateway dan akan masuk ke rekening dalam 1x24 jam.</p>
+          <p className="text-neutral-500">Dana Anda sedang diproses oleh Payment Gateway dan akan masuk ke rekening dalam 1x24 jam. Status akan berubah menjadi "Berhasil" setelah bank mengonfirmasi.</p>
           <button
             onClick={() => setIsSuccessModalOpen(false)}
             className="w-full py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white font-bold rounded-xl transition cursor-pointer"

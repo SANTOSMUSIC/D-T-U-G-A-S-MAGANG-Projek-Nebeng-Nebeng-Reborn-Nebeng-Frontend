@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
-import { Ticket, QrCode, Clock, ArrowRight, Award, Star, Sparkles, MapPin, KeyRound, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Ticket, QrCode, Clock, ArrowRight, Award, Star, Sparkles, MapPin, KeyRound, RefreshCw, Eye, EyeOff, Search, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { useTickets } from '../../../context/TicketsContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
@@ -9,14 +9,19 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import StatCard from '../../../components/ui/StatCard';
 
+// Statuses that a customer is still allowed to self-cancel
+const CANCELLABLE_STATUS_TEXT = 'Menunggu Check-in di Pos Asal';
+
 export default function MyTickets() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('aktif');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [activeModalType, setActiveModalType] = useState(null);
   const [showOtpMap, setShowOtpMap] = useState({});
   const [qrDynamicToken, setQrDynamicToken] = useState('SEC-9081');
   const [qrCountdown, setQrCountdown] = useState(30);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
@@ -52,10 +57,37 @@ export default function MyTickets() {
   };
 
   const filteredTickets = allTickets.filter(ticket => {
-    if (activeTab === 'aktif') return ticket.status === 'Aktif';
-    if (activeTab === 'riwayat') return ticket.status === 'Selesai' || ticket.status === 'Batal';
-    return true;
+    const matchesTab =
+      activeTab === 'aktif' ? ticket.status === 'Aktif' :
+      activeTab === 'riwayat' ? (ticket.status === 'Selesai' || ticket.status === 'Batal') :
+      true;
+
+    if (!matchesTab) return false;
+
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      ticket.id.toLowerCase().includes(q) ||
+      ticket.from.toLowerCase().includes(q) ||
+      ticket.to.toLowerCase().includes(q) ||
+      ticket.mitra.toLowerCase().includes(q)
+    );
   });
+
+  const handleCancelTicket = () => {
+    if (!selectedTicket || isCancelling) return;
+    setIsCancelling(true);
+    updateTicket(selectedTicket.id, {
+      status: 'Batal',
+      currentStatusText: 'Dibatalkan oleh Customer'
+    });
+    setTimeout(() => {
+      setIsCancelling(false);
+      setActiveModalType(null);
+      setSelectedTicket(null);
+      toast.success('Tiket berhasil dibatalkan. Dana escrow akan dikembalikan.', { title: 'Tiket Dibatalkan' });
+    }, 400);
+  };
 
   const isLoadingTickets = useSimulatedLoading([activeTab], 600);
 
@@ -96,6 +128,17 @@ export default function MyTickets() {
             Tunjukkan QR Code digital di Pos, pantau status real-time, dan kelola Poin Reward Anda.
           </p>
         </div>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Cari No. Tiket, Rute, atau Mitra..."
+          className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl text-[10px] font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172] shadow-sm"
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -160,6 +203,11 @@ export default function MyTickets() {
                     <p className="font-bold text-neutral-800">
                       Detail: <span className="font-normal text-neutral-600">{ticket.detail}</span>
                     </p>
+                    {ticket.totalPrice && (
+                      <p className="font-bold text-neutral-800">
+                        Total Bayar: <span className="font-normal text-emerald-600">{ticket.totalPrice}</span>
+                      </p>
+                    )}
                   </div>
 
                   {ticket.otp && (
@@ -196,6 +244,16 @@ export default function MyTickets() {
                         Detail & Tracking
                       </button>
 
+                      {ticket.status === 'Aktif' && ticket.currentStatusText === CANCELLABLE_STATUS_TEXT && (
+                        <button
+                          onClick={() => openModal(ticket, 'cancel')}
+                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Batalkan</span>
+                        </button>
+                      )}
+
                       {ticket.status === 'Aktif' && (
                         <button
                           onClick={() => openModal(ticket, 'qr')}
@@ -222,7 +280,11 @@ export default function MyTickets() {
             ))
           ) : (
             <div className="col-span-2 bg-white rounded-2xl border border-neutral-200">
-              <EmptyState icon={Clock} title="Belum Ada Tiket" description="Belum ada data perjalanan pada kategori ini." />
+              <EmptyState
+                icon={searchQuery.trim() ? Search : Clock}
+                title={searchQuery.trim() ? 'Tiket Tidak Ditemukan' : 'Belum Ada Tiket'}
+                description={searchQuery.trim() ? 'Tidak ada tiket yang cocok dengan pencarian Anda.' : 'Belum ada data perjalanan pada kategori ini.'}
+              />
             </div>
           )}
         </div>
@@ -299,6 +361,9 @@ export default function MyTickets() {
             <p className="text-neutral-500">Rute: <strong className="text-neutral-800">{selectedTicket?.from} ➔ {selectedTicket?.to}</strong></p>
             <p className="text-neutral-500">Mitra: <strong className="text-neutral-800">{selectedTicket?.mitra}</strong> ({selectedTicket?.vehicle})</p>
             <p className="text-neutral-500">Detail: <strong className="text-neutral-800">{selectedTicket?.detail}</strong></p>
+            {selectedTicket?.totalPrice && (
+              <p className="text-neutral-500">Total Bayar: <strong className="text-emerald-600">{selectedTicket.totalPrice}</strong></p>
+            )}
             {selectedTicket?.otp && (
               <p className="text-neutral-500">OTP Penyerahan Barang: <strong className="text-[#4B2172] font-mono text-[11px]">{selectedTicket.otp}</strong></p>
             )}
@@ -379,6 +444,46 @@ export default function MyTickets() {
             </button>
           </div>
         </form>
+      </BaseModal>
+
+      <BaseModal
+        isOpen={Boolean(selectedTicket && activeModalType === 'cancel')}
+        onClose={() => { if (!isCancelling) setSelectedTicket(null); }}
+        title="Batalkan Tiket"
+        subtitle={selectedTicket?.id}
+        maxWidth="max-w-sm"
+      >
+        <div className="text-center space-y-4 text-[10px]">
+          <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center">
+            <AlertTriangle size={22} />
+          </div>
+          <p className="text-neutral-500">
+            Yakin ingin membatalkan perjalanan <strong className="text-neutral-800">{selectedTicket?.from} → {selectedTicket?.to}</strong>? Dana escrow yang sudah dibayarkan akan dikembalikan ke wallet Anda.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedTicket(null)}
+              disabled={isCancelling}
+              className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition cursor-pointer disabled:opacity-50"
+            >
+              Tidak, Kembali
+            </button>
+            <button
+              onClick={handleCancelTicket}
+              disabled={isCancelling}
+              className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-70"
+            >
+              {isCancelling ? (
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Ya, Batalkan</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </BaseModal>
     </div>
   );

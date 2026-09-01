@@ -3,22 +3,26 @@ import {
   UserCheck,
   Compass,
   Ticket,
+  User,
   LogOut,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
 
-export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', onMenuSelect, onLogout }) {
+export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', isCustomerVerified = false, customerProfile = null, onMenuSelect, onLogout }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    { name: 'Onboarding Biometrik', icon: UserCheck },
-    { name: 'Cari & Booking Trip', icon: Compass },
-    { name: 'Tickets & Digital QR', icon: Ticket },
+    { name: 'Onboarding Biometrik', icon: UserCheck, locked: false },
+    { name: 'Cari & Booking Trip', icon: Compass, locked: !isCustomerVerified },
+    { name: 'Tickets & Digital QR', icon: Ticket, locked: !isCustomerVerified },
+    { name: 'Profil Saya', icon: User, locked: !isCustomerVerified },
   ];
 
   const handleConfirmLogout = () => {
@@ -76,6 +80,21 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', o
             </button>
           </div>
 
+          {customerProfile?.fullName && (
+            <div className="mx-2 mb-5 p-3 rounded-xl bg-white/10 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-white truncate">{customerProfile.fullName}</p>
+                <p className={`text-[8px] font-bold flex items-center gap-1 ${isCustomerVerified ? 'text-emerald-300' : 'text-white/50'}`}>
+                  {isCustomerVerified ? <ShieldCheck size={10} /> : <Lock size={10} />}
+                  {isCustomerVerified ? 'Terverifikasi' : 'Belum Terverifikasi'}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-6">
             <div>
               <p className="text-[8px] font-semibold uppercase tracking-widest text-white/50 mb-2.5 px-3">
@@ -89,14 +108,18 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', o
                     <button
                       key={item.name}
                       onClick={() => handleMenuSelect(item.name)}
+                      title={item.locked ? 'Selesaikan verifikasi biometrik untuk membuka menu ini' : undefined}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
                         isActive
                           ? 'bg-white text-[#4B2172] font-semibold shadow-sm'
+                          : item.locked
+                          ? 'text-white/40 font-medium cursor-not-allowed'
                           : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
                       }`}
                     >
-                      <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : 'text-white/70'}`} />
-                      <span>{item.name}</span>
+                      <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : item.locked ? 'text-white/30' : 'text-white/70'}`} />
+                      <span className="flex-1">{item.name}</span>
+                      {item.locked && <Lock className="w-3 h-3 text-white/30" />}
                     </button>
                   );
                 })}

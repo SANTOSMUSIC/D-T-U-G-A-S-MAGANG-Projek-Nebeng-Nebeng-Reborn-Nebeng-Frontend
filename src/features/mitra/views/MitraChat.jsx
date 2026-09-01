@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, CheckCheck, Search, Phone, ArrowLeft } from 'lucide-react';
 
 export default function MitraChat() {
@@ -6,6 +6,7 @@ export default function MitraChat() {
   const [messageText, setMessageText] = useState('');
   const [chatSearchTerm, setChatSearchTerm] = useState('');
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const messagesEndRef = useRef(null);
   
   const [chats, setChats] = useState([
     {
@@ -37,6 +38,12 @@ export default function MitraChat() {
   ]);
 
   const activeChat = chats.find(c => c.id === selectedChat) || chats[0];
+
+  // Auto-scroll ke pesan terbaru setiap kali pesan baru masuk/terkirim
+  // atau saat pindah percakapan.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeChat.messages.length, selectedChat]);
 
   const filteredChats = chats.filter((chat) => {
     const term = chatSearchTerm.toLowerCase();
@@ -194,6 +201,7 @@ export default function MitraChat() {
                 </div>
               );
             })}
+            <div ref={messagesEndRef} />
           </div>
 
           <form onSubmit={handleSendMessage} className="p-3.5 border-t border-neutral-100 bg-white flex items-center gap-2.5">

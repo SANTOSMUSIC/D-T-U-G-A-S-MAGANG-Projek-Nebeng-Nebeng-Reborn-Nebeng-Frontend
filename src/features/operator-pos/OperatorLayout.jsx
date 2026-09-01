@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import OperatorSidebar from './components/OperatorSidebar';
+import OperatorTopbar from './components/OperatorTopBar';
 import { useAuth } from '../../context/AuthContext';
 
 const OPERATOR_MENU_PATH = {
@@ -32,7 +33,8 @@ export default function OperatorLayout() {
         }}
       />
       
-      <div className="flex-1 lg:ml-64 min-h-screen pt-14 lg:pt-0">
+      <div className="flex-1 lg:ml-64 min-h-screen">
+        <OperatorTopbar />
         <Outlet />
       </div>
     </div>

@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Camera, CheckCircle2, ArrowRight, RefreshCw, ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react';
+import { Upload, Camera, CheckCircle2, ArrowRight, ArrowLeft, RefreshCw, ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
+
+const MAX_KTP_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_KTP_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 
 export default function BiometricOnboarding() {
   const navigate = useNavigate();
   const { markCustomerVerified } = useAuth();
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -13,18 +19,34 @@ export default function BiometricOnboarding() {
     phone: ''
   });
   const [showNikPii, setShowNikPii] = useState(false);
+  const [ktpFile, setKtpFile] = useState(null);
   const [ktpPreview, setKtpPreview] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
 
+  const isPhoneValid = PHONE_REGEX.test(formData.phone.trim());
+
   const handleKtpUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setKtpPreview((prevUrl) => {
-        if (prevUrl) URL.revokeObjectURL(prevUrl);
-        return URL.createObjectURL(file);
-      });
+    if (!file) return;
+
+    if (!ALLOWED_KTP_TYPES.includes(file.type)) {
+      toast.error('Format file harus JPG atau PNG.', { title: 'Format Tidak Didukung' });
+      e.target.value = '';
+      return;
     }
+
+    if (file.size > MAX_KTP_SIZE_BYTES) {
+      toast.error('Ukuran file KTP maksimal 5MB.', { title: 'File Terlalu Besar' });
+      e.target.value = '';
+      return;
+    }
+
+    setKtpFile(file);
+    setKtpPreview((prevUrl) => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      return URL.createObjectURL(file);
+    });
   };
 
   useEffect(() => {
@@ -126,16 +148,21 @@ export default function BiometricOnboarding() {
                 type="text" 
                 placeholder="0812xxxxxxxx"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/[^\d+]/g, '')})}
+                className={`w-full px-3.5 py-2.5 bg-neutral-50 border rounded-xl font-bold text-neutral-800 focus:outline-none ${
+                  formData.phone.trim() && !isPhoneValid ? 'border-rose-300 focus:border-rose-400' : 'border-neutral-200 focus:border-[#4B2172]'
+                }`}
               />
+              {formData.phone.trim() && !isPhoneValid && (
+                <p className="text-[8px] text-rose-600 font-bold mt-1">Format nomor tidak valid. Contoh: 081234567890</p>
+              )}
             </div>
             
             <button 
               onClick={() => setStep(2)}
-              disabled={!formData.fullName.trim() || formData.nik.length !== 16 || !formData.phone.trim()}
+              disabled={!formData.fullName.trim() || formData.nik.length !== 16 || !isPhoneValid}
               className={`w-full py-3 rounded-xl text-[10px] font-bold transition shadow-sm flex items-center justify-center gap-1.5 ${
-                !formData.fullName.trim() || formData.nik.length !== 16 || !formData.phone.trim()
+                !formData.fullName.trim() || formData.nik.length !== 16 || !isPhoneValid
                   ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
                   : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
               }`}
@@ -212,13 +239,23 @@ export default function BiometricOnboarding() {
             </div>
 
             {!scanSuccess ? (
-              <button 
-                onClick={startFaceScan}
-                disabled={isScanning}
-                className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer mt-2"
-              >
-                {isScanning ? 'Sedang Memindai Wajah...' : 'Mulai Scan Face ID'}
-              </button>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => setStep(2)}
+                  disabled={isScanning}
+                  className="w-1/3 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-[10px] font-bold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Kembali</span>
+                </button>
+                <button
+                  onClick={startFaceScan}
+                  disabled={isScanning}
+                  className="w-2/3 py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isScanning ? 'Sedang Memindai Wajah...' : 'Mulai Scan Face ID'}
+                </button>
+              </div>
             ) : (
               <div className="space-y-2 mt-2">
                 <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-[9px] font-bold flex items-center justify-center gap-1.5">
@@ -226,7 +263,14 @@ export default function BiometricOnboarding() {
                 </div>
                 <button
                   onClick={() => {
-                    markCustomerVerified();
+                    markCustomerVerified({
+                      fullName: formData.fullName.trim(),
+                      nik: formData.nik,
+                      phone: formData.phone.trim(),
+                      ktpFileName: ktpFile?.name || null,
+                      verifiedAt: new Date().toISOString()
+                    });
+                    toast.success('Identitas Anda berhasil diverifikasi.', { title: 'Verifikasi Sukses' });
                     navigate('/customer/booking');
                   }}
                   className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition cursor-pointer"

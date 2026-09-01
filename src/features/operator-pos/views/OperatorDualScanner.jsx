@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QrCode, Camera, ArrowRightLeft, ShieldCheck, Unlock, KeyRound, ScanLine, Upload, X as XIcon } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import QrScannerModal from '../../../components/ui/QrScannerModal';
@@ -15,6 +15,7 @@ export default function OperatorDualScanner() {
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [currentHandoverData, setCurrentHandoverData] = useState({ trip: '', ticket: '' });
   const [otpCode, setOtpCode] = useState('');
+  const [recipientName, setRecipientName] = useState('');
 
   const [receiverKtpPhoto, setReceiverKtpPhoto] = useState(null);
   const [receiverKtpPreviewUrl, setReceiverKtpPreviewUrl] = useState(null);
@@ -34,6 +35,14 @@ export default function OperatorDualScanner() {
       return file ? URL.createObjectURL(file) : null;
     });
   };
+
+  // FIX: bersihkan object URL foto KTP kalau operator pindah halaman
+  // sebelum sempat menghapus/mengganti fotonya (mencegah memory leak).
+  useEffect(() => {
+    return () => {
+      if (receiverKtpPreviewUrl) URL.revokeObjectURL(receiverKtpPreviewUrl);
+    };
+  }, [receiverKtpPreviewUrl]);
 
   const [scannerTarget, setScannerTarget] = useState(null);
 
@@ -85,6 +94,7 @@ export default function OperatorDualScanner() {
     } else {
       setCurrentHandoverData({ trip: cleanTrip, ticket: cleanTicket });
       setOtpCode('');
+      setRecipientName('');
       handleReceiverKtpChange(null);
       setShowHandoverModal(true);
     }
@@ -93,6 +103,11 @@ export default function OperatorDualScanner() {
   const handleVerifyHandover = (e) => {
     e.preventDefault();
     if (isSubmittingHandover) return;
+
+    if (!recipientName.trim()) {
+      toast.warning('Masukkan nama penerima terlebih dahulu!', { title: 'Nama Penerima Kosong' });
+      return;
+    }
 
     if (!otpCode || otpCode.length < 6) {
       toast.warning('Masukkan Kode OTP 6-digit penerima dengan benar!', { title: 'OTP Tidak Valid' });
@@ -111,6 +126,7 @@ export default function OperatorDualScanner() {
       type: 'Handover & Escrow Released',
       trip: currentHandoverData.trip,
       ticket: currentHandoverData.ticket,
+      recipient: recipientName.trim(),
       status: 'SUCCESS (Escrow Released)',
       time: 'Baru saja'
     };
@@ -118,6 +134,7 @@ export default function OperatorDualScanner() {
     setScanHistory([newLog, ...scanHistory]);
     setShowHandoverModal(false);
     setOtpCode('');
+    setRecipientName('');
     handleReceiverKtpChange(null);
     setTripQr('');
     setTicketQr('');
@@ -283,6 +300,7 @@ export default function OperatorDualScanner() {
           setShowHandoverModal(false);
           handleReceiverKtpChange(null);
           setOtpCode('');
+          setRecipientName('');
         }}
         title="Verifikasi Penyerahan (Handover)"
         subtitle="Wajib diisi sebelum dana escrow dilepaskan."
@@ -301,6 +319,18 @@ export default function OperatorDualScanner() {
           </div>
 
           <form onSubmit={handleVerifyHandover} className="space-y-3">
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NAMA PENERIMA</label>
+              <input
+                type="text"
+                required
+                placeholder="cth: Siti Rahma"
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+              />
+            </div>
+
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">KODE OTP PENERIMA (6-DIGIT)</label>
               <div className="relative">
@@ -363,6 +393,7 @@ export default function OperatorDualScanner() {
                   setShowHandoverModal(false);
                   handleReceiverKtpChange(null);
                   setOtpCode('');
+                  setRecipientName('');
                 }}
                 className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition cursor-pointer"
               >

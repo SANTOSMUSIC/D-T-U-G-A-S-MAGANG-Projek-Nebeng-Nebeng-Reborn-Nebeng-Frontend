@@ -25,9 +25,13 @@ export default function OperatorFinancial() {
         }
       `}</style>
 
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 print-hidden">
+      {/* FIX: sebelumnya class print-hidden dipasang di div pembungkus ini,
+          jadi judul & subjudul laporan ikut hilang saat dicetak. Sekarang
+          print-hidden hanya di tombol, dan ada header khusus print di
+          bawah yang selalu tampil saat window.print(). */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 print-hidden">
             <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
               <FileText className="w-3 h-3" /> REKAPITULASI KAS & PENDAPATAN POS
@@ -36,8 +40,11 @@ export default function OperatorFinancial() {
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
             Laporan Finansial Pos Terminal
           </h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5 print-hidden">
             Kelola setoran tunai harian, rekonsiliasi kasir, dan pantau pendapatan total pos.
+          </p>
+          <p className="hidden print:block text-[10px] text-neutral-500 mt-0.5">
+            Dicetak: {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}
           </p>
         </div>
         <button 

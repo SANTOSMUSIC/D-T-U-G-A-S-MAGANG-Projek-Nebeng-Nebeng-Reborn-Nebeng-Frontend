@@ -7,6 +7,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 
 export default function OperatorHandover() {
   const toast = useToast();
+  const [recipientName, setRecipientName] = useState('');
   const [ticketQr, setTicketQr] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [ktpPhoto, setKtpPhoto] = useState(null);
@@ -23,6 +24,15 @@ export default function OperatorHandover() {
     return () => clearTimeout(timer);
   }, []);
 
+  // FIX: preview foto KTP hanya di-revoke saat file diganti/dihapus,
+  // tidak saat operator pindah halaman — object URL jadi menumpuk di
+  // memori. Sekarang dibersihkan juga saat komponen unmount.
+  useEffect(() => {
+    return () => {
+      if (ktpPreviewUrl) URL.revokeObjectURL(ktpPreviewUrl);
+    };
+  }, [ktpPreviewUrl]);
+
   const handleKtpFileChange = (file) => {
     setKtpPhoto(file || null);
     setKtpPreviewUrl((prevUrl) => {
@@ -35,8 +45,8 @@ export default function OperatorHandover() {
     e.preventDefault();
     const cleanOtp = otpCode.trim();
 
-    if (!ticketQr.trim() || !cleanOtp) {
-      toast.warning('Mohon masukkan Nomor Resi/QR Paket dan Kode OTP!', { title: 'Data Belum Lengkap' });
+    if (!recipientName.trim() || !ticketQr.trim() || !cleanOtp) {
+      toast.warning('Mohon lengkapi Nama Penerima, Nomor Resi/QR Paket, dan Kode OTP!', { title: 'Data Belum Lengkap' });
       return;
     }
 
@@ -52,7 +62,7 @@ export default function OperatorHandover() {
 
     const newLog = {
       id: `HO-${Math.floor(100 + Math.random() * 900)}`,
-      recipient: 'Penerima Terverifikasi',
+      recipient: recipientName.trim(),
       ticket: ticketQr.trim().toUpperCase(),
       otp: cleanOtp,
       status: 'Berhasil Diserahkan',
@@ -60,6 +70,7 @@ export default function OperatorHandover() {
     };
 
     setHandoverHistory([newLog, ...handoverHistory]);
+    setRecipientName('');
     setTicketQr('');
     setOtpCode('');
     handleKtpFileChange(null);
@@ -89,6 +100,18 @@ export default function OperatorHandover() {
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h2 className="text-[14px] font-bold text-neutral-800">Form Serah Terima Paket</h2>
           <form onSubmit={handleHandoverSubmit} className="space-y-3.5 text-[10px]">
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NAMA PENERIMA</label>
+              <input
+                type="text"
+                required
+                placeholder="cth: Siti Rahma"
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+              />
+            </div>
+
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">QR TIKET / RESI PAKET</label>
               <input 

@@ -23,8 +23,10 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function UserGovernance() {
+  const { session: currentAdminSession, role: currentAdminRole } = useAuth();
   const [users, setUsers] = useState([
     { id: "USR-001", name: "Budi Santoso", email: "budi@nebeng.com", role: "Driver Motor", phone: "081234567890", status: "Active", riskLevel: "Low" },
     { id: "USR-002", name: "Siti Rahma", email: "siti.rahma@gmail.com", role: "Passenger", phone: "081398765432", status: "Suspended", riskLevel: "Medium" },
@@ -103,7 +105,7 @@ export default function UserGovernance() {
     const logEntry = {
       id: `LOG-${Date.now().toString().slice(-6)}`,
       timestamp: new Date().toLocaleString('id-ID'),
-      admin: 'Gibyan (Superadmin)',
+      admin: `${currentAdminSession?.name || currentAdminSession?.fullName || currentAdminSession?.username || 'Admin'} (${currentAdminRole || currentAdminSession?.role || 'Superadmin'})`,
       targetId: selectedUser.id,
       targetName: selectedUser.name,
       action: `${actionModal.toUpperCase()} ACCOUNT`,

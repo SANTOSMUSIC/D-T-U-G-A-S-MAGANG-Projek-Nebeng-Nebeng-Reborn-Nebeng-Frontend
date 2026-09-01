@@ -13,6 +13,7 @@ import RegionalAdminsManagement from './features/superadmin/views/RegionalAdmins
 import PricingManagement from './features/superadmin/views/PricingManagement';
 import AuditLedger from './features/superadmin/views/AuditLedger';
 import UserGovernance from './features/superadmin/views/UserGovernance';
+import SuperadminAccountSettings from './features/superadmin/views/SuperadminAccountSettings';
 
 // Regional
 import RegionalLayout from './features/regional/RegionalLayout';
@@ -40,12 +41,14 @@ import MitraTripManagement from './features/mitra/views/MitraTripManagement';
 import MitraQrDisplay from './features/mitra/views/MitraQrDisplay';
 import MitraBalance from './features/mitra/views/MitraBalance';
 import MitraChat from './features/mitra/views/MitraChat';
+import MitraAccountSettings from './features/mitra/views/MitraAccountSettings';
 
 // Customer
 import CustomerLayout from './features/customer/CustomerLayout';
 import BiometricOnboarding from './features/customer/views/BiometricOnboarding';
 import SearchTrip from './features/customer/views/SearchTrip';
 import MyTickets from './features/customer/views/MyTickets';
+import CustomerAccountSettings from './features/customer/views/CustomerAccountSettings';
 
 function CustomerIndexRedirect() {
   const { isCustomerVerified } = useAuth();
@@ -121,6 +124,7 @@ export default function App() {
         <Route path="tarif" element={<PricingManagement />} />
         <Route path="audit" element={<AuditLedger />} />
         <Route path="governance" element={<UserGovernance />} />
+        <Route path="profile/pengaturan" element={<SuperadminAccountSettings />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
@@ -178,6 +182,7 @@ export default function App() {
         <Route path="qr" element={<MitraQrDisplay />} />
         <Route path="saldo" element={<MitraBalance />} />
         <Route path="chat" element={<MitraChat />} />
+        <Route path="profile/pengaturan" element={<MitraAccountSettings />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
@@ -194,6 +199,8 @@ export default function App() {
         <Route path="onboarding" element={<BiometricOnboarding />} />
         <Route path="booking" element={<SearchTrip />} />
         <Route path="tickets" element={<MyTickets />} />
+        <Route path="profile" element={<Navigate to="pengaturan" replace />} />
+        <Route path="profile/pengaturan" element={<CustomerAccountSettings />} />
         <Route path="*" element={<CustomerIndexRedirect />} />
       </Route>
 

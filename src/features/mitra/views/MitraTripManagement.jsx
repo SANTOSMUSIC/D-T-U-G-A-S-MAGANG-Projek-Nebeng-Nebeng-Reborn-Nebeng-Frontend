@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Calendar, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall, XCircle } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
-import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { useMitraData, estimateFare } from '../../../context/MitraDataContext';
+
+const ROUTE_OPTIONS = ['Solo (Pos Pusat)', 'Yogyakarta', 'Semarang', 'Surabaya'];
 
 export default function MitraTripManagement() {
   const toast = useToast();
-  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
-  const [trips, setTrips] = useState([
-    { id: 'TRIP-701', origin: 'Solo (Pos Pusat)', destination: 'Yogyakarta', date: '2026-08-25', time: '08:00', vehicle: 'Motor', seats: 1, luggage: 15, estimation: 'Rp 175.000', status: 'In Transit' },
-    { id: 'TRIP-702', origin: 'Solo', destination: 'Semarang', date: '2026-08-26', time: '10:00', vehicle: 'Mobil', seats: 4, luggage: 45, estimation: 'Rp 450.000', status: 'Aktif' }
-  ]);
+  const { trips, addTrip, cancelTrip, updateTripStatus } = useMitraData();
 
   const [formData, setFormData] = useState({
     origin: 'Solo (Pos Pusat)',
@@ -24,17 +22,21 @@ export default function MitraTripManagement() {
     luggage: 15,
   });
 
-  const [estimatedEarnings, setEstimatedEarnings] = useState(175000);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [selectedEmergencyTrip, setSelectedEmergencyTrip] = useState(null);
   const [emergencyCategory, setEmergencyCategory] = useState('Kendaraan Mogok');
   const [emergencyDescription, setEmergencyDescription] = useState('');
   const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
+  const [cancelConfirmTarget, setCancelConfirmTarget] = useState(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
-    return () => clearTimeout(timer);
-  }, []);
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  // Tarif dihitung ulang secara live berdasarkan rute & kendaraan yang dipilih,
+  // bukan angka tetap per jenis kendaraan seperti sebelumnya.
+  const estimatedEarnings = useMemo(
+    () => estimateFare(formData.origin, formData.destination, formData.vehicle),
+    [formData.origin, formData.destination, formData.vehicle]
+  );
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,14 +47,26 @@ export default function MitraTripManagement() {
     const vehicle = e.target.value;
     if (vehicle === 'Motor') {
       setFormData(prev => ({ ...prev, vehicle, seats: 1, luggage: 15 }));
-      setEstimatedEarnings(175000);
     } else {
       setFormData(prev => ({ ...prev, vehicle, seats: 4, luggage: 40 }));
-      setEstimatedEarnings(450000);
     }
   };
 
   const isSameOriginDestination = formData.origin === formData.destination;
+
+  // Cek bentrok jadwal: kendaraan yang sama tidak boleh punya trip aktif lain
+  // di tanggal & jam yang persis sama.
+  const isScheduleConflict = useMemo(() => {
+    if (!formData.date || !formData.time) return false;
+    return trips.some((t) =>
+      (t.status === 'Aktif' || t.status === 'In Transit') &&
+      t.date === formData.date &&
+      t.time === formData.time &&
+      t.vehicle === formData.vehicle
+    );
+  }, [trips, formData.date, formData.time, formData.vehicle]);
+
+  const isPastDate = Boolean(formData.date) && formData.date < todayISO;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -60,21 +74,17 @@ export default function MitraTripManagement() {
       toast.warning('Pos Asal dan Pos Tujuan tidak boleh sama. Silakan pilih rute yang berbeda.', { title: 'Rute Tidak Valid' });
       return;
     }
-    const newTrip = {
-      id: `TRIP-70${trips.length + 1}`,
-      origin: formData.origin,
-      destination: formData.destination,
-      date: formData.date,
-      time: formData.time,
-      vehicle: formData.vehicle,
-      seats: formData.seats,
-      luggage: formData.luggage,
-      estimation: `Rp ${estimatedEarnings.toLocaleString('id-ID')}`,
-      status: 'Aktif'
-    };
-    setTrips([newTrip, ...trips]);
+    if (isPastDate) {
+      toast.warning('Tanggal trip tidak boleh di masa lalu.', { title: 'Tanggal Tidak Valid' });
+      return;
+    }
+    if (isScheduleConflict) {
+      toast.warning('Sudah ada trip terjadwal untuk kendaraan ini pada tanggal & jam yang sama.', { title: 'Jadwal Bentrok' });
+      return;
+    }
 
-    // Reset form ke kondisi awal
+    addTrip({ ...formData });
+
     setFormData({
       origin: 'Solo (Pos Pusat)',
       destination: 'Yogyakarta',
@@ -84,13 +94,12 @@ export default function MitraTripManagement() {
       seats: 1,
       luggage: 15,
     });
-    setEstimatedEarnings(175000);
 
     toast.success('Trip baru berhasil dibuat dan dijadwalkan ke sistem!', { title: 'Trip Dibuat' });
   };
 
   const handleRequestStatusChange = (trip) => {
-    if (trip.status === 'Selesai') return;
+    if (trip.status === 'Selesai' || trip.status === 'Dibatalkan') return;
     const nextStatus = trip.status === 'Aktif' ? 'In Transit' : 'Selesai';
     setStatusConfirmTarget({ tripId: trip.id, nextStatus });
   };
@@ -98,9 +107,21 @@ export default function MitraTripManagement() {
   const handleConfirmStatusChange = () => {
     if (!statusConfirmTarget) return;
     const { tripId, nextStatus } = statusConfirmTarget;
-    setTrips(trips.map(t => (t.id === tripId ? { ...t, status: nextStatus } : t)));
-    toast.success(`Status trip ${tripId} berhasil diubah menjadi "${nextStatus}".`, { title: 'Status Diperbarui' });
+    updateTripStatus(tripId, nextStatus);
+    toast.success(
+      nextStatus === 'Selesai'
+        ? `Trip ${tripId} selesai. Dana escrow otomatis cair ke Available Balance.`
+        : `Status trip ${tripId} berhasil diubah menjadi "${nextStatus}".`,
+      { title: 'Status Diperbarui' }
+    );
     setStatusConfirmTarget(null);
+  };
+
+  const handleConfirmCancel = () => {
+    if (!cancelConfirmTarget) return;
+    cancelTrip(cancelConfirmTarget);
+    toast.success(`Trip ${cancelConfirmTarget} berhasil dibatalkan.`, { title: 'Trip Dibatalkan' });
+    setCancelConfirmTarget(null);
   };
 
   const handleOpenEmergencyModal = (trip) => {
@@ -124,6 +145,9 @@ export default function MitraTripManagement() {
     if (status === 'In Transit') return 'amber';
     return 'purple';
   };
+
+  const visibleTrips = trips.filter((t) => t.status !== 'Dibatalkan');
+  const cancelledTrips = trips.filter((t) => t.status === 'Dibatalkan');
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -159,10 +183,7 @@ export default function MitraTripManagement() {
                 onChange={handleChange}
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               >
-                <option value="Solo (Pos Pusat)">Solo (Pos Pusat)</option>
-                <option value="Yogyakarta">Yogyakarta</option>
-                <option value="Semarang">Semarang</option>
-                <option value="Surabaya">Surabaya</option>
+                {ROUTE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
@@ -174,10 +195,7 @@ export default function MitraTripManagement() {
                 onChange={handleChange}
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               >
-                <option value="Yogyakarta">Yogyakarta</option>
-                <option value="Solo (Pos Pusat)">Solo (Pos Pusat)</option>
-                <option value="Semarang">Semarang</option>
-                <option value="Surabaya">Surabaya</option>
+                {ROUTE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
@@ -188,6 +206,7 @@ export default function MitraTripManagement() {
                   type="date" 
                   name="date" 
                   required
+                  min={todayISO}
                   value={formData.date} 
                   onChange={handleChange}
                   className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
@@ -229,6 +248,8 @@ export default function MitraTripManagement() {
                   <input 
                     type="number" 
                     name="seats" 
+                    min={1}
+                    max={formData.vehicle === 'Motor' ? 1 : 8}
                     disabled={formData.vehicle === 'Motor'}
                     value={formData.seats} 
                     onChange={handleChange}
@@ -240,6 +261,8 @@ export default function MitraTripManagement() {
                   <input 
                     type="number" 
                     name="luggage" 
+                    min={1}
+                    max={formData.vehicle === 'Motor' ? 15 : 500}
                     disabled={formData.vehicle === 'Motor'}
                     value={formData.luggage} 
                     onChange={handleChange}
@@ -260,12 +283,18 @@ export default function MitraTripManagement() {
             {isSameOriginDestination && (
               <p className="text-[8px] text-rose-600 font-bold -mt-1">⚠️ Pos Asal dan Pos Tujuan tidak boleh sama.</p>
             )}
+            {isPastDate && (
+              <p className="text-[8px] text-rose-600 font-bold -mt-1">⚠️ Tanggal trip tidak boleh di masa lalu.</p>
+            )}
+            {isScheduleConflict && (
+              <p className="text-[8px] text-rose-600 font-bold -mt-1">⚠️ Jadwal bentrok dengan trip lain di kendaraan yang sama.</p>
+            )}
 
             <button 
               type="submit"
-              disabled={isSameOriginDestination}
+              disabled={isSameOriginDestination || isPastDate || isScheduleConflict}
               className={`w-full py-3 rounded-xl text-[10px] font-bold transition shadow-sm ${
-                isSameOriginDestination
+                isSameOriginDestination || isPastDate || isScheduleConflict
                   ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
                   : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
               }`}
@@ -283,30 +312,24 @@ export default function MitraTripManagement() {
           </div>
 
           <div className="space-y-3">
-            {isLoadingTrips ? (
-              Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/50 space-y-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-48" />
-                </div>
-              ))
-            ) : trips.length === 0 ? (
+            {visibleTrips.length === 0 ? (
               <EmptyState
                 icon={Calendar}
                 title="Belum Ada Trip Terjadwal"
                 description="Publikasikan trip pertama Anda lewat form di sebelah kiri."
               />
-            ) : trips.map((trip) => (
+            ) : visibleTrips.map((trip) => (
               <div key={trip.id} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/60 hover:bg-neutral-100/60 transition space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-[10px] text-neutral-800 font-mono">{trip.id}</span>
                       
                       <button 
                         onClick={() => handleRequestStatusChange(trip)}
                         disabled={trip.status === 'Selesai'}
                         className="cursor-pointer"
+                        title="Klik untuk ubah status"
                       >
                         <StatusBadge variant={getTripBadgeVariant(trip.status)}>
                           Status: {trip.status}
@@ -329,11 +352,19 @@ export default function MitraTripManagement() {
                     </div>
                   </div>
 
-                  <div className="text-right flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-200">
-                    <div>
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-200">
+                    <div className="text-right">
                       <span className="text-[8px] uppercase font-bold text-neutral-400 block">Potensi Pendapatan</span>
-                      <span className="text-[12px] font-bold text-emerald-600">{trip.estimation}</span>
+                      <span className="text-[12px] font-bold text-emerald-600">Rp {trip.estimation.toLocaleString('id-ID')}</span>
                     </div>
+                    {trip.status === 'Aktif' && (
+                      <button
+                        onClick={() => setCancelConfirmTarget(trip.id)}
+                        className="text-[8px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                      >
+                        <XCircle className="w-3 h-3" /> Batalkan Trip
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -353,6 +384,25 @@ export default function MitraTripManagement() {
                 )}
               </div>
             ))}
+
+            {cancelledTrips.length > 0 && (
+              <details className="pt-2">
+                <summary className="text-[9px] font-bold text-neutral-400 cursor-pointer select-none">
+                  Trip Dibatalkan ({cancelledTrips.length})
+                </summary>
+                <div className="space-y-2 mt-2">
+                  {cancelledTrips.map((trip) => (
+                    <div key={trip.id} className="p-3 rounded-xl border border-neutral-100 bg-neutral-50/40 opacity-60 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-[10px] text-neutral-600 font-mono">{trip.id}</span>
+                        <p className="text-[9px] text-neutral-500">{trip.origin} &rarr; {trip.destination} • {trip.date}</p>
+                      </div>
+                      <span className="text-[8px] font-bold text-neutral-400 bg-neutral-200 px-2 py-0.5 rounded-full">Dibatalkan</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         </div>
       </div>
@@ -423,7 +473,7 @@ export default function MitraTripManagement() {
         <div className="space-y-3 text-[10px]">
           <p className="text-neutral-600">
             {statusConfirmTarget?.nextStatus === 'Selesai'
-              ? `Tandai trip ${statusConfirmTarget?.tripId} sebagai SELESAI? Setelah selesai, status ini bersifat final.`
+              ? `Tandai trip ${statusConfirmTarget?.tripId} sebagai SELESAI? Dana escrow akan otomatis cair ke Available Balance. Status ini bersifat final.`
               : `Ubah status trip ${statusConfirmTarget?.tripId} menjadi "In Transit"?`}
           </p>
           <div className="flex gap-2 pt-2">
@@ -438,6 +488,34 @@ export default function MitraTripManagement() {
               className="flex-1 py-2 bg-[#4B2172] text-white rounded-full font-bold cursor-pointer shadow-sm"
             >
               Ya, Lanjutkan
+            </button>
+          </div>
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        isOpen={Boolean(cancelConfirmTarget)}
+        onClose={() => setCancelConfirmTarget(null)}
+        title="Batalkan Trip?"
+        subtitle={`Trip ID: ${cancelConfirmTarget}`}
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-3 text-[10px]">
+          <p className="text-neutral-600">
+            Trip yang dibatalkan tidak akan lagi tampil di Dashboard, QR Trip, atau daftar aktif. Tindakan ini tidak dapat diurungkan.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setCancelConfirmTarget(null)}
+              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer"
+            >
+              Tidak
+            </button>
+            <button
+              onClick={handleConfirmCancel}
+              className="flex-1 py-2 bg-rose-600 text-white rounded-full font-bold cursor-pointer shadow-sm"
+            >
+              Ya, Batalkan
             </button>
           </div>
         </div>

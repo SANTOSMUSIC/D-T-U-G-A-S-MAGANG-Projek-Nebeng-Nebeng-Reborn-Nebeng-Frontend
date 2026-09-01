@@ -35,6 +35,14 @@ export default function OperatorInspection() {
     });
   };
 
+  // FIX: bersihkan object URL preview foto barang saat operator pindah
+  // halaman sebelum menghapus/mengganti fotonya (mencegah memory leak).
+  useEffect(() => {
+    return () => {
+      if (itemPhotoPreviewUrl) URL.revokeObjectURL(itemPhotoPreviewUrl);
+    };
+  }, [itemPhotoPreviewUrl]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!itemPhoto) {

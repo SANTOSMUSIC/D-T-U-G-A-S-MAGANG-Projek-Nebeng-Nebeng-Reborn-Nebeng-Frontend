@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import StatusBadge from '../../../components/ui/StatusBadge';
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB, sesuai teks yang ditampilkan ke user
+const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const SKCK_TYPES = [...IMAGE_TYPES, 'application/pdf'];
+const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
 
 export default function MitraOnboarding() {
   const [formData, setFormData] = useState({
@@ -17,6 +22,7 @@ export default function MitraOnboarding() {
     skck: null,
     stnk: null,
   });
+  const [fileErrors, setFileErrors] = useState({ sim: '', skck: '', stnk: '' });
 
   const [faceScanned, setFaceScanned] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -29,9 +35,26 @@ export default function MitraOnboarding() {
   };
 
   const handleFileChange = (e, field) => {
-    if (e.target.files && e.target.files[0]) {
-      setFiles(prev => ({ ...prev, [field]: e.target.files[0] }));
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = field === 'skck' ? SKCK_TYPES : IMAGE_TYPES;
+
+    if (!allowedTypes.includes(file.type)) {
+      setFileErrors(prev => ({ ...prev, [field]: 'Format file tidak didukung.' }));
+      setFiles(prev => ({ ...prev, [field]: null }));
+      e.target.value = '';
+      return;
     }
+    if (file.size > MAX_FILE_SIZE) {
+      setFileErrors(prev => ({ ...prev, [field]: 'Ukuran file melebihi 2MB.' }));
+      setFiles(prev => ({ ...prev, [field]: null }));
+      e.target.value = '';
+      return;
+    }
+
+    setFileErrors(prev => ({ ...prev, [field]: '' }));
+    setFiles(prev => ({ ...prev, [field]: file }));
   };
 
   const handleFaceScan = () => {
@@ -44,10 +67,12 @@ export default function MitraOnboarding() {
 
   const missingDocuments = ['sim', 'skck', 'stnk'].filter((field) => !files[field]);
   const isNikValid = formData.nik.length === 16;
-  
+  const isPhoneValid = PHONE_REGEX.test(formData.phone.trim());
+
   const isTextInputsValid = 
     formData.fullName.trim() !== '' && 
     formData.phone.trim() !== '' && 
+    isPhoneValid &&
     formData.address.trim() !== '' && 
     formData.plateNumber.trim() !== '';
 
@@ -113,6 +138,9 @@ export default function MitraOnboarding() {
                   onChange={handleInputChange}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
+                {formData.nik.length > 0 && !isNikValid && (
+                  <p className="text-[8px] text-rose-600 font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> NIK harus 16 digit ({formData.nik.length}/16).</p>
+                )}
               </div>
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Telepon / WhatsApp</label>
@@ -125,6 +153,9 @@ export default function MitraOnboarding() {
                   onChange={handleInputChange}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
+                {formData.phone.trim().length > 0 && !isPhoneValid && (
+                  <p className="text-[8px] text-rose-600 font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> Format tidak valid. Gunakan cth: 0812xxxxxxxx.</p>
+                )}
               </div>
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
@@ -175,6 +206,7 @@ export default function MitraOnboarding() {
                 <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
                 <p className="text-[10px] font-bold text-neutral-800 mb-0.5">Foto SIM C/A</p>
                 <p className="text-[8px] text-neutral-400 mb-2">{files.sim ? files.sim.name : 'Format JPG/PNG (Maks 2MB)'}</p>
+                {fileErrors.sim && <p className="text-[8px] text-rose-600 font-bold mb-2 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> {fileErrors.sim}</p>}
                 <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                   Pilih Berkas
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'sim')} className="hidden" />
@@ -185,6 +217,7 @@ export default function MitraOnboarding() {
                 <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
                 <p className="text-[10px] font-bold text-neutral-800 mb-0.5">Foto SKCK Aktif</p>
                 <p className="text-[8px] text-neutral-400 mb-2">{files.skck ? files.skck.name : 'Format PDF/JPG (Maks 2MB)'}</p>
+                {fileErrors.skck && <p className="text-[8px] text-rose-600 font-bold mb-2 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> {fileErrors.skck}</p>}
                 <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                   Pilih Berkas
                   <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'skck')} className="hidden" />
@@ -195,6 +228,7 @@ export default function MitraOnboarding() {
                 <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
                 <p className="text-[10px] font-bold text-neutral-800 mb-0.5">Foto STNK Kendaraan</p>
                 <p className="text-[8px] text-neutral-400 mb-2">{files.stnk ? files.stnk.name : 'Format JPG/PNG (Maks 2MB)'}</p>
+                {fileErrors.stnk && <p className="text-[8px] text-rose-600 font-bold mb-2 flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> {fileErrors.stnk}</p>}
                 <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                   Pilih Berkas
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'stnk')} className="hidden" />

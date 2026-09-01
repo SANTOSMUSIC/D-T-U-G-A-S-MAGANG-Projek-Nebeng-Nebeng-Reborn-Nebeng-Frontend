@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
-import { Compass, Search, MapPin, Calendar, Users, Package, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
+import { Compass, Search, MapPin, Calendar, Users, Package, ArrowRight, ShieldCheck, Lock, Wallet } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useTickets } from '../../../context/TicketsContext';
+
+const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
+const TODAY_ISO = new Date().toISOString().split('T')[0];
+
+const formatRupiah = (value) =>
+  `Rp ${Math.max(0, Math.round(value)).toLocaleString('id-ID')}`;
 
 export default function SearchTrip() {
   const navigate = useNavigate();
@@ -52,6 +58,8 @@ export default function SearchTrip() {
       vehicle: 'Toyota Avanza (H 1234 AB)',
       vehicleCategory: 'mobil',
       price: 'Rp 75.000',
+      basePrice: 75000,
+      priceUnit: 'kursi',
       capacity: '3 Kursi Tersedia',
       maxSeats: 3,
       rating: '4.9 (120 trip)'
@@ -66,6 +74,8 @@ export default function SearchTrip() {
       vehicle: 'Yamaha NMAX (AD 5678 CD - Motor)',
       vehicleCategory: 'motor',
       price: 'Rp 50.000 / paket',
+      basePrice: 50000,
+      priceUnit: 'paket',
       remainingCapacityKg: 20,
       rating: '4.8 (85 trip)'
     }
@@ -87,9 +97,14 @@ export default function SearchTrip() {
   const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (seatCount > maxAllowedSeats || seatCount < 1);
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
-  const isPassengerValid = selectedTrip?.type === 'penumpang' ? (passengerName.trim() !== '' && passengerPhone.trim() !== '') : true;
-  const isBarangValid = selectedTrip?.type === 'barang' ? (receiverName.trim() !== '' && receiverPhone.trim() !== '') : true;
+  const isPassengerPhoneValid = selectedTrip?.type === 'penumpang' ? PHONE_REGEX.test(passengerPhone.trim()) : true;
+  const isReceiverPhoneValid = selectedTrip?.type === 'barang' ? PHONE_REGEX.test(receiverPhone.trim()) : true;
+  const isPassengerValid = selectedTrip?.type === 'penumpang' ? (passengerName.trim() !== '' && isPassengerPhoneValid) : true;
+  const isBarangValid = selectedTrip?.type === 'barang' ? (receiverName.trim() !== '' && isReceiverPhoneValid) : true;
   const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid;
+
+  const quantity = selectedTrip?.type === 'barang' ? itemCount : seatCount;
+  const totalPrice = (selectedTrip?.basePrice || 0) * (quantity || 0);
 
   const handleSizeChange = (sizeCode) => {
     setItemSize(sizeCode);
@@ -154,6 +169,7 @@ export default function SearchTrip() {
       mitra: selectedTrip.mitraName,
       vehicle: selectedTrip.vehicle,
       schedule: `${selectedTrip.date} • Sesuai Jadwal Trip Mitra`,
+      totalPrice: formatRupiah(totalPrice),
       detail: isBarang
         ? `${itemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName || '-'} (${receiverPhone || '-'})`
         : `${seatCount} Kursi • Atas Nama ${passengerName || '-'} (${passengerPhone || '-'})`,
@@ -226,6 +242,7 @@ export default function SearchTrip() {
               <Calendar className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
               <input 
                 type="date"
+                min={TODAY_ISO}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172]"
@@ -375,9 +392,14 @@ export default function SearchTrip() {
                       required
                       placeholder="08xxxxxxxxxx"
                       value={passengerPhone}
-                      onChange={(e) => setPassengerPhone(e.target.value)}
-                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                      onChange={(e) => setPassengerPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                      className={`w-full px-3 py-2 bg-neutral-50 border rounded-xl font-bold text-neutral-800 focus:outline-none ${
+                        passengerPhone.trim() && !isPassengerPhoneValid ? 'border-rose-300 focus:border-rose-400' : 'border-neutral-200 focus:border-[#4B2172]'
+                      }`}
                     />
+                    {passengerPhone.trim() && !isPassengerPhoneValid && (
+                      <p className="text-[8px] text-rose-600 font-bold mt-1">Format nomor tidak valid.</p>
+                    )}
                   </div>
                 </div>
               </>
@@ -455,9 +477,14 @@ export default function SearchTrip() {
                       required
                       placeholder="08xxxxxxxxxx"
                       value={receiverPhone}
-                      onChange={(e) => setReceiverPhone(e.target.value)}
-                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                      onChange={(e) => setReceiverPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                      className={`w-full px-3 py-2 bg-neutral-50 border rounded-xl font-bold text-neutral-800 focus:outline-none ${
+                        receiverPhone.trim() && !isReceiverPhoneValid ? 'border-rose-300 focus:border-rose-400' : 'border-neutral-200 focus:border-[#4B2172]'
+                      }`}
                     />
+                    {receiverPhone.trim() && !isReceiverPhoneValid && (
+                      <p className="text-[8px] text-rose-600 font-bold mt-1">Format nomor tidak valid.</p>
+                    )}
                   </div>
                 </div>
 
@@ -466,6 +493,13 @@ export default function SearchTrip() {
                 )}
               </>
             )}
+
+            <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl flex items-center justify-between">
+              <span className="text-[9px] font-bold text-neutral-600">
+                Total ({quantity} {selectedTrip?.priceUnit || 'unit'} × {formatRupiah(selectedTrip?.basePrice || 0)})
+              </span>
+              <span className="text-[14px] font-bold text-[#4B2172]">{formatRupiah(totalPrice)}</span>
+            </div>
 
             <div className="pt-2 flex gap-2">
               <button
@@ -494,6 +528,11 @@ export default function SearchTrip() {
           <div className="space-y-4 text-center py-2 text-[10px]">
             <div className="w-9 h-9 bg-purple-50 text-[#4B2172] rounded-xl flex items-center justify-center mx-auto border border-purple-100">
               <Lock className="w-4 h-4" />
+            </div>
+            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl flex items-center justify-center gap-2">
+              <Wallet className="w-3.5 h-3.5 text-[#4B2172]" />
+              <span className="text-neutral-500">Total Pembayaran (Escrow):</span>
+              <span className="font-bold text-[#4B2172] text-[12px]">{formatRupiah(totalPrice)}</span>
             </div>
             <p className="text-[9px] text-neutral-400">Masukkan PIN transaksi rahasia Anda 6-digit.</p>
 
