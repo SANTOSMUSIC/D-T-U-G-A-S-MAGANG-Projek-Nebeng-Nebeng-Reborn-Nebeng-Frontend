@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck } from 'lucide-react';
+import StatusBadge from '../../../components/ui/StatusBadge';
 
 export default function MitraOnboarding() {
   const [formData, setFormData] = useState({
@@ -23,17 +24,13 @@ export default function MitraOnboarding() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    // FIX (CACAT LOGIKA): NIK sebelumnya hanya divalidasi lewat atribut
-    // HTML `required` (asal tidak kosong), sehingga 1 karakter apa pun tetap
-    // lolos meski placeholder-nya menunjukkan format 16 digit angka KTP.
-    // Sekarang input NIK disaring agar hanya menerima digit angka.
     const nextValue = name === 'nik' ? value.replace(/\D/g, '').slice(0, 16) : value;
     setFormData(prev => ({ ...prev, [name]: nextValue }));
   };
 
   const handleFileChange = (e, field) => {
     if (e.target.files && e.target.files[0]) {
-      setFiles(prev => ({ ...prev, [field]: e.target.files[0].name }));
+      setFiles(prev => ({ ...prev, [field]: e.target.files[0] }));
     }
   };
 
@@ -45,12 +42,16 @@ export default function MitraOnboarding() {
     }, 2000);
   };
 
-  // FIX: sebelumnya tombol submit hanya bergantung pada `faceScanned`,
-  // sehingga mitra bisa mengirim pengajuan onboarding tanpa mengunggah satu
-  // pun dokumen legalitas (SIM/SKCK/STNK) walau UI menyebutnya wajib.
   const missingDocuments = ['sim', 'skck', 'stnk'].filter((field) => !files[field]);
   const isNikValid = formData.nik.length === 16;
-  const isFormComplete = faceScanned && missingDocuments.length === 0 && isNikValid;
+  
+  const isTextInputsValid = 
+    formData.fullName.trim() !== '' && 
+    formData.phone.trim() !== '' && 
+    formData.address.trim() !== '' && 
+    formData.plateNumber.trim() !== '';
+
+  const isFormComplete = faceScanned && missingDocuments.length === 0 && isNikValid && isTextInputsValid;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -59,33 +60,36 @@ export default function MitraOnboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
-      {/* Header Halaman */}
-      <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[#312e81] font-extrabold text-[11px] uppercase tracking-wider mb-1">
-            <ShieldCheck className="w-3.5 h-3.5" /> Verifikasi Keamanan Mitra
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" /> VERIFIKASI KEAMANAN MITRA
+            </span>
           </div>
-          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Mitra Onboarding & Verification</h1>
-          <p className="text-neutral-500 text-xs mt-0.5">Lengkapi data diri, unggah dokumen legalitas, dan lakukan pemindaian Face ID untuk aktivasi akun.</p>
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
+            Mitra Onboarding & Verification
+          </h1>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
+            Lengkapi data diri, unggah dokumen legalitas, dan lakukan pemindaian Face ID untuk aktivasi akun.
+          </p>
         </div>
         {submitted && (
-          <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-2xl text-xs font-extrabold flex items-center gap-2 border border-emerald-100">
-            <CheckCircle2 className="w-4 h-4" /> Status: Menunggu Verifikasi Admin
-          </div>
+          <StatusBadge variant="amber">Menunggu Verifikasi Admin</StatusBadge>
         )}
       </div>
 
       {!submitted ? (
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Bagian 1: Data Diri */}
-          <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-6">
-            <h2 className="text-base font-extrabold text-neutral-900 flex items-center gap-2 mb-6">
-              <User className="w-4 h-4 text-[#312e81]" /> 1. Informasi Data Diri & Kendaraan
+        <form onSubmit={handleSubmit} className="space-y-5 text-[10px]">
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
+            <h2 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
+              <User className="w-4 h-4 text-[#4B2172]" /> 1. Informasi Data Diri & Kendaraan
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Nama Lengkap (Sesuai KTP)</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nama Lengkap (Sesuai KTP)</label>
                 <input 
                   type="text" 
                   name="fullName" 
@@ -93,11 +97,11 @@ export default function MitraOnboarding() {
                   placeholder="cth: Budi Santoso"
                   value={formData.fullName} 
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Nomor NIK KTP</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor NIK KTP</label>
                 <input 
                   type="text" 
                   name="nik" 
@@ -107,14 +111,11 @@ export default function MitraOnboarding() {
                   placeholder="3372xxxxxxxxxxxx"
                   value={formData.nik} 
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
-                {formData.nik.length > 0 && !isNikValid && (
-                  <p className="text-[10px] text-red-600 mt-1 font-bold">⚠️ NIK harus terdiri dari 16 digit angka ({formData.nik.length}/16).</p>
-                )}
               </div>
               <div>
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Nomor Telepon / WhatsApp</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Telepon / WhatsApp</label>
                 <input 
                   type="text" 
                   name="phone" 
@@ -122,16 +123,16 @@ export default function MitraOnboarding() {
                   placeholder="0812xxxxxxxx"
                   value={formData.phone} 
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Jenis Kendaraan</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
                 <select 
                   name="vehicleType"
                   value={formData.vehicleType}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 >
                   <option value="Motor">Sepeda Motor</option>
                   <option value="Mobil">Mobil / Minibus</option>
@@ -139,7 +140,7 @@ export default function MitraOnboarding() {
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Nomor Plat Kendaraan</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Plat Kendaraan</label>
                 <input 
                   type="text" 
                   name="plateNumber" 
@@ -147,11 +148,11 @@ export default function MitraOnboarding() {
                   placeholder="cth: AD 1234 XX"
                   value={formData.plateNumber} 
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Alamat Domisili</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Alamat Domisili</label>
                 <textarea 
                   name="address" 
                   required
@@ -159,46 +160,42 @@ export default function MitraOnboarding() {
                   placeholder="Masukkan alamat lengkap domisili saat ini..."
                   value={formData.address} 
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#312e81]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] resize-none"
                 ></textarea>
               </div>
             </div>
           </div>
 
-          {/* Bagian 2: Unggah Dokumen */}
-          <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-6">
-            <h2 className="text-base font-extrabold text-neutral-900 flex items-center gap-2 mb-6">
-              <FileText className="w-4 h-4 text-[#312e81]" /> 2. Unggah Dokumen Legalitas (SIM, SKCK, STNK)
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
+            <h2 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
+              <FileText className="w-4 h-4 text-[#4B2172]" /> 2. Unggah Dokumen Legalitas (SIM, SKCK, STNK)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* SIM */}
-              <div className="p-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
-                <Upload className="w-8 h-8 text-neutral-500 mb-2" />
-                <p className="text-xs font-extrabold text-neutral-800 mb-1">Foto SIM C/A</p>
-                <p className="text-[10px] text-neutral-500 mb-3">{files.sim ? files.sim : 'Format JPG/PNG (Maks 2MB)'}</p>
-                <label className="px-3 py-1.5 bg-[#312e81] text-white rounded-xl text-[11px] font-bold cursor-pointer hover:bg-[#1e1b4b] transition">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
+                <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
+                <p className="text-[10px] font-bold text-neutral-800 mb-0.5">Foto SIM C/A</p>
+                <p className="text-[8px] text-neutral-400 mb-2">{files.sim ? files.sim.name : 'Format JPG/PNG (Maks 2MB)'}</p>
+                <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                   Pilih Berkas
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'sim')} className="hidden" />
                 </label>
               </div>
 
-              {/* SKCK */}
-              <div className="p-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
-                <Upload className="w-8 h-8 text-neutral-500 mb-2" />
-                <p className="text-xs font-extrabold text-neutral-800 mb-1">Foto SKCK Aktif</p>
-                <p className="text-[10px] text-neutral-500 mb-3">{files.skck ? files.skck : 'Format PDF/JPG (Maks 2MB)'}</p>
-                <label className="px-3 py-1.5 bg-[#312e81] text-white rounded-xl text-[11px] font-bold cursor-pointer hover:bg-[#1e1b4b] transition">
+              <div className="p-4 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
+                <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
+                <p className="text-[10px] font-bold text-neutral-800 mb-0.5">Foto SKCK Aktif</p>
+                <p className="text-[8px] text-neutral-400 mb-2">{files.skck ? files.skck.name : 'Format PDF/JPG (Maks 2MB)'}</p>
+                <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                   Pilih Berkas
                   <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'skck')} className="hidden" />
                 </label>
               </div>
 
-              {/* STNK */}
-              <div className="p-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
-                <Upload className="w-8 h-8 text-neutral-500 mb-2" />
-                <p className="text-xs font-extrabold text-neutral-800 mb-1">Foto STNK Kendaraan</p>
-                <p className="text-[10px] text-neutral-500 mb-3">{files.stnk ? files.stnk : 'Format JPG/PNG (Maks 2MB)'}</p>
-                <label className="px-3 py-1.5 bg-[#312e81] text-white rounded-xl text-[11px] font-bold cursor-pointer hover:bg-[#1e1b4b] transition">
+              <div className="p-4 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/50 text-center flex flex-col items-center justify-center">
+                <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
+                <p className="text-[10px] font-bold text-neutral-800 mb-0.5">Foto STNK Kendaraan</p>
+                <p className="text-[8px] text-neutral-400 mb-2">{files.stnk ? files.stnk.name : 'Format JPG/PNG (Maks 2MB)'}</p>
+                <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                   Pilih Berkas
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'stnk')} className="hidden" />
                 </label>
@@ -206,39 +203,37 @@ export default function MitraOnboarding() {
             </div>
           </div>
 
-          {/* Bagian 3: Face ID Scan */}
-          <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-6 text-center">
-            <h2 className="text-base font-extrabold text-neutral-900 flex items-center justify-center gap-2 mb-2">
-              <Camera className="w-4 h-4 text-[#312e81]" /> 3. Pendaftaran Data Face ID Scan
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 text-center space-y-3">
+            <h2 className="text-[14px] font-bold text-neutral-800 flex items-center justify-center gap-1.5">
+              <Camera className="w-4 h-4 text-[#4B2172]" /> 3. Pendaftaran Data Face ID Scan
             </h2>
-            <p className="text-xs text-neutral-500 mb-6">Sistem memerlukan verifikasi wajah untuk keamanan dan validasi identitas pengemudi mitra.</p>
+            <p className="text-[10px] text-neutral-400">Sistem memerlukan verifikasi wajah untuk keamanan dan validasi identitas.</p>
             
-            <div className="max-w-xs mx-auto p-6 bg-neutral-900 rounded-3xl text-white flex flex-col items-center justify-center relative overflow-hidden shadow-inner min-h-[220px]">
+            <div className="max-w-xs mx-auto p-5 bg-neutral-900 rounded-2xl text-white flex flex-col items-center justify-center relative shadow-inner min-h-[180px]">
               {isScanning ? (
                 <div className="flex flex-col items-center animate-pulse">
-                  <div className="w-16 h-16 rounded-full border-4 border-dashed border-blue-400 animate-spin flex items-center justify-center mb-3">
-                    <Camera className="w-6 h-6 text-blue-400" />
+                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-purple-400 animate-spin flex items-center justify-center mb-2">
+                    <Camera className="w-5 h-5 text-purple-400" />
                   </div>
-                  <p className="text-xs font-bold text-blue-300">Memindai Wajah...</p>
+                  <p className="text-[10px] font-bold text-purple-200">Memindai Wajah...</p>
                 </div>
               ) : faceScanned ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/40">
-                    <CheckCircle2 className="w-8 h-8" />
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2 border border-emerald-500/40">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
-                  <p className="text-xs font-extrabold text-emerald-400">Face ID Berhasil Didaftarkan!</p>
-                  <p className="text-[10px] text-neutral-500 mt-1">Data biometrik tersimpan aman</p>
+                  <p className="text-[10px] font-bold text-emerald-400">Face ID Berhasil Didaftarkan!</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-3 border border-white/20">
-                    <Camera className="w-7 h-7 text-white" />
+                  <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-2 border border-white/20">
+                    <Camera className="w-5 h-5 text-white" />
                   </div>
-                  <p className="text-xs font-medium text-neutral-300 mb-4">Posisikan wajah Anda di depan kamera</p>
+                  <p className="text-[9px] text-neutral-400 mb-3">Posisikan wajah Anda di depan kamera</p>
                   <button 
                     type="button"
                     onClick={handleFaceScan}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
+                    className="px-3.5 py-1.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[9px] font-bold transition cursor-pointer"
                   >
                     Mulai Face ID Scan
                   </button>
@@ -247,24 +242,14 @@ export default function MitraOnboarding() {
             </div>
           </div>
 
-          {/* Tombol Kirim */}
-          <div className="flex flex-col items-end gap-2">
-            {!isNikValid && (
-              <p className="text-[10px] text-red-600 font-bold">⚠️ NIK harus terdiri dari 16 digit angka.</p>
-            )}
-            {missingDocuments.length > 0 && (
-              <p className="text-[10px] text-red-600 font-bold">⚠️ Dokumen belum lengkap: {missingDocuments.map(d => d.toUpperCase()).join(', ')}</p>
-            )}
-            {!faceScanned && (
-              <p className="text-[10px] text-red-600 font-bold">⚠️ Face ID Scan belum dilakukan.</p>
-            )}
+          <div className="flex flex-col items-end gap-1 pt-1">
             <button 
               type="submit"
               disabled={!isFormComplete}
-              className={`px-8 py-4 rounded-2xl font-extrabold text-xs transition shadow-lg ${
+              className={`px-6 py-3 rounded-xl text-[10px] font-bold transition shadow-sm ${
                 isFormComplete 
-                  ? 'bg-[#312e81] hover:bg-[#1e1b4b] text-white shadow-indigo-900/30 cursor-pointer' 
-                  : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                  ? 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer' 
+                  : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
               }`}
             >
               Kirim Data Onboarding & Verifikasi
@@ -272,17 +257,17 @@ export default function MitraOnboarding() {
           </div>
         </form>
       ) : (
-        <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-12 text-center space-y-4">
-          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
-            <CheckCircle2 className="w-10 h-10" />
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 text-center space-y-3">
+          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center">
+            <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h2 className="text-2xl font-extrabold text-neutral-900">Pendaftaran Berhasil Dikirim!</h2>
-          <p className="text-xs text-neutral-500 max-w-md mx-auto">
+          <h2 className="text-[18px] font-bold text-neutral-800">Pendaftaran Berhasil Dikirim!</h2>
+          <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">
             Dokumen dan data Face ID Anda sedang ditinjau oleh tim verifikasi regional. Akun Anda akan diaktifkan setelah proses validasi selesai.
           </p>
           <button 
             onClick={() => setSubmitted(false)}
-            className="mt-4 px-6 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold rounded-xl transition cursor-pointer"
+            className="mt-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-bold rounded-xl transition cursor-pointer"
           >
             Ulangi / Edit Data
           </button>

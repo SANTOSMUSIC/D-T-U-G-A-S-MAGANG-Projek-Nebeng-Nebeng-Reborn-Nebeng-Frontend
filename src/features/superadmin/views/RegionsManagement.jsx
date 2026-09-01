@@ -8,17 +8,18 @@ import {
   CheckCircle2, 
   XCircle, 
   Save, 
-  X,
-  Info,
   Eye,
   Activity,
-  DollarSign
+  DollarSign,
+  AlertTriangle
 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
+import StatusBadge from '../../../components/ui/StatusBadge';
+import BaseModal from '../../../components/ui/BaseModal';
 
 export default function RegionsManagement() {
-    const [regions, setRegions] = useState([
+  const [regions, setRegions] = useState([
     { id: "JKT-001", name: "Region Jakarta", hub: "Central Hub Cengkareng", activeOrders: 150, revenue: "Rp 150.000.000", status: "Active", description: "Melayani area Jabodetabek dan logistik utama bandara." },
     { id: "YOG-001", name: "Region Yogyakarta", hub: "Hub Malioboro", activeOrders: 120, revenue: "Rp 120.000.000", status: "Active", description: "Pusat distribusi wilayah Jogja dan sekitarnya." },
     { id: "BANY-001", name: "Region Banyumas", hub: "Hub Purwokerto", activeOrders: 110, revenue: "Rp 100.000.000", status: "Active", description: "Hub utama jalur selatan Jawa Tengah." },
@@ -28,6 +29,7 @@ export default function RegionsManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [regionToToggle, setRegionToToggle] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState(null);
@@ -96,148 +98,153 @@ export default function RegionsManagement() {
     setIsModalOpen(false);
   };
 
-  // FIX: sebelumnya nonaktifkan/aktifkan wilayah langsung terjadi tanpa
-  // konfirmasi apa pun (beda dengan pola aksi serupa di UserGovernance.jsx
-  // yang sudah pakai modal konfirmasi). Menonaktifkan sebuah region adalah
-  // aksi berdampak besar (memutus akses seluruh Admin Wilayah, Mitra,
-  // Operator Pos di region tsb), jadi sekarang wajib dikonfirmasi dulu.
-  const handleToggleStatus = (id) => {
-    const region = regions.find(r => r.id === id);
-    if (!region) return;
-    const willDeactivate = region.status === 'Active';
-    const confirmMessage = willDeactivate
-      ? `Nonaktifkan wilayah "${region.name}"? Seluruh Admin Wilayah, Mitra, dan Operator Pos di wilayah ini akan kehilangan akses sementara.`
-      : `Aktifkan kembali wilayah "${region.name}"?`;
-    if (!window.confirm(confirmMessage)) return;
-
+  const handleConfirmToggleStatus = () => {
+    if (!regionToToggle) return;
     setRegions(regions.map(reg => {
-      if (reg.id === id) {
-        const newStatus = reg.status === 'Active' ? 'Inactive' : 'Active';
-        return { ...reg, status: newStatus };
+      if (reg.id === regionToToggle.id) {
+        return { ...reg, status: reg.status === 'Active' ? 'Inactive' : 'Active' };
       }
       return reg;
     }));
+    setRegionToToggle(null);
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
-      {/* Header Halaman */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-purple-700">
+            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
               MANAJEMEN WILAYAH OPERASIONAL (CRUD)
             </span>
           </div>
-          <h1 className="text-2xl font-black text-gray-900">Kelola Wilayah & Hub</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Tambah, ubah, dan atur detail status operasional platform.</p>
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Kelola Wilayah & Hub</h1>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tambah, ubah, dan atur detail status operasional platform.</p>
         </div>
         
         <button 
           onClick={handleOpenAddModal}
-          className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold px-5 py-3 rounded-2xl transition flex items-center gap-2 shadow-sm shadow-purple-200 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
         >
-          <Plus size={16} />
-          Tambah Wilayah Baru
+          <Plus size={14} />
+          <span>Tambah Wilayah Baru</span>
         </button>
       </div>
 
-      {/* Bar Pencarian */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input 
             type="text" 
             placeholder="Cari nama wilayah, ID, atau hub..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
+            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
           />
         </div>
-        <div className="text-xs font-bold text-gray-400 px-4">
-          Total: <span className="text-gray-900">{filteredRegions.length} Wilayah</span>
+        <div className="text-[10px] font-semibold text-neutral-400 px-2">
+          Total: <span className="font-bold text-neutral-800">{filteredRegions.length} Wilayah</span>
         </div>
       </div>
 
-      {/* Tabel Data Wilayah */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+        <div className="block sm:hidden divide-y divide-gray-100">
+          {isLoadingRegions ? (
+            <div className="p-4 space-y-3">
+              <SkeletonTableRows rows={3} columns={1} />
+            </div>
+          ) : filteredRegions.length > 0 ? (
+            filteredRegions.map((region) => (
+              <div key={region.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-[#4B2172]/10 text-[#4B2172] rounded-xl shrink-0">
+                      <MapPin size={14} />
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-bold text-[#4B2172] font-mono">{region.id}</span>
+                      <h3 className="font-bold text-neutral-800 text-[11px]">{region.name}</h3>
+                    </div>
+                  </div>
+                  <StatusBadge variant={region.status === 'Active' ? 'emerald' : 'rose'}>
+                    {region.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                  </StatusBadge>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] pt-1 border-t border-neutral-100">
+                  <span className="text-neutral-500 font-medium">Hub: <strong className="text-neutral-700">{region.hub}</strong></span>
+                  <span className="font-bold text-neutral-800">{region.revenue}</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-1.5 pt-2">
+                  <button onClick={() => handleOpenDetailModal(region)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
+                    <Eye size={13} />
+                  </button>
+                  <button onClick={() => handleOpenEditModal(region)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                    <Edit3 size={13} />
+                  </button>
+                  <button onClick={() => setRegionToToggle(region)} className={`p-1.5 rounded-lg ${region.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {region.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-4">
+              <EmptyState icon={MapPin} title="Wilayah Tidak Ditemukan" description="Tidak ada wilayah yang cocok dengan pencarian Anda." />
+            </div>
+          )}
+        </div>
+
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wider font-extrabold">
-                <th className="py-4 px-6">ID & Wilayah Operasional</th>
-                <th className="py-4 px-6">Pusat Hub Utama</th>
-                <th className="py-4 px-6">Aktivitas & Pesanan</th>
-                <th className="py-4 px-6">Status Sistem</th>
-                <th className="py-4 px-6 text-center">Aksi Manajemen</th>
+              <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
+                <th className="py-3 px-5">ID & Wilayah Operasional</th>
+                <th className="py-3 px-5">Pusat Hub Utama</th>
+                <th className="py-3 px-5">Aktivitas & Pesanan</th>
+                <th className="py-3 px-5">Status Sistem</th>
+                <th className="py-3 px-5 text-center">Aksi Manajemen</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-sm">
+            <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoadingRegions ? (
                 <SkeletonTableRows rows={4} columns={5} />
               ) : filteredRegions.length > 0 ? (
                 filteredRegions.map((region) => (
-                  <tr key={region.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2.5 bg-purple-50 text-purple-700 rounded-2xl font-bold shadow-sm">
-                          <MapPin size={16} />
+                  <tr key={region.id} className="hover:bg-gray-50/50">
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="p-2 bg-[#4B2172]/10 text-[#4B2172] rounded-xl font-bold">
+                          <MapPin size={14} />
                         </div>
                         <div>
-                          <div className="font-bold text-gray-900">{region.name}</div>
-                          <div className="text-[11px] font-bold text-gray-400 font-mono">{region.id}</div>
+                          <div className="font-bold text-neutral-800 text-[10px]">{region.name}</div>
+                          <div className="text-[8px] font-bold text-neutral-400 font-mono">{region.id}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-xs font-bold text-gray-700">
-                      {region.hub}
+                    <td className="py-3.5 px-5 font-semibold text-neutral-700">{region.hub}</td>
+                    <td className="py-3.5 px-5">
+                      <div className="font-bold text-neutral-800">{region.activeOrders} Pesanan Aktif</div>
+                      <div className="text-[8px] text-neutral-400">{region.revenue}</div>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="text-xs font-bold text-gray-800">{region.activeOrders} Pesanan Aktif</div>
-                      <div className="text-[11px] font-bold text-gray-400">{region.revenue}</div>
+                    <td className="py-3.5 px-5">
+                      <StatusBadge variant={region.status === 'Active' ? 'emerald' : 'rose'}>
+                        {region.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                      </StatusBadge>
                     </td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1 text-[10px] font-extrabold rounded-xl inline-flex items-center gap-1.5 ${
-                        region.status === 'Active' 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
-                          : 'bg-rose-50 text-rose-700 border border-rose-200/60'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${region.status === 'Active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                        {region.status === 'Active' ? 'Aktif Beroperasi' : 'Nonaktif / Ditangguhkan'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Tombol Lihat Detail (Logo Mata) */}
-                        <button 
-                          onClick={() => handleOpenDetailModal(region)}
-                          title="Lihat Detail Wilayah"
-                          className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl transition cursor-pointer"
-                        >
-                          <Eye size={15} />
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => handleOpenDetailModal(region)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
+                          <Eye size={13} />
                         </button>
-
-                        {/* Tombol Edit */}
-                        <button 
-                          onClick={() => handleOpenEditModal(region)}
-                          title="Ubah Data Wilayah"
-                          className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition cursor-pointer"
-                        >
-                          <Edit3 size={15} />
+                        <button onClick={() => handleOpenEditModal(region)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                          <Edit3 size={13} />
                         </button>
-
-                        {/* Tombol Status */}
-                        <button 
-                          onClick={() => handleToggleStatus(region.id)}
-                          title={region.status === 'Active' ? 'Nonaktifkan Region' : 'Aktifkan Region'}
-                          className={`p-2 rounded-xl transition cursor-pointer ${
-                            region.status === 'Active' 
-                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-600' 
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
-                          }`}
-                        >
-                          {region.status === 'Active' ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
+                        <button onClick={() => setRegionToToggle(region)} className={`p-1.5 rounded-lg ${region.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {region.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
                         </button>
                       </div>
                     </td>
@@ -246,11 +253,7 @@ export default function RegionsManagement() {
               ) : (
                 <tr>
                   <td colSpan="5">
-                    <EmptyState
-                      icon={MapPin}
-                      title="Wilayah Tidak Ditemukan"
-                      description="Tidak ada wilayah yang cocok dengan pencarian Anda."
-                    />
+                    <EmptyState icon={MapPin} title="Wilayah Tidak Ditemukan" description="Tidak ada wilayah yang cocok dengan pencarian Anda." />
                   </td>
                 </tr>
               )}
@@ -259,192 +262,75 @@ export default function RegionsManagement() {
         </div>
       </div>
 
-      {/* Modal Detail Wilayah (Logo Mata) */}
-      {isDetailModalOpen && selectedRegion && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200 space-y-5">
-            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-50 text-purple-700 rounded-2xl">
-                  <MapPin size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900">{selectedRegion.name}</h3>
-                  <p className="text-[11px] font-mono font-bold text-purple-600">{selectedRegion.id}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsDetailModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-xl transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+      <BaseModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={selectedRegion?.name}
+        subtitle={`ID: ${selectedRegion?.id}`}
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-3 text-[10px]">
+          <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+            <span className="text-[8px] font-bold text-neutral-400 uppercase">Pusat Hub Utama</span>
+            <p className="font-bold text-neutral-800">{selectedRegion?.hub}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+              <span className="text-[8px] font-bold text-neutral-400 uppercase flex items-center gap-1"><Activity size={10}/> Pesanan Aktif</span>
+              <p className="font-bold text-neutral-800">{selectedRegion?.activeOrders} Pesanan</p>
             </div>
-
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Pusat Hub Utama</span>
-                <p className="text-xs font-black text-gray-800">{selectedRegion.hub}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                    <Activity size={12} /> Pesanan Aktif
-                  </span>
-                  <p className="text-sm font-black text-gray-900">{selectedRegion.activeOrders} Pesanan</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                    <DollarSign size={12} /> Pendapatan
-                  </span>
-                  <p className="text-sm font-black text-gray-900">{selectedRegion.revenue}</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Status Sistem</span>
-                <div className="flex items-center gap-2 pt-0.5">
-                  <span className={`px-3 py-0.5 text-[10px] font-extrabold rounded-xl inline-flex items-center gap-1.5 ${
-                    selectedRegion.status === 'Active' 
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
-                      : 'bg-rose-50 text-rose-700 border border-rose-200/60'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${selectedRegion.status === 'Active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                    {selectedRegion.status === 'Active' ? 'Aktif Beroperasi' : 'Nonaktif / Ditangguhkan'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Keterangan / Detail</span>
-                <p className="text-xs text-gray-600 leading-relaxed">{selectedRegion.description || 'Tidak ada keterangan tambahan.'}</p>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button 
-                onClick={() => setIsDetailModalOpen(false)}
-                className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold transition shadow-sm shadow-purple-200 cursor-pointer"
-              >
-                Tutup Detail
-              </button>
+            <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+              <span className="text-[8px] font-bold text-neutral-400 uppercase flex items-center gap-1"><DollarSign size={10}/> Pendapatan</span>
+              <p className="font-bold text-neutral-800">{selectedRegion?.revenue}</p>
             </div>
           </div>
+          <button onClick={() => setIsDetailModalOpen(false)} className="w-full py-2 bg-[#4B2172] text-white text-[10px] font-bold rounded-full mt-2 cursor-pointer">Tutup</button>
         </div>
-      )}
+      </BaseModal>
 
-      {/* Modal Form CRUD (Create & Update) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-100">
-              <div>
-                <h3 className="text-base font-black text-gray-900">
-                  {isEditing ? 'Ubah Wilayah Operasional' : 'Tambah Wilayah Baru'}
-                </h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">Database sistem pusat operasional</p>
-              </div>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-xl transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <BaseModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={isEditing ? 'Ubah Wilayah Operasional' : 'Tambah Wilayah Baru'}
+        subtitle="Sistem Manajemen Wilayah Pusat"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSubmitForm} className="space-y-3 text-[10px]">
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Wilayah</label>
+            <input type="text" required placeholder="Misal: Region Yogyakarta" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Lokasi Hub Utama</label>
+            <input type="text" required placeholder="Misal: Hub Malioboro" value={formData.hub} onChange={(e) => setFormData({...formData, hub: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-3">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
+            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full flex items-center gap-1 cursor-pointer shadow-sm"><Save size={13}/> Simpan</button>
+          </div>
+        </form>
+      </BaseModal>
 
-            <form onSubmit={handleSubmitForm} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5 flex items-center justify-between">
-                  <span>ID Wilayah (Auto-Generated)</span>
-                  <span className="text-[10px] text-purple-600 lowercase font-bold">read-only</span>
-                </label>
-                <input 
-                  type="text" 
-                  disabled
-                  value={formData.id}
-                  className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold text-gray-500 cursor-not-allowed font-mono"
-                />
-                <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                  <Info size={12} /> ID digenerate otomatis untuk menjaga integritas database.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Nama Wilayah Operasional
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Misal: Region Yogyakarta"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Nama / Lokasi Hub Utama
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Misal: Hub Malioboro"
-                  value={formData.hub}
-                  onChange={(e) => setFormData({...formData, hub: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Keterangan / Detail Wilayah
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="Misal: Pusat distribusi wilayah Jogja"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Status Operasional
-                </label>
-                <select 
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition cursor-pointer"
-                >
-                  <option value="Active">Active (Aktif Beroperasi)</option>
-                  <option value="Inactive">Inactive (Nonaktif / Ditangguhkan)</option>
-                </select>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-extrabold transition cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button 
-                  type="submit"
-                  className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold transition flex items-center gap-1.5 shadow-sm shadow-purple-200 cursor-pointer"
-                >
-                  <Save size={15} />
-                  {isEditing ? 'Simpan Perubahan' : 'Databasekan Wilayah'}
-                </button>
-              </div>
-            </form>
+      <BaseModal
+        isOpen={Boolean(regionToToggle)}
+        onClose={() => setRegionToToggle(null)}
+        title="Konfirmasi Status Wilayah"
+        subtitle="Sistem Manajemen Operasional"
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-3 text-[10px] text-center">
+          <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle size={20} />
+          </div>
+          <p className="text-neutral-600">
+            Apakah Anda yakin ingin {regionToToggle?.status === 'Active' ? 'menonaktifkan' : 'mengaktifkan'} wilayah <strong>{regionToToggle?.name}</strong>?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => setRegionToToggle(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>
+            <button onClick={handleConfirmToggleStatus} className="flex-1 py-2 bg-[#4B2172] text-white rounded-full font-bold cursor-pointer shadow-sm">Ya, Konfirmasi</button>
           </div>
         </div>
-      )}
+      </BaseModal>
     </div>
   );
 }

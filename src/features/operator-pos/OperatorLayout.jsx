@@ -6,20 +6,23 @@ const OPERATOR_MENU_PATH = {
   'Dashboard Pos': 'dashboard',
   'Inspection & Sealing': 'inspection',
   'Dual QR Scanner': 'scanner',
+  'Handover & OTP': 'handover',
+  'Laporan Kas Pos': 'financial',
 };
-const PATH_TO_MENU = Object.fromEntries(
-  Object.entries(OPERATOR_MENU_PATH).map(([name, path]) => [path, name])
-);
 
 export default function OperatorLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const location = useLocation();
-  const currentSlug = location.pathname.split('/').pop();
-  const activeMenu = PATH_TO_MENU[currentSlug] || 'Dashboard Pos';
+
+  const currentPath = location.pathname.replace(/\/$/, '');
+  const activeMenu = Object.keys(OPERATOR_MENU_PATH).find((menu) => {
+    const slug = OPERATOR_MENU_PATH[menu];
+    return currentPath.endsWith(`/operator-pos/${slug}`) || currentPath.includes(`/operator-pos/${slug}/`);
+  }) || 'Dashboard Pos';
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fa]">
+    <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
       <OperatorSidebar
         activeMenu={activeMenu}
         onMenuSelect={(name) => navigate(`/operator-pos/${OPERATOR_MENU_PATH[name]}`)}
@@ -28,8 +31,8 @@ export default function OperatorLayout() {
           navigate('/login', { replace: true });
         }}
       />
-      {/* pt-16 memberi ruang untuk tombol hamburger mobile (fixed top-4 left-4) agar tidak menimpa konten */}
-      <div className="flex-1 lg:ml-64 min-h-screen pt-16 lg:pt-0">
+      
+      <div className="flex-1 lg:ml-64 min-h-screen pt-14 lg:pt-0">
         <Outlet />
       </div>
     </div>

@@ -4,35 +4,40 @@ import { useAuth } from '../../context/AuthContext';
 
 const REGIONAL_MENU_PATH = {
   'Dashboard Wilayah': 'dashboard',
-  'Kelola Pos Mitra': 'pos-mitra',
-  'Operator Pos': 'operator-pos',
-  'Pusat Verifikasi': 'verifikasi',
-  'Trip & Order': 'trip-order',
+  'Pos Mitra & Terminal': 'pos-mitra',
   'Armada & Kurir': 'armada-kurir',
-  'Laporan Finansial': 'laporan',
+  'Verifikasi ID & Face': 'verifikasi',
+  'Pemantauan Trip': 'trip-order',
+  'Laporan Keuangan': 'laporan',
 };
-const PATH_TO_MENU = Object.fromEntries(
-  Object.entries(REGIONAL_MENU_PATH).map(([name, path]) => [path, name])
-);
 
 export default function RegionalLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const location = useLocation();
-  const currentSlug = location.pathname.split('/').pop();
-  const activeMenu = PATH_TO_MENU[currentSlug] || 'Dashboard Wilayah';
+
+  const currentPath = location.pathname.replace(/\/$/, '');
+  const activeMenu = Object.keys(REGIONAL_MENU_PATH).find((menu) => {
+    const slug = REGIONAL_MENU_PATH[menu];
+    return currentPath.endsWith(`/regional/${slug}`) || currentPath.includes(`/regional/${slug}/`);
+  }) || 'Dashboard Wilayah';
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fa]">
+    <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
       <RegionalSidebar
         activeMenu={activeMenu}
-        onMenuSelect={(name) => navigate(`/regional/${REGIONAL_MENU_PATH[name]}`)}
+        onMenuSelect={(name) => {
+          const targetPath = REGIONAL_MENU_PATH[name];
+          if (targetPath) {
+            navigate(`/regional/${targetPath}`);
+          }
+        }}
         onLogout={() => {
           logout();
           navigate('/login', { replace: true });
         }}
       />
-      {/* pt-16 memberi ruang untuk tombol hamburger mobile (fixed top-4 left-4) agar tidak menimpa konten */}
+      
       <div className="flex-1 lg:ml-64 min-h-screen pt-16 lg:pt-0">
         <Outlet />
       </div>

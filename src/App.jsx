@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
@@ -29,6 +29,8 @@ import OperatorLayout from './features/operator-pos/OperatorLayout';
 import OperatorDashboard from './features/operator-pos/views/OperatorDashboard';
 import OperatorInspection from './features/operator-pos/views/OperatorInspection';
 import OperatorDualScanner from './features/operator-pos/views/OperatorDualScanner';
+import OperatorHandover from './features/operator-pos/views/OperatorHandover';
+import OperatorFinancial from './features/operator-pos/views/OperatorFinancial';
 
 // Mitra
 import MitraLayout from './features/mitra/MitraLayout';
@@ -45,36 +47,38 @@ import BiometricOnboarding from './features/customer/views/BiometricOnboarding';
 import SearchTrip from './features/customer/views/SearchTrip';
 import MyTickets from './features/customer/views/MyTickets';
 
-/**
- * CATATAN LOGIKA: sebelumnya route index "/customer" SELALU diarahkan ke
- * "onboarding", walaupun customer yang bersangkutan sudah pernah verifikasi
- * biometrik sebelumnya. Komponen ini memeriksa status `isCustomerVerified`
- * dari AuthContext supaya customer yang sudah terverifikasi langsung
- * diarahkan ke halaman booking, bukan diminta mengulang onboarding.
- */
 function CustomerIndexRedirect() {
   const { isCustomerVerified } = useAuth();
   return <Navigate to={isCustomerVerified ? 'booking' : 'onboarding'} replace />;
 }
 
-// Peta role login -> halaman awal setelah masuk
 const ROLE_HOME = {
   admin: '/admin/dashboard',
   regional: '/regional/dashboard',
   operator: '/operator-pos/dashboard',
   mitra: '/mitra/dashboard',
-  // Diarahkan ke index "/customer" (bukan langsung "/customer/onboarding")
-  // supaya CustomerIndexRedirect yang menentukan tujuan akhir berdasarkan
-  // status verifikasi — customer yang sudah pernah onboarding langsung ke
-  // booking, yang belum tetap diminta onboarding dulu.
   customer: '/customer',
 };
 
+function GuestRoute({ children }) {
+  const { isAuthenticated, role } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to={ROLE_HOME[role] || ROLE_HOME.admin} replace />;
+  }
+
+  return children;
+}
+
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogin = (role) => {
-    navigate(ROLE_HOME[role] || ROLE_HOME.admin, { replace: true });
+    const from = location.state?.from;
+    const destination =
+      from && from.startsWith(`/${role}`) ? from : ROLE_HOME[role] || ROLE_HOME.admin;
+    navigate(destination, { replace: true });
   };
 
   return (
@@ -84,18 +88,24 @@ export default function App() {
       <Route
         path="/login"
         element={
-          <Login
-            onSwitchToRegister={() => navigate('/register')}
-            onLogin={handleLogin}
-          />
+          <GuestRoute>
+            <Login
+              onSwitchToRegister={() => navigate('/register')}
+              onLogin={handleLogin}
+            />
+          </GuestRoute>
         }
       />
       <Route
         path="/register"
-        element={<Register onSwitchToLogin={() => navigate('/login')} />}
+        element={
+          <GuestRoute>
+            <Register onSwitchToLogin={() => navigate('/login')} />
+          </GuestRoute>
+        }
       />
 
-      {/* Superadmin — hanya bisa diakses role 'admin' yang sudah login */}
+      {/* Superadmin */}
       <Route
         path="/admin"
         element={
@@ -111,11 +121,10 @@ export default function App() {
         <Route path="tarif" element={<PricingManagement />} />
         <Route path="audit" element={<AuditLedger />} />
         <Route path="governance" element={<UserGovernance />} />
-        {/* URL tidak dikenal di dalam area admin -> kembali ke dashboard, bukan ke /login */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
-      {/* Admin Regional — hanya bisa diakses role 'regional' yang sudah login */}
+      {/* Admin Regional */}
       <Route
         path="/regional"
         element={
@@ -132,11 +141,10 @@ export default function App() {
         <Route path="trip-order" element={<TripOrderPage />} />
         <Route path="armada-kurir" element={<ArmadaKurirTabs />} />
         <Route path="laporan" element={<FinancialReportPage />} />
-        {/* URL tidak dikenal di dalam area regional -> kembali ke dashboard, bukan ke /login */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
-      {/* Operator Pos — hanya bisa diakses role 'operator' yang sudah login */}
+      {/* Operator Pos */}
       <Route
         path="/operator-pos"
         element={
@@ -149,13 +157,12 @@ export default function App() {
         <Route path="dashboard" element={<OperatorDashboard />} />
         <Route path="inspection" element={<OperatorInspection />} />
         <Route path="scanner" element={<OperatorDualScanner />} />
-        {/* "handover" digabung ke dalam Dual QR Scanner (Scan 2) — redirect supaya tautan lama tidak 404 */}
-        <Route path="handover" element={<Navigate to="/operator-pos/scanner" replace />} />
-        {/* URL tidak dikenal di dalam area operator pos -> kembali ke dashboard, bukan ke /login */}
+        <Route path="handover" element={<OperatorHandover />} />
+        <Route path="financial" element={<OperatorFinancial />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
-      {/* Mitra — hanya bisa diakses role 'mitra' yang sudah login */}
+      {/* Mitra */}
       <Route
         path="/mitra"
         element={
@@ -171,11 +178,10 @@ export default function App() {
         <Route path="qr" element={<MitraQrDisplay />} />
         <Route path="saldo" element={<MitraBalance />} />
         <Route path="chat" element={<MitraChat />} />
-        {/* URL tidak dikenal di dalam area mitra -> kembali ke dashboard, bukan ke /login */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
-      {/* Customer — hanya bisa diakses role 'customer' yang sudah login */}
+      {/* Customer */}
       <Route
         path="/customer"
         element={
@@ -188,7 +194,6 @@ export default function App() {
         <Route path="onboarding" element={<BiometricOnboarding />} />
         <Route path="booking" element={<SearchTrip />} />
         <Route path="tickets" element={<MyTickets />} />
-        {/* URL tidak dikenal di dalam area customer -> kembali ke index (yang lalu menentukan onboarding/booking) */}
         <Route path="*" element={<CustomerIndexRedirect />} />
       </Route>
 

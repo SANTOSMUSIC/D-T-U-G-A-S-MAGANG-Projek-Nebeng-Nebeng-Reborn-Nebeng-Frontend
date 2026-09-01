@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
-import { Users, Search, Eye, UserCheck, X, ShieldCheck } from 'lucide-react';
+import { Users, Search, Eye } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
+import BaseModal from '../../../components/ui/BaseModal';
 
 export default function KurirPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,200 +25,157 @@ export default function KurirPage() {
   const isLoadingKurir = useSimulatedLoading([searchQuery], 700);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-purple-700 font-extrabold text-[11px] uppercase tracking-wider mb-1">
-            <Users className="w-3.5 h-3.5" /> Manajemen SDM Wilayah
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
+              MANAJEMEN SDM & KURIR WILAYAH
+            </span>
           </div>
-          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Data Kurir & Driver</h1>
-          <p className="text-neutral-500 text-xs mt-0.5">Kelola personel kurir, penugasan pos mitra, serta performa dan rating pengiriman.</p>
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Data Kurir & Driver</h1>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Kelola personel kurir, penugasan pos mitra, serta performa pengiriman.</p>
         </div>
 
-        <div className="flex items-center gap-3 bg-neutral-50 px-4 py-3 rounded-2xl border border-neutral-100">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider">STATUS PERSONEL</p>
-            <p className="text-xs font-extrabold text-emerald-600 flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terverifikasi Aktif
-            </p>
-          </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full shrink-0 border border-emerald-200">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span className="text-[10px] font-bold text-emerald-700">Personel Terverifikasi</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center justify-between">
-          <div>
-            <p className="text-neutral-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">TOTAL KURIR & DRIVER</p>
-            <p className="text-3xl font-extrabold text-neutral-900">{kurirList.length} <span className="text-sm font-bold text-neutral-500">Orang</span></p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center shadow-inner">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center justify-between">
-          <div>
-            <p className="text-neutral-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">SEDANG BERTUGAS</p>
-            <p className="text-3xl font-extrabold text-indigo-600">{kurirList.filter(k => k.status === 'Bertugas').length} <span className="text-sm font-bold text-neutral-500">Personel</span></p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
-            <UserCheck className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center justify-between">
-          <div>
-            <p className="text-neutral-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">SIAP SIAGA (STANDBY)</p>
-            <p className="text-3xl font-extrabold text-emerald-600">{kurirList.filter(k => k.status === 'Standby').length} <span className="text-sm font-bold text-neutral-500">Personel</span></p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
-            <Users className="w-6 h-6" />
-          </div>
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input 
+            type="text" 
+            placeholder="Cari nama kurir, peran, pos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
+          />
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-          <h2 className="text-base font-extrabold text-neutral-900">Daftar Personel Kurir Wilayah</h2>
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text"
-              placeholder="Cari nama kurir, peran, pos..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl pl-10 pr-4 py-2 text-xs font-semibold focus:outline-none focus:border-purple-600 transition"
-            />
-          </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+        <div className="block sm:hidden divide-y divide-gray-100">
+          {isLoadingKurir ? (
+            <div className="p-4 space-y-3">
+              <SkeletonTableRows rows={3} columns={1} />
+            </div>
+          ) : filteredKurir.length > 0 ? (
+            filteredKurir.map((item) => (
+              <div key={item.id} className="p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[8px] font-bold text-[#4B2172] font-mono">{item.id}</span>
+                    <h3 className="font-bold text-neutral-800 text-[11px]">{item.name}</h3>
+                  </div>
+                  <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full ${
+                    item.status === 'Bertugas' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
+                  }`}>
+                    {item.status}
+                  </span>
+                </div>
+                <div className="text-[9px] text-neutral-500">
+                  <div>Peran: <strong>{item.role}</strong></div>
+                  <div>Pos: <strong>{item.pos}</strong></div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-neutral-100 text-[10px]">
+                  <span className="font-bold text-blue-600">{item.activeShipments} Paket Aktif</span>
+                  <button onClick={() => setSelectedDetail(item)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg cursor-pointer">
+                    <Eye size={13} />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-4">
+              <EmptyState icon={Users} title="Kurir Tidak Ditemukan" description="Tidak ada kurir yang cocok." />
+            </div>
+          )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs table-fixed">
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-neutral-100 text-neutral-500 font-extrabold uppercase tracking-wider">
-                <th className="py-4 px-3 w-[18%]">NAMA KURIR</th>
-                <th className="py-4 px-3 w-[20%]">PERAN / POSISI</th>
-                <th className="py-4 px-3 w-[22%]">POS MITRA</th>
-                <th className="py-4 px-3 w-[15%]">PAKET AKTIF</th>
-                <th className="py-4 px-3 w-[15%]">STATUS</th>
-                <th className="py-4 px-3 w-[10%] text-right">AKSI</th>
+              <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
+                <th className="py-3 px-5">ID & Nama Kurir</th>
+                <th className="py-3 px-5">Peran / Posisi</th>
+                <th className="py-3 px-5">Pos Mitra</th>
+                <th className="py-3 px-5">Paket Aktif</th>
+                <th className="py-3 px-5">Status</th>
+                <th className="py-3 px-5 text-center">Detail</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-50 text-neutral-700 font-medium">
+            <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoadingKurir ? (
                 <SkeletonTableRows rows={4} columns={6} />
-              ) : filteredKurir.length === 0 ? (
+              ) : filteredKurir.length > 0 ? (
+                filteredKurir.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                    <td className="py-3.5 px-5">
+                      <div className="font-bold text-neutral-800 text-[10px]">{item.name}</div>
+                      <div className="text-[8px] font-bold text-[#4B2172] font-mono">{item.id} • {item.phone}</div>
+                    </td>
+                    <td className="py-3.5 px-5 font-semibold text-neutral-700">{item.role}</td>
+                    <td className="py-3.5 px-5 font-bold text-neutral-800">{item.pos}</td>
+                    <td className="py-3.5 px-5 font-bold text-blue-600">{item.activeShipments} Pkt</td>
+                    <td className="py-3.5 px-5">
+                      <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full ${
+                        item.status === 'Bertugas' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5 text-center">
+                      <button onClick={() => setSelectedDetail(item)} className="p-1.5 bg-[#4B2172]/10 hover:bg-[#4B2172]/20 text-[#4B2172] rounded-lg transition cursor-pointer">
+                        <Eye size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
-                  <td colSpan={6}>
-                    <EmptyState
-                      icon={Users}
-                      title="Kurir/Driver Tidak Ditemukan"
-                      description="Tidak ada kurir atau driver yang cocok dengan pencarian Anda."
-                    />
+                  <td colSpan="6">
+                    <EmptyState icon={Users} title="Kurir Tidak Ditemukan" description="Tidak ada kurir yang cocok." />
                   </td>
                 </tr>
-              ) : filteredKurir.map((item) => (
-                <tr key={item.id} className="hover:bg-neutral-50/60 transition group">
-                  <td className="py-4 px-3 truncate">
-                    <p className="font-extrabold text-neutral-900 group-hover:text-purple-700 transition">{item.name}</p>
-                    <p className="text-[10px] text-neutral-500 font-semibold">{item.phone}</p>
-                  </td>
-                  <td className="py-4 px-3 truncate font-extrabold text-neutral-800">{item.role}</td>
-                  <td className="py-4 px-3 truncate font-semibold text-neutral-700">{item.pos}</td>
-                  <td className="py-4 px-3 truncate">
-                    <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-extrabold inline-block">
-                      {item.activeShipments} Pkt
-                    </span>
-                  </td>
-                  <td className="py-4 px-3 truncate">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
-                      item.status === 'Bertugas' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                      item.status === 'Standby' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                      'bg-neutral-100 text-neutral-600 border border-neutral-200'
-                    }`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-3 text-right">
-                    <button 
-                      onClick={() => setSelectedDetail(item)}
-                      className="w-8 h-8 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 inline-flex items-center justify-center transition shadow-sm cursor-pointer"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {selectedDetail && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-neutral-100 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-extrabold text-neutral-900">{selectedDetail.name}</h2>
-                  <p className="text-[11px] text-purple-700 font-extrabold tracking-wider">{selectedDetail.id}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setSelectedDetail(null)}
-                aria-label="Tutup"
-                className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <BaseModal
+        isOpen={Boolean(selectedDetail)}
+        onClose={() => setSelectedDetail(null)}
+        title={selectedDetail?.name}
+        subtitle={`ID: ${selectedDetail?.id} • Rating: ★ ${selectedDetail?.rating}`}
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-3 text-[10px]">
+          <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+            <span className="text-[8px] font-bold text-neutral-400 uppercase">Pos Penugasan</span>
+            <p className="font-bold text-neutral-800">{selectedDetail?.pos}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+              <span className="text-[8px] font-bold text-neutral-400 uppercase">Peran</span>
+              <p className="font-bold text-neutral-800">{selectedDetail?.role}</p>
             </div>
-
-            <div className="space-y-4">
-              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-500 font-bold">Status Personel</span>
-                  <span className="font-extrabold text-neutral-900">{selectedDetail.status}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-500 font-bold">Pos Mitra Penugasan</span>
-                  <span className="font-extrabold text-neutral-900">{selectedDetail.pos}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-500 font-bold">Peran Kurir</span>
-                  <span className="font-extrabold text-neutral-900">{selectedDetail.role}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-500 font-bold">Paket Aktif Ditangani</span>
-                  <span className="font-extrabold text-blue-600">{selectedDetail.activeShipments} Paket</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-500 font-bold">Rating Kinerja</span>
-                  <span className="font-extrabold text-emerald-600">★ {selectedDetail.rating}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-500 font-bold">Nomor Kontak HP</span>
-                  <span className="font-extrabold text-neutral-900">{selectedDetail.phone}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-5 border-t border-neutral-100 mt-6 flex justify-end">
-              <button 
-                onClick={() => setSelectedDetail(null)}
-                className="px-6 py-2.5 rounded-2xl text-xs font-bold text-white bg-purple-700 hover:bg-purple-800 transition shadow-md shadow-purple-700/20 cursor-pointer"
-              >
-                Tutup
-              </button>
+            <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+              <span className="text-[8px] font-bold text-neutral-400 uppercase">Paket Aktif</span>
+              <p className="font-bold text-blue-600">{selectedDetail?.activeShipments} Paket</p>
             </div>
           </div>
+          <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+            <span className="text-[8px] font-bold text-neutral-400 uppercase">Kontak</span>
+            <p className="font-mono font-bold text-neutral-800">{selectedDetail?.phone}</p>
+          </div>
+          <button onClick={() => setSelectedDetail(null)} className="w-full py-2 bg-[#4B2172] text-white text-[10px] font-bold rounded-full mt-2 cursor-pointer">Tutup</button>
         </div>
-      )}
+      </BaseModal>
     </div>
   );
 }

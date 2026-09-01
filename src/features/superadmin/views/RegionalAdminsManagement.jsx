@@ -9,16 +9,17 @@ import {
   XCircle, 
   Save, 
   X, 
-  Info,
   Eye,
   Mail,
-  MapPin
+  MapPin,
+  AlertTriangle
 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
+import StatusBadge from '../../../components/ui/StatusBadge';
+import BaseModal from '../../../components/ui/BaseModal';
 
 export default function AdminWilayahManagement() {
-    // Mock data daftar Admin Wilayah & wilayah penempatannya
   const [admins, setAdmins] = useState([
     { id: "ADM-001", name: "Budi Santoso", email: "budi.santoso@ne-beng.com", region: "Region Jakarta", hub: "Central Hub Cengkareng", status: "Active", joinedDate: "12 Jan 2025" },
     { id: "ADM-002", name: "Siti Rahmawati", email: "siti.rahmawati@ne-beng.com", region: "Region Yogyakarta", hub: "Hub Malioboro", status: "Active", joinedDate: "15 Feb 2025" },
@@ -26,7 +27,6 @@ export default function AdminWilayahManagement() {
     { id: "ADM-004", name: "Dewi Lestari", email: "dewi.lestari@ne-beng.com", region: "Region Surabaya", hub: "Hub Gubeng", status: "Inactive", joinedDate: "05 Apr 2025" }
   ]);
 
-  // Daftar pilihan wilayah operasional yang tersedia untuk penempatan
   const availableRegions = [
     { name: "Region Jakarta", hub: "Central Hub Cengkareng" },
     { name: "Region Yogyakarta", hub: "Hub Malioboro" },
@@ -37,11 +37,11 @@ export default function AdminWilayahManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [adminToToggle, setAdminToToggle] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
 
-  // Form State
   const [formData, setFormData] = useState({
     id: '',
     name: '',
@@ -51,7 +51,6 @@ export default function AdminWilayahManagement() {
     status: 'Active'
   });
 
-  // Filter pencarian admin wilayah
   const filteredAdmins = admins.filter(admin => 
     admin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     admin.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -61,7 +60,6 @@ export default function AdminWilayahManagement() {
 
   const isLoadingAdmins = useSimulatedLoading([searchTerm], 700);
 
-  // Buka modal tambah admin baru
   const handleOpenAddModal = () => {
     setIsEditing(false);
     setCurrentId(null);
@@ -76,7 +74,6 @@ export default function AdminWilayahManagement() {
     setIsModalOpen(true);
   };
 
-  // Buka modal edit admin
   const handleOpenEditModal = (admin) => {
     setIsEditing(true);
     setCurrentId(admin.id);
@@ -91,13 +88,11 @@ export default function AdminWilayahManagement() {
     setIsModalOpen(true);
   };
 
-  // Buka modal detail admin
   const handleOpenDetailModal = (admin) => {
     setSelectedAdmin(admin);
     setIsDetailModalOpen(true);
   };
 
-  // Handle perubahan wilayah (otomatis menyesuaikan Hub utama)
   const handleRegionChange = (selectedRegionName) => {
     const found = availableRegions.find(r => r.name === selectedRegionName);
     setFormData({
@@ -107,7 +102,6 @@ export default function AdminWilayahManagement() {
     });
   };
 
-  // Simpan data (Create / Update)
   const handleSubmitForm = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
@@ -115,160 +109,149 @@ export default function AdminWilayahManagement() {
     if (isEditing) {
       setAdmins(admins.map(adm => adm.id === currentId ? { ...adm, ...formData } : adm));
     } else {
-      const newAdmin = {
-        ...formData,
-        joinedDate: "Hari Ini"
-      };
+      const newAdmin = { ...formData, joinedDate: "Hari Ini" };
       setAdmins([newAdmin, ...admins]);
     }
     setIsModalOpen(false);
   };
 
-  // FIX: sebelumnya nonaktifkan/aktifkan akun Admin Wilayah langsung terjadi
-  // tanpa konfirmasi (beda dengan pola aksi serupa di UserGovernance.jsx).
-  // Menonaktifkan akun admin regional berarti mereka langsung kehilangan
-  // akses ke sistem, jadi sekarang wajib dikonfirmasi dulu.
-  const handleToggleStatus = (id) => {
-    const admin = admins.find(a => a.id === id);
-    if (!admin) return;
-    const willDeactivate = admin.status === 'Active';
-    const confirmMessage = willDeactivate
-      ? `Nonaktifkan akun Admin Wilayah "${admin.name}"? Akun ini akan langsung kehilangan akses ke sistem.`
-      : `Aktifkan kembali akun Admin Wilayah "${admin.name}"?`;
-    if (!window.confirm(confirmMessage)) return;
-
+  const handleConfirmToggleStatus = () => {
+    if (!adminToToggle) return;
     setAdmins(admins.map(adm => {
-      if (adm.id === id) {
-        const newStatus = adm.status === 'Active' ? 'Inactive' : 'Active';
-        return { ...adm, status: newStatus };
+      if (adm.id === adminToToggle.id) {
+        return { ...adm, status: adm.status === 'Active' ? 'Inactive' : 'Active' };
       }
       return adm;
     }));
+    setAdminToToggle(null);
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8 lg:pt-10 space-y-8 bg-[#f8f9fa] min-h-screen">
-      {/* Header Halaman */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-purple-700">
+            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
               MANAJEMEN AKUN ADMIN WILAYAH
             </span>
           </div>
-          <h1 className="text-2xl font-black text-gray-900">Kelola Admin Wilayah & Penempatan</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Buat akun admin operasional baru dan tentukan wilayah penugasan kerjanya.</p>
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Kelola Admin Wilayah</h1>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Buat akun admin operasional baru dan tentukan penugasan kerjanya.</p>
         </div>
         
         <button 
           onClick={handleOpenAddModal}
-          className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold px-5 py-3 rounded-2xl transition flex items-center gap-2 shadow-sm shadow-purple-200 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
         >
-          <Plus size={16} />
-          Buat Akun Admin Baru
+          <Plus size={14} />
+          <span>Buat Admin Baru</span>
         </button>
       </div>
 
-      {/* Bar Pencarian */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input 
             type="text" 
-            placeholder="Cari nama admin, email, atau wilayah penempatan..."
+            placeholder="Cari nama admin, email, atau wilayah..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
+            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
           />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+              <X size={12} />
+            </button>
+          )}
         </div>
-        <div className="text-xs font-bold text-gray-400 px-4">
-          Total: <span className="text-gray-900">{filteredAdmins.length} Admin Wilayah</span>
+        <div className="text-[10px] font-semibold text-neutral-400 px-2">
+          Total: <span className="font-bold text-neutral-800">{filteredAdmins.length} Admin</span>
         </div>
       </div>
 
-      {/* Tabel Data Admin Wilayah */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+        <div className="block sm:hidden divide-y divide-gray-100">
+          {isLoadingAdmins ? (
+            <div className="p-4 space-y-3">
+              <SkeletonTableRows rows={3} columns={1} />
+            </div>
+          ) : filteredAdmins.length > 0 ? (
+            filteredAdmins.map((admin) => (
+              <div key={admin.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[8px] font-bold text-[#4B2172] font-mono">{admin.id}</span>
+                    <h3 className="font-bold text-neutral-800 text-[11px]">{admin.name}</h3>
+                  </div>
+                  <StatusBadge variant={admin.status === 'Active' ? 'emerald' : 'rose'}>
+                    {admin.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                  </StatusBadge>
+                </div>
+
+                <div className="text-[10px] text-neutral-500 space-y-0.5">
+                  <div className="flex items-center gap-1"><Mail size={11} className="text-neutral-400"/> {admin.email}</div>
+                  <div className="flex items-center gap-1"><MapPin size={11} className="text-[#4B2172]"/> {admin.region} ({admin.hub})</div>
+                </div>
+
+                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-neutral-100">
+                  <button onClick={() => handleOpenDetailModal(admin)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
+                    <Eye size={13} />
+                  </button>
+                  <button onClick={() => handleOpenEditModal(admin)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                    <Edit3 size={13} />
+                  </button>
+                  <button onClick={() => setAdminToToggle(admin)} className={`p-1.5 rounded-lg ${admin.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {admin.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-4">
+              <EmptyState icon={Users} title="Admin Tidak Ditemukan" description="Tidak ada admin wilayah yang cocok dengan pencarian." />
+            </div>
+          )}
+        </div>
+
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wider font-extrabold">
-                <th className="py-4 px-6">ID & Nama Admin</th>
-                <th className="py-4 px-6">Email Akun</th>
-                <th className="py-4 px-6">Wilayah Penempatan Kerja</th>
-                <th className="py-4 px-6">Status Akun</th>
-                <th className="py-4 px-6 text-center">Aksi Manajemen</th>
+              <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
+                <th className="py-3 px-5">ID & Nama Admin</th>
+                <th className="py-3 px-5">Email Akun</th>
+                <th className="py-3 px-5">Wilayah Penempatan</th>
+                <th className="py-3 px-5">Status Akun</th>
+                <th className="py-3 px-5 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-sm">
+            <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoadingAdmins ? (
                 <SkeletonTableRows rows={4} columns={5} />
               ) : filteredAdmins.length > 0 ? (
                 filteredAdmins.map((admin) => (
-                  <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2.5 bg-purple-50 text-purple-700 rounded-2xl font-bold shadow-sm">
-                          <Users size={16} />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-900">{admin.name}</div>
-                          <div className="text-[11px] font-bold text-gray-400 font-mono">{admin.id}</div>
-                        </div>
-                      </div>
+                  <tr key={admin.id} className="hover:bg-gray-50/50">
+                    <td className="py-3.5 px-5">
+                      <div className="font-bold text-neutral-800 text-[10px]">{admin.name}</div>
+                      <div className="text-[8px] font-bold text-[#4B2172] font-mono">{admin.id}</div>
                     </td>
-                    <td className="py-4 px-6 text-xs font-bold text-gray-700 flex items-center gap-1.5 pt-6">
-                      <Mail size={14} className="text-gray-400" />
-                      {admin.email}
+                    <td className="py-3.5 px-5 font-semibold text-neutral-700">{admin.email}</td>
+                    <td className="py-3.5 px-5 font-bold text-neutral-800">{admin.region}</td>
+                    <td className="py-3.5 px-5">
+                      <StatusBadge variant={admin.status === 'Active' ? 'emerald' : 'rose'}>
+                        {admin.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                      </StatusBadge>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                        <MapPin size={14} className="text-purple-600" />
-                        {admin.region}
-                      </div>
-                      <div className="text-[11px] font-bold text-gray-400 mt-0.5">{admin.hub}</div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1 text-[10px] font-extrabold rounded-xl inline-flex items-center gap-1.5 ${
-                        admin.status === 'Active' 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
-                          : 'bg-rose-50 text-rose-700 border border-rose-200/60'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${admin.status === 'Active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                        {admin.status === 'Active' ? 'Aktif Bertugas' : 'Akun Ditangguhkan'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Tombol Lihat Detail */}
-                        <button 
-                          onClick={() => handleOpenDetailModal(admin)}
-                          title="Lihat Detail Admin"
-                          className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl transition cursor-pointer"
-                        >
-                          <Eye size={15} />
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => handleOpenDetailModal(admin)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
+                          <Eye size={13} />
                         </button>
-
-                        {/* Tombol Edit */}
-                        <button 
-                          onClick={() => handleOpenEditModal(admin)}
-                          title="Ubah Data Admin"
-                          className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition cursor-pointer"
-                        >
-                          <Edit3 size={15} />
+                        <button onClick={() => handleOpenEditModal(admin)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                          <Edit3 size={13} />
                         </button>
-
-                        {/* Tombol Status */}
-                        <button 
-                          onClick={() => handleToggleStatus(admin.id)}
-                          title={admin.status === 'Active' ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
-                          className={`p-2 rounded-xl transition cursor-pointer ${
-                            admin.status === 'Active' 
-                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-600' 
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
-                          }`}
-                        >
-                          {admin.status === 'Active' ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
+                        <button onClick={() => setAdminToToggle(admin)} className={`p-1.5 rounded-lg ${admin.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {admin.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
                         </button>
                       </div>
                     </td>
@@ -277,11 +260,7 @@ export default function AdminWilayahManagement() {
               ) : (
                 <tr>
                   <td colSpan="5">
-                    <EmptyState
-                      icon={Users}
-                      title="Admin Wilayah Tidak Ditemukan"
-                      description="Tidak ada admin wilayah yang cocok dengan pencarian Anda."
-                    />
+                    <EmptyState icon={Users} title="Admin Tidak Ditemukan" description="Tidak ada admin wilayah yang cocok." />
                   </td>
                 </tr>
               )}
@@ -290,187 +269,75 @@ export default function AdminWilayahManagement() {
         </div>
       </div>
 
-      {/* Modal Detail Admin Wilayah */}
-      {isDetailModalOpen && selectedAdmin && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200 space-y-5">
-            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-50 text-purple-700 rounded-2xl">
-                  <Users size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900">{selectedAdmin.name}</h3>
-                  <p className="text-[11px] font-mono font-bold text-purple-600">{selectedAdmin.id}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsDetailModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-xl transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <BaseModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={selectedAdmin?.name}
+        subtitle={`ID: ${selectedAdmin?.id}`}
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-2 text-[10px]">
+          <div><strong>Email:</strong> {selectedAdmin?.email}</div>
+          <div><strong>Wilayah:</strong> {selectedAdmin?.region}</div>
+          <div><strong>Hub Utama:</strong> {selectedAdmin?.hub}</div>
+          <div><strong>Tanggal Bergabung:</strong> {selectedAdmin?.joinedDate}</div>
+          <button onClick={() => setIsDetailModalOpen(false)} className="w-full py-2 bg-[#4B2172] text-white text-[10px] font-bold rounded-full mt-3 cursor-pointer">
+            Tutup
+          </button>
+        </div>
+      </BaseModal>
 
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Email Akses Sistem</span>
-                <p className="text-xs font-bold text-gray-800">{selectedAdmin.email}</p>
-              </div>
+      <BaseModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={isEditing ? 'Ubah Akun Admin' : 'Buat Admin Baru'}
+        subtitle="Sistem Manajemen Admin Wilayah"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSubmitForm} className="space-y-3 text-[10px]">
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Lengkap</label>
+            <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Email Akses</label>
+            <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Penempatan Wilayah</label>
+            <select value={formData.region} onChange={(e) => handleRegionChange(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold cursor-pointer">
+              {availableRegions.map((reg, idx) => (
+                <option key={idx} value={reg.name}>{reg.name} ({reg.hub})</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-3">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
+            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full flex items-center gap-1 cursor-pointer shadow-sm"><Save size={13}/> Simpan</button>
+          </div>
+        </form>
+      </BaseModal>
 
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Wilayah Penempatan Kerja</span>
-                <p className="text-xs font-black text-purple-700">{selectedAdmin.region}</p>
-                <p className="text-[11px] text-gray-500">{selectedAdmin.hub}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Status Akun</span>
-                  <div className="pt-0.5">
-                    <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-lg inline-flex items-center gap-1 ${
-                      selectedAdmin.status === 'Active' 
-                        ? 'bg-emerald-50 text-emerald-700' 
-                        : 'bg-rose-50 text-rose-700'
-                    }`}>
-                      {selectedAdmin.status}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1">
-                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Tanggal Bergabung</span>
-                  <p className="text-xs font-bold text-gray-800 pt-0.5">{selectedAdmin.joinedDate}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button 
-                onClick={() => setIsDetailModalOpen(false)}
-                className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold transition shadow-sm shadow-purple-200 cursor-pointer"
-              >
-                Tutup Detail
-              </button>
-            </div>
+      <BaseModal
+        isOpen={Boolean(adminToToggle)}
+        onClose={() => setAdminToToggle(null)}
+        title="Konfirmasi Perubahan Status"
+        subtitle="Manajemen Status Akses Admin"
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-3 text-[10px] text-center">
+          <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle size={20} />
+          </div>
+          <p className="text-neutral-600">
+            Apakah Anda yakin ingin {adminToToggle?.status === 'Active' ? 'menonaktifkan' : 'mengaktifkan'} akun admin <strong>{adminToToggle?.name}</strong>?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => setAdminToToggle(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>
+            <button onClick={handleConfirmToggleStatus} className="flex-1 py-2 bg-[#4B2172] text-white rounded-full font-bold cursor-pointer shadow-sm">Ya, Konfirmasi</button>
           </div>
         </div>
-      )}
-
-      {/* Modal Form Tambah/Ubah Admin & Penempatan Wilayah */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-100">
-              <div>
-                <h3 className="text-base font-black text-gray-900">
-                  {isEditing ? 'Ubah Akun & Penempatan Admin' : 'Buat Akun Admin Wilayah Baru'}
-                </h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">Konfigurasi hak akses operasional regional</p>
-              </div>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-xl transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitForm} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5 flex items-center justify-between">
-                  <span>ID Admin (Auto-Generated)</span>
-                  <span className="text-[10px] text-purple-600 lowercase font-bold">read-only</span>
-                </label>
-                <input 
-                  type="text" 
-                  disabled
-                  value={formData.id}
-                  className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold text-gray-500 cursor-not-allowed font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Nama Lengkap Admin
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Misal: Ahmad Fauzi"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Email Akses Sistem (Login)
-                </label>
-                <input 
-                  type="email" 
-                  required
-                  placeholder="Misal: ahmad.fauzi@ne-beng.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Penempatan Wilayah Kerja
-                </label>
-                <select 
-                  value={formData.region}
-                  onChange={(e) => handleRegionChange(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition cursor-pointer"
-                >
-                  {availableRegions.map((reg, idx) => (
-                    <option key={idx} value={reg.name}>
-                      {reg.name} ({reg.hub})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                  <Info size={12} /> Admin akan memiliki hak akses pengelolaan wilayah yang dipilih.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
-                  Status Akun
-                </label>
-                <select 
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500 transition cursor-pointer"
-                >
-                  <option value="Active">Active (Aktif Bertugas)</option>
-                  <option value="Inactive">Inactive (Ditangguhkan)</option>
-                </select>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-extrabold transition cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button 
-                  type="submit"
-                  className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold transition flex items-center gap-1.5 shadow-sm shadow-purple-200 cursor-pointer"
-                >
-                  <Save size={15} />
-                  {isEditing ? 'Simpan Perubahan' : 'Simpan & Daftarkan Admin'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      </BaseModal>
     </div>
   );
 }

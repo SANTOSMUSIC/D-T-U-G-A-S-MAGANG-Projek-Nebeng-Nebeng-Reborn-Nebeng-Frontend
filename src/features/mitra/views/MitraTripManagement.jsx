@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall, X } from 'lucide-react';
+import { Calendar, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
+import StatusBadge from '../../../components/ui/StatusBadge';
+import BaseModal from '../../../components/ui/BaseModal';
 
 export default function MitraTripManagement() {
   const toast = useToast();
@@ -23,26 +25,22 @@ export default function MitraTripManagement() {
   });
 
   const [estimatedEarnings, setEstimatedEarnings] = useState(175000);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [selectedEmergencyTrip, setSelectedEmergencyTrip] = useState(null);
+  const [emergencyCategory, setEmergencyCategory] = useState('Kendaraan Mogok');
+  const [emergencyDescription, setEmergencyDescription] = useState('');
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoadingTrips(false), 700);
     return () => clearTimeout(timer);
   }, []);
 
-  // State untuk Modal Emergency / Breakdown Report
-  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
-  const [selectedEmergencyTrip, setSelectedEmergencyTrip] = useState(null);
-  const [emergencyCategory, setEmergencyCategory] = useState('Kendaraan Mogok');
-  const [emergencyDescription, setEmergencyDescription] = useState('');
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Penguncian Otomatis Kapasitas & Kalkulasi Pendapatan Berdasarkan Jenis Kendaraan.
-  // Dijalankan langsung di handler perubahan (bukan lewat useEffect terpisah)
-  // supaya default kapasitas & estimasi pendapatan langsung sinkron saat kendaraan diganti.
   const handleVehicleChange = (e) => {
     const vehicle = e.target.value;
     if (vehicle === 'Motor') {
@@ -54,8 +52,6 @@ export default function MitraTripManagement() {
     }
   };
 
-  // FIX: sebelumnya Pos Asal dan Pos Tujuan boleh sama persis (mis. keduanya
-  // "Solo (Pos Pusat)") dan tetap diterbitkan sebagai trip valid.
   const isSameOriginDestination = formData.origin === formData.destination;
 
   const handleSubmit = (e) => {
@@ -77,31 +73,36 @@ export default function MitraTripManagement() {
       status: 'Aktif'
     };
     setTrips([newTrip, ...trips]);
+
+    // Reset form ke kondisi awal
+    setFormData({
+      origin: 'Solo (Pos Pusat)',
+      destination: 'Yogyakarta',
+      date: '',
+      time: '',
+      vehicle: 'Motor',
+      seats: 1,
+      luggage: 15,
+    });
+    setEstimatedEarnings(175000);
+
     toast.success('Trip baru berhasil dibuat dan dijadwalkan ke sistem!', { title: 'Trip Dibuat' });
   };
 
-  // FIX: sebelumnya status di-cycle tanpa batas (Aktif -> In Transit -> Selesai
-  // -> Aktif -> ...) sehingga trip yang sudah "Selesai" (yang di alur Operator
-  // Pos berarti escrow sudah dicairkan ke mitra) bisa "dibuka lagi" hanya
-  // dengan satu klik. Sekarang "Selesai" bersifat final — tidak bisa diklik
-  // untuk berubah status lagi, dan transisi lain butuh konfirmasi.
-  const handleCycleStatus = (tripId) => {
-    const trip = trips.find(t => t.id === tripId);
-    if (!trip || trip.status === 'Selesai') return; // status final, tidak bisa diubah lagi
-
+  const handleRequestStatusChange = (trip) => {
+    if (trip.status === 'Selesai') return;
     const nextStatus = trip.status === 'Aktif' ? 'In Transit' : 'Selesai';
-    const confirmMessage =
-      nextStatus === 'Selesai'
-        ? `Tandai trip ${trip.id} sebagai SELESAI? Setelah selesai, status ini bersifat final dan tidak bisa diubah kembali.`
-        : `Ubah status trip ${trip.id} dari "Aktif" menjadi "In Transit"?`;
-
-    if (!window.confirm(confirmMessage)) return;
-
-    setTrips(trips.map(t => (t.id === tripId ? { ...t, status: nextStatus } : t)));
-    toast.success(`Status trip ${trip.id} berhasil diubah menjadi "${nextStatus}".`, { title: 'Status Diperbarui' });
+    setStatusConfirmTarget({ tripId: trip.id, nextStatus });
   };
 
-  // Handler Buka Modal Emergency
+  const handleConfirmStatusChange = () => {
+    if (!statusConfirmTarget) return;
+    const { tripId, nextStatus } = statusConfirmTarget;
+    setTrips(trips.map(t => (t.id === tripId ? { ...t, status: nextStatus } : t)));
+    toast.success(`Status trip ${tripId} berhasil diubah menjadi "${nextStatus}".`, { title: 'Status Diperbarui' });
+    setStatusConfirmTarget(null);
+  };
+
   const handleOpenEmergencyModal = (trip) => {
     setSelectedEmergencyTrip(trip);
     setEmergencyCategory('Kendaraan Mogok');
@@ -109,7 +110,6 @@ export default function MitraTripManagement() {
     setIsEmergencyModalOpen(true);
   };
 
-  // Handler Kirim Laporan Darurat
   const handleSubmitEmergency = (e) => {
     e.preventDefault();
     toast.error(
@@ -119,34 +119,45 @@ export default function MitraTripManagement() {
     setIsEmergencyModalOpen(false);
   };
 
+  const getTripBadgeVariant = (status) => {
+    if (status === 'Selesai') return 'emerald';
+    if (status === 'In Transit') return 'amber';
+    return 'purple';
+  };
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa] w-full p-4 sm:p-6 lg:p-8">
-      {/* Header Halaman */}
-      <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-pink-600 font-extrabold text-[11px] uppercase tracking-wider mb-1">
-            <Calendar className="w-3.5 h-3.5" /> Manajemen Jadwal Trip Mitra
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
+              <Calendar className="w-3 h-3" /> MANAJEMEN JADWAL TRIP MITRA
+            </span>
           </div>
-          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Create & Manage Trip</h1>
-          <p className="text-neutral-500 text-xs mt-0.5">Buat jadwal perjalanan baru, tentukan kapasitas otomatis kendaraan, dan pantau status serta laporan darurat perjalanan.</p>
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
+            Create & Manage Trip
+          </h1>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
+            Buat jadwal perjalanan baru, tentukan kapasitas otomatis kendaraan, dan pantau status laporan darurat.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Form Buat Trip Baru */}
-        <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-6 lg:col-span-1">
-          <h2 className="text-base font-extrabold text-neutral-900 flex items-center gap-2 mb-6">
-            <Plus className="w-4 h-4 text-pink-600" /> Buat Trip Baru
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 lg:col-span-1 space-y-4">
+          <h2 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
+            <Plus className="w-4 h-4 text-[#4B2172]" /> Buat Trip Baru
           </h2>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5 text-[10px]">
             <div>
-              <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Pos Asal</label>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Asal</label>
               <select 
                 name="origin" 
                 value={formData.origin} 
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               >
                 <option value="Solo (Pos Pusat)">Solo (Pos Pusat)</option>
                 <option value="Yogyakarta">Yogyakarta</option>
@@ -156,12 +167,12 @@ export default function MitraTripManagement() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Pos Tujuan</label>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Tujuan</label>
               <select 
                 name="destination" 
                 value={formData.destination} 
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               >
                 <option value="Yogyakarta">Yogyakarta</option>
                 <option value="Solo (Pos Pusat)">Solo (Pos Pusat)</option>
@@ -170,97 +181,93 @@ export default function MitraTripManagement() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Tanggal</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Tanggal</label>
                 <input 
                   type="date" 
                   name="date" 
                   required
                   value={formData.date} 
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Jam Berangkat</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jam Berangkat</label>
                 <input 
                   type="time" 
                   name="time" 
                   required
                   value={formData.time} 
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-1.5">Pilih Kendaraan</label>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pilih Kendaraan</label>
               <select 
                 name="vehicle" 
                 value={formData.vehicle} 
                 onChange={handleVehicleChange}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               >
                 <option value="Motor">Sepeda Motor</option>
                 <option value="Mobil">Mobil</option>
               </select>
             </div>
 
-            {/* Penguncian / Input Kapasitas Otomatis */}
-            <div className="p-4 bg-pink-50/50 rounded-2xl border border-pink-100 space-y-3">
-              <p className="text-[10px] font-extrabold text-pink-700 uppercase tracking-wider flex items-center gap-1">
-                <ShieldAlert className="w-3.5 h-3.5" /> Konfigurasi Kapasitas
+            <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 space-y-2">
+              <p className="text-[8px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1">
+                <ShieldAlert className="w-3 h-3" /> Konfigurasi Kapasitas
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 mb-1">Kapasitas Kursi</label>
+                  <label className="block text-[8px] font-bold text-neutral-400 mb-0.5">Kursi</label>
                   <input 
                     type="number" 
                     name="seats" 
                     disabled={formData.vehicle === 'Motor'}
                     value={formData.seats} 
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold ${formData.vehicle === 'Motor' ? 'bg-neutral-200 text-neutral-600 cursor-not-allowed' : 'bg-white border border-neutral-200 text-neutral-800'}`}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-[9px] font-bold ${formData.vehicle === 'Motor' ? 'bg-neutral-200 text-neutral-600 cursor-not-allowed' : 'bg-white border border-neutral-200 text-neutral-800'}`}
                   />
-                  {formData.vehicle === 'Motor' && <span className="text-[9px] text-pink-600 mt-0.5 block">Dikunci: 1 Penumpang</span>}
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 mb-1">Max Bagasi (Kg)</label>
+                  <label className="block text-[8px] font-bold text-neutral-400 mb-0.5">Bagasi (Kg)</label>
                   <input 
                     type="number" 
                     name="luggage" 
                     disabled={formData.vehicle === 'Motor'}
                     value={formData.luggage} 
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold ${formData.vehicle === 'Motor' ? 'bg-neutral-200 text-neutral-600 cursor-not-allowed' : 'bg-white border border-neutral-200 text-neutral-800'}`}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-[9px] font-bold ${formData.vehicle === 'Motor' ? 'bg-neutral-200 text-neutral-600 cursor-not-allowed' : 'bg-white border border-neutral-200 text-neutral-800'}`}
                   />
-                  {formData.vehicle === 'Motor' && <span className="text-[9px] text-pink-600 mt-0.5 block">Dikunci: Max 15 Kg</span>}
                 </div>
               </div>
             </div>
 
-            {/* Kalkulasi Estimasi Pendapatan Otomatis */}
-            <div className="p-4 bg-gradient-to-r from-pink-600 to-rose-500 rounded-2xl text-white flex items-center justify-between shadow-sm">
+            <div className="p-3.5 bg-[#4B2172] rounded-xl text-white flex items-center justify-between shadow-sm">
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-pink-100">Estimasi Pendapatan Sistem</p>
-                <h3 className="text-lg font-extrabold">Rp {estimatedEarnings.toLocaleString('id-ID')}</h3>
+                <p className="text-[8px] font-bold uppercase tracking-wider text-purple-200">Estimasi Pendapatan</p>
+                <h3 className="text-[14px] font-bold">Rp {estimatedEarnings.toLocaleString('id-ID')}</h3>
               </div>
-              <DollarSign className="w-8 h-8 text-pink-200 opacity-80" />
+              <DollarSign className="w-6 h-6 text-purple-200" />
             </div>
 
             {isSameOriginDestination && (
-              <p className="text-[10px] text-red-600 font-bold -mt-2">⚠️ Pos Asal dan Pos Tujuan tidak boleh sama.</p>
+              <p className="text-[8px] text-rose-600 font-bold -mt-1">⚠️ Pos Asal dan Pos Tujuan tidak boleh sama.</p>
             )}
 
             <button 
               type="submit"
               disabled={isSameOriginDestination}
-              className={`w-full py-3.5 px-4 rounded-2xl text-xs font-bold transition shadow-lg ${
+              className={`w-full py-3 rounded-xl text-[10px] font-bold transition shadow-sm ${
                 isSameOriginDestination
-                  ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
-                  : 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-900/20 cursor-pointer'
+                  ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                  : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
               }`}
             >
               Publikasikan Trip Jadwal
@@ -268,25 +275,19 @@ export default function MitraTripManagement() {
           </form>
         </div>
 
-        {/* List & Manajemen Trip Aktif */}
-        <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-base font-extrabold text-neutral-900 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-pink-600" /> Daftar Trip Terjadwal
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <h2 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-[#4B2172]" /> Daftar Trip Terjadwal
             </h2>
-            <span className="text-[11px] text-neutral-500 font-medium">Klik status trip untuk mengubah (Aktif → In Transit → Selesai). Status "Selesai" bersifat final.</span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {isLoadingTrips ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="p-5 rounded-2xl border border-neutral-100 bg-neutral-50/50 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-4 w-16 rounded-full" />
-                  </div>
-                  <Skeleton className="h-4 w-64" />
-                  <Skeleton className="h-4 w-40" />
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/50 space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-48" />
                 </div>
               ))
             ) : trips.length === 0 ? (
@@ -296,68 +297,57 @@ export default function MitraTripManagement() {
                 description="Publikasikan trip pertama Anda lewat form di sebelah kiri."
               />
             ) : trips.map((trip) => (
-              <div key={trip.id} className="p-5 rounded-2xl border border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50 transition flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-2">
+              <div key={trip.id} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/60 hover:bg-neutral-100/60 transition space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-xs text-neutral-900">{trip.id}</span>
+                      <span className="font-bold text-[10px] text-neutral-800 font-mono">{trip.id}</span>
                       
-                      {/* Status Badge — "Selesai" bersifat final dan tidak lagi bisa diklik */}
                       <button 
-                        onClick={() => handleCycleStatus(trip.id)}
+                        onClick={() => handleRequestStatusChange(trip)}
                         disabled={trip.status === 'Selesai'}
-                        title={trip.status === 'Selesai' ? 'Status final, tidak dapat diubah' : 'Klik untuk ubah status trip'}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold transition ${
-                          trip.status === 'In Transit' 
-                            ? 'bg-amber-500 text-white animate-pulse cursor-pointer' 
-                            : trip.status === 'Selesai' 
-                            ? 'bg-emerald-600 text-white cursor-default' 
-                            : 'bg-pink-100 text-pink-700 cursor-pointer'
-                        }`}
+                        className="cursor-pointer"
                       >
-                        Status: {trip.status} {trip.status !== 'Selesai' && '🔄'}
+                        <StatusBadge variant={getTripBadgeVariant(trip.status)}>
+                          Status: {trip.status}
+                        </StatusBadge>
                       </button>
 
-                      <span className="bg-neutral-200 text-neutral-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1">
-                        {trip.vehicle === 'Motor' ? <Bike className="w-3 h-3" /> : <Car className="w-3 h-3" />} {trip.vehicle}
+                      <span className="bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-1">
+                        {trip.vehicle === 'Motor' ? <Bike className="w-2.5 h-2.5" /> : <Car className="w-2.5 h-2.5" />} {trip.vehicle}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
-                      <MapPin className="w-4 h-4 text-pink-600 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-800">
+                      <MapPin className="w-3 h-3 text-[#4B2172] shrink-0" />
                       <span>{trip.origin} &rarr; {trip.destination}</span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-[11px] text-neutral-500 font-medium">
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {trip.date}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {trip.time} WIB</span>
+                    <div className="flex items-center gap-3 text-[9px] text-neutral-400 font-medium">
+                      <span>{trip.date} • {trip.time} WIB</span>
                       <span>Kursi: {trip.seats} | Bagasi: {trip.luggage} Kg</span>
                     </div>
                   </div>
 
-                  <div className="text-right flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-neutral-200">
+                  <div className="text-right flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-200">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-neutral-500 block">Potensi Pendapatan</span>
-                      <span className="text-sm font-extrabold text-emerald-600">{trip.estimation}</span>
+                      <span className="text-[8px] uppercase font-bold text-neutral-400 block">Potensi Pendapatan</span>
+                      <span className="text-[12px] font-bold text-emerald-600">{trip.estimation}</span>
                     </div>
-                    <button className="mt-2 px-3 py-1.5 bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 rounded-xl text-[10px] font-bold transition cursor-pointer">
-                      Kelola Trip
-                    </button>
                   </div>
                 </div>
 
-                {/* TOMBOL AKSI DARURAT: HANYA MUNCUL KETIKA STATUS BERADA DI POSISI "In Transit" */}
                 {trip.status === 'In Transit' && (
-                  <div className="pt-3 border-t border-amber-200/60 flex items-center justify-between bg-amber-50/80 p-3 rounded-xl">
-                    <div className="flex items-center gap-2 text-amber-800 text-xs font-bold">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 animate-bounce" />
-                      <span>Perjalanan Sedang Berlangsung (In Transit) di Rute</span>
+                  <div className="pt-2.5 border-t border-amber-200/60 flex items-center justify-between bg-amber-50 p-2.5 rounded-lg">
+                    <div className="flex items-center gap-1.5 text-amber-800 text-[9px] font-bold">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+                      <span>In Transit di Rute</span>
                     </div>
                     <button
                       onClick={() => handleOpenEmergencyModal(trip)}
-                      className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-extrabold transition shadow-md shadow-red-600/20 flex items-center gap-1.5 cursor-pointer"
+                      className="py-1 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[8px] font-bold transition flex items-center gap-1 cursor-pointer"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5" /> Emergency / Breakdown Report
+                      <ShieldAlert className="w-3 h-3" /> Emergency Report
                     </button>
                   </div>
                 )}
@@ -367,80 +357,91 @@ export default function MitraTripManagement() {
         </div>
       </div>
 
-      {/* MODAL EMERGENCY / BREAKDOWN REPORT */}
-      {isEmergencyModalOpen && selectedEmergencyTrip && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-100">
-            <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-4">
-              <div className="flex items-center gap-2 text-red-600">
-                <ShieldAlert className="w-5 h-5" />
-                <h3 className="text-sm font-extrabold text-neutral-900">Laporan Darurat / Kendala (Breakdown)</h3>
-              </div>
-              <button 
-                onClick={() => setIsEmergencyModalOpen(false)}
-                aria-label="Tutup"
-                className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-neutral-200 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      <BaseModal
+        isOpen={Boolean(isEmergencyModalOpen && selectedEmergencyTrip)}
+        onClose={() => setIsEmergencyModalOpen(false)}
+        title="Laporan Darurat / Kendala"
+        subtitle={`Trip ID: ${selectedEmergencyTrip?.id} (${selectedEmergencyTrip?.origin} ➔ ${selectedEmergencyTrip?.destination})`}
+        maxWidth="max-w-sm"
+      >
+        <form onSubmit={handleSubmitEmergency} className="space-y-3 text-[10px]">
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pilih Kendala Darurat</label>
+            <select
+              value={emergencyCategory}
+              onChange={(e) => setEmergencyCategory(e.target.value)}
+              className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-[10px] font-medium text-neutral-800 focus:outline-none focus:border-rose-600"
+            >
+              <option value="Kendaraan Mogok">Kendaraan Mogok / Mesin Rusak</option>
+              <option value="Ban Bocor / Kempes">Ban Bocor / Kempes</option>
+              <option value="Kecelakaan Lalu Lintas">Kecelakaan Lalu Lintas</option>
+              <option value="Darurat Medis">Darurat Medis</option>
+            </select>
+          </div>
 
-            <form onSubmit={handleSubmitEmergency} className="space-y-4">
-              <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs space-y-1">
-                <p className="text-neutral-500">Trip ID: <strong className="text-neutral-800">{selectedEmergencyTrip.id}</strong></p>
-                <p className="text-neutral-500">Rute: <strong className="text-neutral-800">{selectedEmergencyTrip.origin} ➔ {selectedEmergencyTrip.destination}</strong></p>
-              </div>
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Catatan Detail Kendala</label>
+            <textarea
+              rows="2"
+              placeholder="Sebutkan posisi landmark terdekat..."
+              value={emergencyDescription}
+              onChange={(e) => setEmergencyDescription(e.target.value)}
+              className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-[10px] font-medium text-neutral-800 focus:outline-none focus:border-rose-600 resize-none"
+            ></textarea>
+          </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Pilih Jenis Kendala Darurat</label>
-                <select
-                  value={emergencyCategory}
-                  onChange={(e) => setEmergencyCategory(e.target.value)}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-medium text-neutral-900 focus:outline-none focus:border-red-600"
-                >
-                  <option value="Kendaraan Mogok">Kendaraan Mogok / Mesin Rusak</option>
-                  <option value="Ban Bocor / Kempes">Ban Bocor / Kempes</option>
-                  <option value="Kecelakaan Lalu Lintas">Kecelakaan Lalu Lintas</option>
-                  <option value="Darurat Medis Pengemudi/Penumpang">Darurat Medis (Pengemudi/Penumpang)</option>
-                  <option value="Kendala Keamanan / Lainnya">Kendala Keamanan / Lainnya</option>
-                </select>
-              </div>
+          <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-100 text-[8px] text-rose-700 flex items-center gap-1.5">
+            <PhoneCall className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+            <span>Sinyal darurat dikirimkan langsung ke Pos Pemantau.</span>
+          </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Catatan Lokasi / Detail Kendala</label>
-                <textarea
-                  rows="3"
-                  placeholder="Sebutkan posisi landmark terdekat atau kondisi darurat secara ringkas..."
-                  value={emergencyDescription}
-                  onChange={(e) => setEmergencyDescription(e.target.value)}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-medium text-neutral-900 focus:outline-none focus:border-red-600 resize-none"
-                ></textarea>
-              </div>
+          <div className="pt-1 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEmergencyModalOpen(false)}
+              className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-[10px] font-bold transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer"
+            >
+              Kirim Laporan
+            </button>
+          </div>
+        </form>
+      </BaseModal>
 
-              <div className="p-3 bg-red-50 rounded-2xl border border-red-100 text-[11px] text-red-700 flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 shrink-0 text-red-600" />
-                <span>Tombol ini akan mengirimkan sinyal darurat langsung ke Pos Pemantau & Tim Bantuan Lapangan.</span>
-              </div>
-
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsEmergencyModalOpen(false)}
-                  className="flex-1 py-3 px-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-2xl text-xs font-bold transition cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-red-600/30 cursor-pointer"
-                >
-                  Kirim Laporan Darurat
-                </button>
-              </div>
-            </form>
+      <BaseModal
+        isOpen={Boolean(statusConfirmTarget)}
+        onClose={() => setStatusConfirmTarget(null)}
+        title="Konfirmasi Perubahan Status"
+        subtitle={`Trip ID: ${statusConfirmTarget?.tripId}`}
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-3 text-[10px]">
+          <p className="text-neutral-600">
+            {statusConfirmTarget?.nextStatus === 'Selesai'
+              ? `Tandai trip ${statusConfirmTarget?.tripId} sebagai SELESAI? Setelah selesai, status ini bersifat final.`
+              : `Ubah status trip ${statusConfirmTarget?.tripId} menjadi "In Transit"?`}
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setStatusConfirmTarget(null)}
+              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleConfirmStatusChange}
+              className="flex-1 py-2 bg-[#4B2172] text-white rounded-full font-bold cursor-pointer shadow-sm"
+            >
+              Ya, Lanjutkan
+            </button>
           </div>
         </div>
-      )}
+      </BaseModal>
     </div>
   );
 }

@@ -7,19 +7,20 @@ const CUSTOMER_MENU_PATH = {
   'Cari & Booking Trip': 'booking',
   'Tickets & Digital QR': 'tickets',
 };
-const PATH_TO_MENU = Object.fromEntries(
-  Object.entries(CUSTOMER_MENU_PATH).map(([name, path]) => [path, name])
-);
 
 export default function CustomerLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const location = useLocation();
-  const currentSlug = location.pathname.split('/').pop();
-  const activeMenu = PATH_TO_MENU[currentSlug] || 'Onboarding Biometrik';
+
+  const currentPath = location.pathname.replace(/\/$/, '');
+  const activeMenu = Object.keys(CUSTOMER_MENU_PATH).find((menu) => {
+    const slug = CUSTOMER_MENU_PATH[menu];
+    return currentPath.endsWith(`/customer/${slug}`) || currentPath.includes(`/customer/${slug}/`);
+  }) || 'Onboarding Biometrik';
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fa]">
+    <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
       <CustomerSidebar
         activeMenu={activeMenu}
         onMenuSelect={(name) => navigate(`/customer/${CUSTOMER_MENU_PATH[name]}`)}
@@ -28,8 +29,8 @@ export default function CustomerLayout() {
           navigate('/login', { replace: true });
         }}
       />
-      {/* pt-16 memberi ruang untuk tombol hamburger mobile (fixed top-4 left-4) agar tidak menimpa konten */}
-      <div className="flex-1 lg:ml-64 min-h-screen pt-16 lg:pt-0">
+      
+      <div className="flex-1 lg:ml-64 min-h-screen pt-14 lg:pt-0 w-full">
         <Outlet />
       </div>
     </div>
