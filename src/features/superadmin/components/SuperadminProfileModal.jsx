@@ -24,6 +24,7 @@ export default function SuperadminProfileModal({ isOpen, onClose, session, role,
   const displayName = superadminProfile?.name || session?.name || session?.fullName || session?.username || 'Admin';
   const displayEmail = superadminProfile?.email || session?.email || '';
   const displayRole = formatRole(role || session?.role);
+  const displayPhoto = superadminProfile?.photoDataUrl || '';
   const initials = displayName.slice(0, 2).toUpperCase();
 
   const handleGoToSettings = () => {
@@ -46,8 +47,12 @@ export default function SuperadminProfileModal({ isOpen, onClose, session, role,
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[18px] shrink-0">
-            {initials}
+          <div className="w-14 h-14 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[18px] shrink-0 overflow-hidden">
+            {displayPhoto ? (
+              <img src={displayPhoto} alt="Foto Profil" className="w-full h-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-bold text-neutral-800 truncate">{displayName}</p>

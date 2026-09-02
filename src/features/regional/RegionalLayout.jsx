@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import RegionalSidebar from './components/RegionalSidebar';
 import RegionalTopbar from './components/RegionalTopbar';
-import UserProfileModal from './components/UserProfileModal';
-import AccountSettingsModal from './components/AccountSettingsModal';
 import { useAuth } from '../../context/AuthContext';
 
 const REGIONAL_MENU_PATH = {
@@ -31,11 +28,8 @@ function formatRoleLabel(role) {
 
 export default function RegionalLayout() {
   const navigate = useNavigate();
-  const { logout, session, role, adminProfile, updateAdminProfile } = useAuth();
+  const { logout, session, role, adminProfile } = useAuth();
   const location = useLocation();
-
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const currentPath = location.pathname.replace(/\/$/, '');
   const activeMenu = Object.keys(REGIONAL_MENU_PATH).find((menu) => {
@@ -44,14 +38,19 @@ export default function RegionalLayout() {
   }) || 'Dashboard Wilayah';
 
   // Data profil admin regional diambil dari adminProfile (bisa diedit lewat
-  // Pengaturan Akun) dengan fallback ke field bawaan sesi login (bila ada)
-  // lalu ke nilai default, supaya topbar tidak pernah tampil kosong walau
-  // adminProfile belum pernah diisi sama sekali.
+  // Pengaturan Akun) dengan fallback ke field bawaan sesi login.
+  // FIX: photoDataUrl sebelumnya tidak ikut disertakan di sini, jadi foto
+  // yang sudah tersimpan lewat updateAdminProfile di halaman Pengaturan
+  // Akun tidak pernah sampai ke RegionalTopbar/UserProfileModal (selalu
+  // tampil inisial). FIX juga: fallback sebelumnya berupa data contoh yang
+  // terlihat asli ("Admin Regional Surakarta" dkk) — diganti ke placeholder
+  // netral, konsisten dengan RegionalAccountSettings.
   const currentUser = {
-    name: adminProfile?.name || session?.name || 'Admin Regional Surakarta',
-    email: adminProfile?.email || session?.email || 'admin.surakarta@nebeng.id',
-    phone: adminProfile?.phone || session?.phone || '081200000000',
-    region: adminProfile?.region || session?.region || 'Jawa Tengah - Surakarta',
+    name: adminProfile?.name || session?.name || '',
+    email: adminProfile?.email || session?.email || '',
+    phone: adminProfile?.phone || session?.phone || '',
+    region: adminProfile?.region || session?.region || 'Belum ditetapkan',
+    photoDataUrl: adminProfile?.photoDataUrl || '',
     role: formatRoleLabel(role),
   };
 
@@ -71,29 +70,18 @@ export default function RegionalLayout() {
         }}
       />
 
+      {/* Profil Saya dibuka sebagai modal langsung di dalam RegionalTopbar
+          (tidak berpindah halaman), sama seperti pola MitraTopbar.
+          Pengaturan Akun berpindah ke halaman penuh lewat route
+          /regional/profile/pengaturan. */}
       <div className="flex-1 lg:ml-64 min-h-screen">
         <RegionalTopbar
           user={currentUser}
-          onOpenProfile={() => setIsProfileModalOpen(true)}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onSettingsClick={() => navigate('/regional/profile/pengaturan')}
         />
 
         <Outlet />
       </div>
-
-      <UserProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        user={currentUser}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-      />
-
-      <AccountSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        user={currentUser}
-        onSaveProfile={(updated) => updateAdminProfile(updated)}
-      />
     </div>
   );
 }

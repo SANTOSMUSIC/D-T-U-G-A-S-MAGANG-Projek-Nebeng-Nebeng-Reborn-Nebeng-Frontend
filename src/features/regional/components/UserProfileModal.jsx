@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Mail, Phone, MapPin, ShieldCheck, Settings, X } from 'lucide-react';
 
 /**
@@ -5,13 +6,25 @@ import { Mail, Phone, MapPin, ShieldCheck, Settings, X } from 'lucide-react';
  * Kartu profil READ-ONLY. Sebelumnya modal ini punya mode edit inline yang
  * bikin layout "loncat" (label vs input berbeda tinggi, error text ikut
  * mendorong tombol footer, dsb) — sumber kesan "ngebug". Sekarang modal
- * ini murni untuk melihat data, dan mengedit diarahkan ke Pengaturan Akun
- * (AccountSettingsModal) lewat tombol di footer.
+ * ini murni untuk melihat data, dan mengedit diarahkan ke halaman penuh
+ * Pengaturan Akun (/regional/profile/pengaturan) lewat tombol di footer —
+ * mengikuti pola yang sama dengan MitraProfileModal.
+ *
+ * FIX (backdrop ter-crop): modal ini dirender di dalam RegionalTopbar,
+ * yang wrapper-nya pakai class `backdrop-blur-sm` (backdrop-filter).
+ * Elemen dengan filter/backdrop-filter/transform membentuk "containing
+ * block" baru untuk anak `position: fixed`, jadi `fixed inset-0` di sini
+ * jadi terkunci ke ukuran kotak topbar, bukan ke seluruh viewport —
+ * backdrop & modal jadi cuma menutupi strip tipis di atas layar.
+ * Solusinya: render modal lewat createPortal langsung ke document.body,
+ * supaya selalu keluar dari DOM tree parent manapun dan `fixed` selalu
+ * relatif ke viewport asli, apapun style ancestor-nya.
  */
-export default function UserProfileModal({ isOpen, onClose, user, onOpenSettings }) {
+export default function UserProfileModal({ isOpen, onClose, user, onSettingsClick }) {
   if (!isOpen) return null;
 
   const displayName = user?.name?.trim() || 'Admin Regional';
+  const photoDataUrl = user?.photoDataUrl || '';
   const initials = displayName
     .split(' ')
     .filter(Boolean)
@@ -26,11 +39,11 @@ export default function UserProfileModal({ isOpen, onClose, user, onOpenSettings
     { icon: MapPin, label: 'Wilayah Tugas', value: user?.region || '-' },
   ];
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl text-gray-900 font-['Inter'] overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl text-gray-900 font-['Inter'] overflow-hidden my-8 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-br from-[#4B2172] to-[#2a1042] p-6 text-white relative">
+        <div className="bg-gradient-to-br from-[#4B2172] to-[#2a1042] p-6 text-white relative shrink-0">
           <button
             onClick={onClose}
             aria-label="Tutup"
@@ -40,8 +53,12 @@ export default function UserProfileModal({ isOpen, onClose, user, onOpenSettings
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center font-bold text-[18px] shrink-0">
-              {initials}
+            <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center font-bold text-[18px] shrink-0 overflow-hidden">
+              {photoDataUrl ? (
+                <img src={photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
             <div className="min-w-0">
               <h3 className="text-[14px] font-bold truncate">{displayName}</h3>
@@ -56,7 +73,7 @@ export default function UserProfileModal({ isOpen, onClose, user, onOpenSettings
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-2.5">
+        <div className="p-5 space-y-2.5 overflow-y-auto">
           {fields.map(({ icon: Icon, label, value }) => (
             <div key={label} className="flex items-start gap-3 bg-neutral-50 border border-neutral-100 rounded-xl px-3.5 py-2.5">
               <Icon className="w-3.5 h-3.5 text-neutral-400 mt-0.5 shrink-0" />
@@ -75,7 +92,7 @@ export default function UserProfileModal({ isOpen, onClose, user, onOpenSettings
               Tutup
             </button>
             <button
-              onClick={() => { onClose && onClose(); onOpenSettings && onOpenSettings(); }}
+              onClick={() => { onClose && onClose(); onSettingsClick && onSettingsClick(); }}
               className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] hover:bg-[#3b195a] rounded-full cursor-pointer shadow-sm transition flex items-center gap-1.5"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -84,6 +101,7 @@ export default function UserProfileModal({ isOpen, onClose, user, onOpenSettings
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

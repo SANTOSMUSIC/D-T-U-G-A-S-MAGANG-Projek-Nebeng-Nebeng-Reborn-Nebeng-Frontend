@@ -32,6 +32,13 @@ import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 
+const DEFAULT_NOTIF_PREFS = {
+  accountAnomalies: true,
+  financialAlerts: true,
+  regionalApprovals: true,
+  systemNews: false,
+};
+
 const formatRole = (role) => {
   if (!role) return 'Superadmin';
   return role
@@ -56,16 +63,16 @@ export default function SuperadminAccountSettings() {
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [showPassword, setShowPassword] = useState({ current: false, next: false, confirm: false });
 
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  // FIX: sebelumnya is2FAEnabled & notifPrefs hanya di state lokal dan
+  // hilang setiap kali halaman di-refresh (berbeda dari nama/email/foto
+  // yang sudah dipersist lewat updateSuperadminProfile). Sekarang keduanya
+  // ikut disimpan lewat updateSuperadminProfile supaya konsisten dan
+  // bertahan sampai user mengubahnya lagi.
+  const [is2FAEnabled, setIs2FAEnabled] = useState(Boolean(superadminProfile?.is2FAEnabled));
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [showLogoutSessionsModal, setShowLogoutSessionsModal] = useState(false);
 
-  const [notifPrefs, setNotifPrefs] = useState({
-    accountAnomalies: true,
-    financialAlerts: true,
-    regionalApprovals: true,
-    systemNews: false,
-  });
+  const [notifPrefs, setNotifPrefs] = useState({ ...DEFAULT_NOTIF_PREFS, ...superadminProfile?.notifPrefs });
 
   const displayRole = formatRole(role || session?.role);
 
@@ -141,17 +148,23 @@ export default function SuperadminAccountSettings() {
       return;
     }
     setIs2FAEnabled(false);
+    updateSuperadminProfile({ is2FAEnabled: false });
     toast.warning('Autentikasi Dua Faktor dinonaktifkan. Akun Anda kini hanya dilindungi kata sandi.', { title: '2FA Nonaktif' });
   };
 
   const handleConfirm2FA = () => {
     setIs2FAEnabled(true);
+    updateSuperadminProfile({ is2FAEnabled: true });
     setShow2FAModal(false);
     toast.success('Autentikasi Dua Faktor berhasil diaktifkan untuk akun ini.', { title: '2FA Aktif' });
   };
 
   const handleToggleNotif = (key) => {
-    setNotifPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+    setNotifPrefs((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      updateSuperadminProfile({ notifPrefs: next });
+      return next;
+    });
   };
 
   const handleLogoutOtherSessions = () => {

@@ -24,6 +24,7 @@ import VerificationCenterPage from './features/regional/views/VerificationCenter
 import TripOrderPage from './features/regional/views/TripOrderMonitoring';
 import ArmadaKurirTabs from './features/regional/views/ArmadaKurirTabs';
 import FinancialReportPage from './features/regional/views/FinancialReportPage';
+import RegionalAccountSettings from './features/regional/views/RegionalAccountSettings';
 
 // Operator Pos
 import OperatorLayout from './features/operator-pos/OperatorLayout';
@@ -32,6 +33,7 @@ import OperatorInspection from './features/operator-pos/views/OperatorInspection
 import OperatorDualScanner from './features/operator-pos/views/OperatorDualScanner';
 import OperatorHandover from './features/operator-pos/views/OperatorHandover';
 import OperatorFinancial from './features/operator-pos/views/OperatorFinancial';
+import OperatorAccountSettings from './features/operator-pos/components/OperatorAccountSettings';
 
 // Mitra
 import MitraLayout from './features/mitra/MitraLayout';
@@ -145,6 +147,7 @@ export default function App() {
         <Route path="trip-order" element={<TripOrderPage />} />
         <Route path="armada-kurir" element={<ArmadaKurirTabs />} />
         <Route path="laporan" element={<FinancialReportPage />} />
+        <Route path="profile/pengaturan" element={<RegionalAccountSettings />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
@@ -163,6 +166,8 @@ export default function App() {
         <Route path="scanner" element={<OperatorDualScanner />} />
         <Route path="handover" element={<OperatorHandover />} />
         <Route path="financial" element={<OperatorFinancial />} />
+        <Route path="profile" element={<Navigate to="pengaturan" replace />} />
+        <Route path="profile/pengaturan" element={<OperatorAccountSettings />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
