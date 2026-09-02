@@ -8,9 +8,13 @@ import { X, Phone, IdCard, ShieldCheck, Settings, CalendarCheck } from 'lucide-r
 // Tombol "Pengaturan Akun" di footer modal ini yang benar-benar pindah
 // halaman (lewat onSettingsClick, dioper dari CustomerLayout -> modal ini).
 
+// FIX: sama seperti di CustomerAccountSettings.jsx — cegah slice(0,4)/
+// slice(-4) tumpang tindih untuk NIK <=8 karakter yang bisa membocorkan
+// digit asli alih-alih menyamarkannya.
 const maskNik = (nik) => {
   if (!nik) return '-';
-  return `${nik.slice(0, 4)}${'x'.repeat(Math.max(nik.length - 8, 0))}${nik.slice(-4)}`;
+  if (nik.length <= 8) return 'x'.repeat(nik.length);
+  return `${nik.slice(0, 4)}${'x'.repeat(nik.length - 8)}${nik.slice(-4)}`;
 };
 
 export default function CustomerProfileModal({ isOpen, onClose, profile, isVerified, onSettingsClick }) {
@@ -18,6 +22,7 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
 
   const displayName = profile?.fullName?.trim() || 'Pelanggan Nebeng';
   const initial = displayName.charAt(0).toUpperCase() || 'P';
+  const photoDataUrl = profile?.photoDataUrl || '';
   const memberSince = profile?.verifiedAt
     ? new Date(profile.verifiedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : '-';
@@ -47,7 +52,11 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
           </button>
 
           <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white text-[18px] font-extrabold mb-3 overflow-hidden">
-            {initial}
+            {photoDataUrl ? (
+              <img src={photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" />
+            ) : (
+              initial
+            )}
           </div>
           <p className="text-white font-bold text-[15px]">{displayName}</p>
           <span

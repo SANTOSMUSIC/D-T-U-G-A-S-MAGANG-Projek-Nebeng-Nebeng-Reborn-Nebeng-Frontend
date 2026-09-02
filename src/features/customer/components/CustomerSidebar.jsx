@@ -32,8 +32,9 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', i
     }, 400);
   };
 
-  const handleMenuSelect = (name) => {
-    if (onMenuSelect) onMenuSelect(name);
+  const handleMenuSelect = (item) => {
+    if (item.locked) return;
+    if (onMenuSelect) onMenuSelect(item.name);
     setIsMobileOpen(false);
   };
 
@@ -107,14 +108,15 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', i
                   return (
                     <button
                       key={item.name}
-                      onClick={() => handleMenuSelect(item.name)}
+                      disabled={item.locked}
+                      onClick={() => handleMenuSelect(item)}
                       title={item.locked ? 'Selesaikan verifikasi biometrik untuk membuka menu ini' : undefined}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left ${
                         isActive
-                          ? 'bg-white text-[#4B2172] font-semibold shadow-sm'
+                          ? 'bg-white text-[#4B2172] font-semibold shadow-sm cursor-default'
                           : item.locked
-                          ? 'text-white/40 font-medium cursor-not-allowed'
-                          : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
+                          ? 'text-white/40 font-medium cursor-not-allowed opacity-60'
+                          : 'text-white/80 font-medium hover:bg-white/10 hover:text-white cursor-pointer'
                       }`}
                     >
                       <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : item.locked ? 'text-white/30' : 'text-white/70'}`} />
@@ -134,7 +136,7 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', i
             aria-label="Keluar Sistem"
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-[#FF0055] hover:bg-[#e0004c] transition cursor-pointer"
           >
-            <LogOut className="w-4 h-4 text-white shrink-0" />
+            <LogOut className="w-4 h-4 text-[#ffffff] shrink-0" />
             <span>Log Out</span>
           </button>
         </div>

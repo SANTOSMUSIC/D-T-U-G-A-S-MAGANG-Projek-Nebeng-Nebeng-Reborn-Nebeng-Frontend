@@ -12,7 +12,7 @@ const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 const TODAY_ISO = new Date().toISOString().split('T')[0];
 
 const formatRupiah = (value) =>
-  `Rp ${Math.max(0, Math.round(value)).toLocaleString('id-ID')}`;
+  `Rp ${Math.max(0, Math.round(value || 0)).toLocaleString('id-ID')}`;
 
 export default function SearchTrip() {
   const navigate = useNavigate();
@@ -91,10 +91,14 @@ export default function SearchTrip() {
 
   const isLoadingTrips = useSimulatedLoading([origin, destination, date, serviceType], 700);
 
-  const totalAccumulatedWeight = itemCount * itemWeight;
+  const safeSeatCount = Math.max(1, seatCount || 1);
+  const safeItemCount = Math.max(1, itemCount || 1);
+  const safeItemWeight = Math.max(1, itemWeight || 1);
+
+  const totalAccumulatedWeight = safeItemCount * safeItemWeight;
   const isOverWeightCapacity = selectedTrip?.type === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingCapacityKg || 0);
   const maxAllowedSeats = selectedTrip?.vehicleCategory === 'motor' ? 1 : (selectedTrip?.maxSeats || 1);
-  const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (seatCount > maxAllowedSeats || seatCount < 1);
+  const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (safeSeatCount > maxAllowedSeats);
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
   const isPassengerPhoneValid = selectedTrip?.type === 'penumpang' ? PHONE_REGEX.test(passengerPhone.trim()) : true;
@@ -103,8 +107,8 @@ export default function SearchTrip() {
   const isBarangValid = selectedTrip?.type === 'barang' ? (receiverName.trim() !== '' && isReceiverPhoneValid) : true;
   const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid;
 
-  const quantity = selectedTrip?.type === 'barang' ? itemCount : seatCount;
-  const totalPrice = (selectedTrip?.basePrice || 0) * (quantity || 0);
+  const quantity = selectedTrip?.type === 'barang' ? safeItemCount : safeSeatCount;
+  const totalPrice = (selectedTrip?.basePrice || 0) * quantity;
 
   const handleSizeChange = (sizeCode) => {
     setItemSize(sizeCode);
@@ -136,13 +140,26 @@ export default function SearchTrip() {
     setBookingStep('pin');
   };
 
-  const handlePinChange = (value, index) => {
-    if (isNaN(value)) return;
+  const handlePinChange = (val, index) => {
+    const cleaned = val.replace(/\D/g, '');
+    if (!cleaned && val !== '') return;
+
+    if (cleaned.length > 1) {
+      const newPin = [...pin];
+      for (let i = 0; i < 6; i++) {
+        newPin[i] = cleaned[i] || '';
+      }
+      setPin(newPin);
+      const nextIndex = Math.min(cleaned.length, 5);
+      document.getElementById(`pin-input-${nextIndex}`)?.focus();
+      return;
+    }
+
     const newPin = [...pin];
-    newPin[index] = value;
+    newPin[index] = cleaned;
     setPin(newPin);
 
-    if (value && index < 5) {
+    if (cleaned && index < 5) {
       document.getElementById(`pin-input-${index + 1}`)?.focus();
     }
   };
@@ -154,7 +171,7 @@ export default function SearchTrip() {
   };
 
   const handleVerifyPinAndCheckout = () => {
-    if (pin.some(p => p === '') || isCheckingOut) return;
+    if (pin.some(p => p === '') || isCheckingOut || !selectedTrip) return;
     setIsCheckingOut(true);
 
     const isBarang = selectedTrip.type === 'barang';
@@ -171,8 +188,8 @@ export default function SearchTrip() {
       schedule: `${selectedTrip.date} • Sesuai Jadwal Trip Mitra`,
       totalPrice: formatRupiah(totalPrice),
       detail: isBarang
-        ? `${itemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName || '-'} (${receiverPhone || '-'})`
-        : `${seatCount} Kursi • Atas Nama ${passengerName || '-'} (${passengerPhone || '-'})`,
+        ? `${safeItemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName || '-'} (${receiverPhone || '-'})`
+        : `${safeSeatCount} Kursi • Atas Nama ${passengerName || '-'} (${passengerPhone || '-'})`,
       status: 'Aktif',
       currentStatusText: 'Menunggu Check-in di Pos Asal',
       otp: isBarang ? String(Math.floor(100000 + Math.random() * 900000)) : null,
@@ -369,7 +386,10 @@ export default function SearchTrip() {
                     min="1"
                     max={maxAllowedSeats}
                     value={seatCount}
-                    onChange={(e) => setSeatCount(Math.min(Math.max(parseInt(e.target.value) || 1, 1), maxAllowedSeats))}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setSeatCount(isNaN(val) ? '' : Math.min(Math.max(val, 1), maxAllowedSeats));
+                    }}
                     className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                   />
                 </div>
@@ -442,7 +462,10 @@ export default function SearchTrip() {
                       type="number"
                       min="1"
                       value={itemCount}
-                      onChange={(e) => setItemCount(parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setItemCount(isNaN(val) ? '' : Math.max(val, 1));
+                      }}
                       className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                     />
                   </div>
@@ -452,7 +475,10 @@ export default function SearchTrip() {
                       type="number"
                       min="1"
                       value={itemWeight}
-                      onChange={(e) => setItemWeight(parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setItemWeight(isNaN(val) ? '' : Math.max(val, 1));
+                      }}
                       className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                     />
                   </div>
@@ -543,9 +569,9 @@ export default function SearchTrip() {
                   id={`pin-input-${index}`}
                   type="password"
                   inputMode="numeric"
-                  maxLength="1"
+                  maxLength="6"
                   value={digit}
-                  onChange={(e) => handlePinChange(e.target.value.replace(/\D/g, ''), index)}
+                  onChange={(e) => handlePinChange(e.target.value, index)}
                   onKeyDown={(e) => handlePinKeyDown(e, index)}
                   className="w-8 h-9 text-center text-[12px] font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:border-[#4B2172] font-mono"
                 />

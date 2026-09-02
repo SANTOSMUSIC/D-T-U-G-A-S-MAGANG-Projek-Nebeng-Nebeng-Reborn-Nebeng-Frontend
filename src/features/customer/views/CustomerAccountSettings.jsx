@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Settings, User, ShieldCheck, Eye, EyeOff, Pencil, Save, X, Phone, IdCard, Award, Ticket as TicketIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Settings, User, ShieldCheck, Eye, EyeOff, Pencil, Save, X, Phone, IdCard, Award, Ticket as TicketIcon, Camera } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTickets } from '../../../context/TicketsContext';
 import { useToast } from '../../../context/ToastContext';
@@ -16,10 +16,18 @@ import StatCard from '../../../components/ui/StatCard';
 // logout sendiri.
 
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB, konsisten dengan pola Mitra/Superadmin/Regional/Operator
 
+// FIX: sebelumnya slice(0,4) dan slice(-4) bisa tumpang tindih kalau NIK
+// lebih pendek dari 8 karakter (data uji/tidak lengkap), sehingga digit
+// asli malah terekspos dobel alih-alih tersamarkan — untuk NIK persis 8
+// karakter bahkan tidak ter-mask sama sekali. Sekarang NIK <=8 karakter
+// selalu ditampilkan full-mask, aman untuk data 16-digit asli maupun
+// data pendek/tidak lengkap.
 const maskNik = (nik) => {
   if (!nik) return '-';
-  return `${nik.slice(0, 4)}${'x'.repeat(Math.max(nik.length - 8, 0))}${nik.slice(-4)}`;
+  if (nik.length <= 8) return 'x'.repeat(nik.length);
+  return `${nik.slice(0, 4)}${'x'.repeat(nik.length - 8)}${nik.slice(-4)}`;
 };
 
 export default function CustomerAccountSettings() {
@@ -33,6 +41,14 @@ export default function CustomerAccountSettings() {
     fullName: customerProfile?.fullName || '',
     phone: customerProfile?.phone || ''
   });
+
+  // FIX: foto profil ditambahkan mengikuti pola Mitra/Superadmin/Regional/
+  // Operator — disimpan sebagai bagian dari customerProfile (photoDataUrl,
+  // base64) lewat updateCustomerProfile, supaya bertahan sampai user
+  // ganti/refresh. Dibatasi 2MB per foto.
+  const [avatarPreview, setAvatarPreview] = useState(customerProfile?.photoDataUrl || null);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = useRef(null);
 
   const isPhoneValid = PHONE_REGEX.test(draft.phone.trim());
   const isNameValid = draft.fullName.trim().length > 0;
@@ -58,6 +74,34 @@ export default function CustomerAccountSettings() {
     });
     setIsEditing(false);
     toast.success('Profil Anda berhasil diperbarui.', { title: 'Tersimpan' });
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+      setAvatarError('Format foto harus JPG atau PNG.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_PHOTO_SIZE) {
+      setAvatarError('Ukuran foto maksimal 2MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setAvatarError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarPreview(reader.result);
+      updateCustomerProfile({ photoDataUrl: reader.result });
+      toast.success('Foto profil berhasil diperbarui.', { title: 'Foto Diperbarui' });
+    };
+    reader.onerror = () => {
+      setAvatarError('Gagal membaca file foto. Coba lagi.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const memberSince = customerProfile?.verifiedAt
@@ -108,8 +152,33 @@ export default function CustomerAccountSettings() {
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 max-w-2xl space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#4B2172] flex items-center justify-center shrink-0">
-              <User className="w-6 h-6" />
+            <div className="relative w-12 h-12 shrink-0">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Foto Profil" className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-50 shadow-sm" />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#4B2172] flex items-center justify-center shrink-0">
+                  {customerProfile?.fullName?.trim() ? (
+                    <span className="text-[16px] font-extrabold">{customerProfile.fullName.trim().charAt(0).toUpperCase()}</span>
+                  ) : (
+                    <User className="w-6 h-6" />
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-neutral-200 text-[#4B2172] flex items-center justify-center shadow-sm hover:bg-neutral-50 transition cursor-pointer"
+                title="Ubah Foto Profil"
+              >
+                <Camera className="w-2.5 h-2.5" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
             </div>
             <div>
               <h2 className="text-[14px] font-bold text-neutral-800">{customerProfile?.fullName || '-'}</h2>
@@ -117,6 +186,7 @@ export default function CustomerAccountSettings() {
                 <ShieldCheck size={11} />
                 {isCustomerVerified ? 'Akun Terverifikasi' : 'Belum Terverifikasi'}
               </span>
+              {avatarError && <p className="text-[8px] text-rose-600 font-bold mt-1">{avatarError}</p>}
             </div>
           </div>
 
