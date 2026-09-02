@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
+import { useState, useEffect } from 'react';
 import { 
   ShieldAlert, 
   UserX, 
@@ -24,16 +23,12 @@ import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
+import { getAllUsers, createUser, updateUserStatus } from '../../../services/userService';
 
 export default function UserGovernance() {
   const { session: currentAdminSession, role: currentAdminRole } = useAuth();
-  const [users, setUsers] = useState([
-    { id: "USR-001", name: "Budi Santoso", email: "budi@nebeng.com", role: "Driver Motor", phone: "081234567890", status: "Active", riskLevel: "Low" },
-    { id: "USR-002", name: "Siti Rahma", email: "siti.rahma@gmail.com", role: "Passenger", phone: "081398765432", status: "Suspended", riskLevel: "Medium" },
-    { id: "USR-003", name: "Joko Susilo", email: "joko.susilo@nebeng.com", role: "Driver Mobil", phone: "081122334455", status: "Blocked", riskLevel: "High" },
-    { id: "USR-004", name: "Dewi Lestari", email: "dewi.l@nebeng.com", role: "Admin Wilayah", phone: "081555667788", status: "Active", riskLevel: "Low" },
-    { id: "USR-005", name: "Ahmad Fauzi", email: "fauzi.ahmad@gmail.com", role: "Passenger", phone: "081911223344", status: "Active", riskLevel: "Low" }
-  ]);
+  const [users, setUsers] = useState([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -42,92 +37,146 @@ export default function UserGovernance() {
   const [reason, setReason] = useState('');
 
   const [unmaskedUsers, setUnmaskedUsers] = useState({});
+  
+  // State Audit Log dikembalikan
   const [auditLogs, setAuditLogs] = useState([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Passenger', phone: '' });
+  const [newUser, setNewUser] = useState({ 
+    name: '', 
+    email: '', 
+    role: 'customer', 
+    phone: '', 
+    password: '' 
+  });
+
+  const fetchUsersData = async () => {
+    try {
+      setIsLoadingUsers(true);
+      const res = await getAllUsers();
+      setUsers(Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Gagal memuat data pengguna:', err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUsersData() {
+      try {
+        setIsLoadingUsers(true);
+        const res = await getAllUsers();
+        if (isMounted) {
+          setUsers(Array.isArray(res) ? res : []);
+        }
+      } catch (err) {
+        console.error('Gagal memuat data pengguna:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingUsers(false);
+        }
+      }
+    }
+
+    loadUsersData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleMaskPII = (userId) => {
     setUnmaskedUsers(prev => ({ ...prev, [userId]: !prev[userId] }));
   };
 
   const maskEmail = (email) => {
+    if (!email) return '';
     const [name, domain] = email.split('@');
     if (!name || !domain) return email;
     return `${name[0]}***${name[name.length - 1]}@${domain}`;
   };
 
   const maskPhone = (phone) => {
-    if (phone.length < 8) return phone;
+    if (!phone || phone.length < 8) return phone || '-';
     return `${phone.slice(0, 4)}****${phone.slice(-3)}`;
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
+    const matchesSearch = (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (user.id && String(user.id).toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === 'All' || 
+                          (statusFilter === 'Active' && user.status === 'active') ||
+                          (statusFilter === 'Suspended' && user.status === 'suspended') ||
+                          (statusFilter === 'Blocked' && user.status === 'blocked');
     return matchesSearch && matchesStatus;
   });
 
-  const isLoadingUsers = useSimulatedLoading([searchTerm, statusFilter], 700);
-
-  const handleAddUser = (e) => {
+  const handleAddUser = async (e) => {
     e.preventDefault();
-    if (!newUser.name || !newUser.email) return;
+    if (!newUser.name || !newUser.email || !newUser.password) return;
 
-    const generatedId = `USR-${Date.now().toString().slice(-4)}`;
-    const userToAdd = {
-      id: generatedId,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      phone: newUser.phone || '081200000000',
-      status: 'Active',
-      riskLevel: 'Low'
-    };
+    try {
+      const payload = {
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone || `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+        password: newUser.password,
+        role: newUser.role,
+        status: 'active'
+      };
 
-    setUsers([userToAdd, ...users]);
-    setShowAddModal(false);
-    setNewUser({ name: '', email: '', role: 'Passenger', phone: '' });
+      await createUser(payload);
+      setShowAddModal(false);
+      setNewUser({ name: '', email: '', role: 'passenger', phone: '', password: '' });
+      await fetchUsersData();
+    } catch (err) {
+      console.error('Gagal membuat user:', err);
+      alert(err.response?.data?.message || 'Terjadi kesalahan saat membuat pengguna.');
+    }
   };
 
-  const handleExecuteAction = () => {
+  const handleExecuteAction = async () => {
     if (!selectedUser || !reason.trim()) return;
 
-    let newStatus = 'Active';
-    if (actionModal === 'Block') newStatus = 'Blocked';
-    if (actionModal === 'Suspend') newStatus = 'Suspended';
-    if (actionModal === 'Unblock') newStatus = 'Active';
+    try {
+      let newStatus = 'active';
+      if (actionModal === 'Block') newStatus = 'blocked';
+      if (actionModal === 'Suspend') newStatus = 'suspended';
+      if (actionModal === 'Unblock') newStatus = 'active';
 
-    setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: newStatus } : u));
+      await updateUserStatus(selectedUser.id, newStatus);
 
-    const logEntry = {
-      id: `LOG-${Date.now().toString().slice(-6)}`,
-      timestamp: new Date().toLocaleString('id-ID'),
-      admin: `${currentAdminSession?.name || currentAdminSession?.fullName || currentAdminSession?.username || 'Admin'} (${currentAdminRole || currentAdminSession?.role || 'Superadmin'})`,
-      targetId: selectedUser.id,
-      targetName: selectedUser.name,
-      action: `${actionModal.toUpperCase()} ACCOUNT`,
-      reason: reason.trim()
-    };
-    setAuditLogs([logEntry, ...auditLogs]);
+      // Pencatatan Audit Log otomatis saat aksi dijalankan
+      const logEntry = {
+        id: `LOG-${Date.now().toString().slice(-6)}`,
+        timestamp: new Date().toLocaleString('id-ID'),
+        admin: `${currentAdminSession?.name || currentAdminSession?.fullName || 'Superadmin'} (${currentAdminRole || 'admin'})`,
+        targetId: selectedUser.id,
+        targetName: selectedUser.name,
+        action: `${actionModal.toUpperCase()} ACCOUNT`,
+        reason: reason.trim()
+      };
+      setAuditLogs([logEntry, ...auditLogs]);
 
-    setActionModal(null);
-    setSelectedUser(null);
-    setReason('');
+      setActionModal(null);
+      setSelectedUser(null);
+      setReason('');
+      await fetchUsersData();
+    } catch (err) {
+      console.error('Gagal memperbarui status user:', err);
+      alert(err.response?.data?.message || 'Gagal mengubah status akun.');
+    }
   };
 
   const getStatusVariant = (status) => {
-    if (status === 'Active') return 'emerald';
-    if (status === 'Suspended') return 'amber';
+    if (status === 'active') return 'emerald';
+    if (status === 'suspended') return 'amber';
     return 'rose';
-  };
-
-  const getRiskBadge = (risk) => {
-    if (risk === 'High') return 'bg-rose-50 text-rose-600 border-rose-200';
-    if (risk === 'Medium') return 'bg-amber-50 text-amber-600 border-amber-200';
-    return 'bg-emerald-50 text-emerald-600 border-emerald-200';
   };
 
   return (
@@ -142,14 +191,14 @@ export default function UserGovernance() {
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">User Governance (Super-Override)</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Kelola akses akun secara sistemik dengan proteksi PII dan pencatatan audit log otomatis.
+            Kelola akses akun secara sistemik dengan proteksi PII dan pencatatan audit log otomatis[cite: 9].
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="hidden md:flex px-3.5 py-2 bg-[#4B2172]/10 border border-[#4B2172]/20 rounded-full text-[10px] font-bold text-[#4B2172] items-center gap-2">
             <ShieldCheck size={14} />
-            Level Akses: Super-Override (Enkripsi PII)
+            Level Akses: Super-Override (Enkripsi PII)[cite: 9]
           </div>
           <button
             onClick={() => setShowAddModal(true)}
@@ -169,7 +218,7 @@ export default function UserGovernance() {
           <div>
             <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Akun Aktif</p>
             <h3 className="text-[18px] font-bold text-neutral-800 mt-0.5">
-              {users.filter(u => u.status === 'Active').length} Pengguna
+              {users.filter(u => u.status === 'active').length} Pengguna
             </h3>
             <span className="text-[10px] font-semibold text-emerald-600">Beroperasi normal</span>
           </div>
@@ -182,7 +231,7 @@ export default function UserGovernance() {
           <div>
             <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Akun Disuspend</p>
             <h3 className="text-[18px] font-bold text-neutral-800 mt-0.5">
-              {users.filter(u => u.status === 'Suspended').length} Pengguna
+              {users.filter(u => u.status === 'suspended').length} Pengguna
             </h3>
             <span className="text-[10px] font-semibold text-amber-600">Ditangguhkan sementara</span>
           </div>
@@ -195,7 +244,7 @@ export default function UserGovernance() {
           <div>
             <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Akun Diblokir</p>
             <h3 className="text-[18px] font-bold text-neutral-800 mt-0.5">
-              {users.filter(u => u.status === 'Blocked').length} Pengguna
+              {users.filter(u => u.status === 'blocked').length} Pengguna
             </h3>
             <span className="text-[10px] font-semibold text-rose-600">Akses dicabut sistemik</span>
           </div>
@@ -240,10 +289,12 @@ export default function UserGovernance() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
-        {/* Tampilan Kartu Mobile */}
         <div className="block sm:hidden divide-y divide-gray-100">
           {isLoadingUsers ? (
-            <div className="p-4"><SkeletonTableRows rows={3} columns={1} /></div>
+            <div className="p-4 space-y-2">
+              <div className="h-16 bg-neutral-100 animate-pulse rounded-xl"></div>
+              <div className="h-16 bg-neutral-100 animate-pulse rounded-xl"></div>
+            </div>
           ) : filteredUsers.length > 0 ? (
             filteredUsers.map((user) => {
               const isUnmasked = unmaskedUsers[user.id];
@@ -252,7 +303,7 @@ export default function UserGovernance() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-bold text-neutral-800">{user.name}</h4>
-                      <span className="text-[8px] font-bold text-[#4B2172] font-mono">{user.id}</span>
+                      <span className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {String(user.id)}</span>
                     </div>
                     <StatusBadge variant={getStatusVariant(user.status)}>
                       {user.status}
@@ -265,13 +316,13 @@ export default function UserGovernance() {
                     </button>
                   </div>
                   <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-                    {user.status !== 'Blocked' && (
+                    {user.status !== 'blocked' && (
                       <button onClick={() => { setSelectedUser(user); setActionModal('Block'); }} className="px-2.5 py-1 bg-rose-50 text-rose-600 font-bold rounded-full text-[9px]">Blokir</button>
                     )}
-                    {user.status !== 'Suspended' && user.status !== 'Blocked' && (
+                    {user.status !== 'suspended' && user.status !== 'blocked' && (
                       <button onClick={() => { setSelectedUser(user); setActionModal('Suspend'); }} className="px-2.5 py-1 bg-amber-50 text-amber-600 font-bold rounded-full text-[9px]">Suspend</button>
                     )}
-                    {(user.status === 'Blocked' || user.status === 'Suspended') && (
+                    {(user.status === 'blocked' || user.status === 'suspended') && (
                       <button onClick={() => { setSelectedUser(user); setActionModal('Unblock'); }} className="px-2.5 py-1 bg-emerald-50 text-emerald-600 font-bold rounded-full text-[9px]">Pulihkan</button>
                     )}
                   </div>
@@ -283,16 +334,15 @@ export default function UserGovernance() {
           )}
         </div>
 
-        {/* Tabel Desktop */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
                 <th className="py-3 px-5">ID & Nama Pengguna</th>
-                <th className="py-3 px-5">Peran & Risiko</th>
-                <th className="py-3 px-5">Kontak PII (Protected)</th>
+                <th className="py-3 px-5">Peran (Role)</th>
+                <th className="py-3 px-5">Kontak PII (Protected)[cite: 9]</th>
                 <th className="py-3 px-5">Status Akun</th>
-                <th className="py-3 px-5 text-right">Aksi Super-Override</th>
+                <th className="py-3 px-5 text-right">Aksi Super-Override[cite: 9]</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-[9px]">
@@ -305,17 +355,12 @@ export default function UserGovernance() {
                     <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-3.5 px-5">
                         <div className="font-bold text-neutral-800 text-[10px]">{user.name}</div>
-                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">{user.id}</div>
+                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {String(user.id)}</div>
                       </td>
                       <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-2.5 py-0.5 bg-neutral-100 text-neutral-700 font-semibold rounded-lg text-[9px]">
-                            {user.role}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold border ${getRiskBadge(user.riskLevel)}`}>
-                            {user.riskLevel} Risk
-                          </span>
-                        </div>
+                        <span className="px-2.5 py-0.5 bg-neutral-100 text-neutral-700 font-semibold rounded-lg text-[9px] uppercase">
+                          {user.role}
+                        </span>
                       </td>
                       <td className="py-3.5 px-5">
                         <div className="flex items-center gap-2">
@@ -340,12 +385,12 @@ export default function UserGovernance() {
                       </td>
                       <td className="py-3.5 px-5">
                         <StatusBadge variant={getStatusVariant(user.status)}>
-                          {user.status === 'Active' ? 'Aktif' : user.status === 'Suspended' ? 'Disuspend' : 'Diblokir'}
+                          {user.status === 'active' ? 'Aktif' : user.status === 'suspended' ? 'Disuspend' : 'Diblokir'}
                         </StatusBadge>
                       </td>
                       <td className="py-3.5 px-5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {user.status !== 'Blocked' && (
+                          {user.status !== 'blocked' && (
                             <button
                               onClick={() => { setSelectedUser(user); setActionModal('Block'); }}
                               className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-bold rounded-full transition cursor-pointer flex items-center gap-1"
@@ -353,7 +398,7 @@ export default function UserGovernance() {
                               <Lock size={12} /> Blokir
                             </button>
                           )}
-                          {user.status !== 'Suspended' && user.status !== 'Blocked' && (
+                          {user.status !== 'suspended' && user.status !== 'blocked' && (
                             <button
                               onClick={() => { setSelectedUser(user); setActionModal('Suspend'); }}
                               className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 text-[9px] font-bold rounded-full transition cursor-pointer flex items-center gap-1"
@@ -361,7 +406,7 @@ export default function UserGovernance() {
                               <ShieldAlert size={12} /> Suspend
                             </button>
                           )}
-                          {(user.status === 'Blocked' || user.status === 'Suspended') && (
+                          {(user.status === 'blocked' || user.status === 'suspended') && (
                             <button
                               onClick={() => { setSelectedUser(user); setActionModal('Unblock'); }}
                               className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[9px] font-bold rounded-full transition cursor-pointer flex items-center gap-1"
@@ -390,6 +435,7 @@ export default function UserGovernance() {
         </div>
       </div>
 
+      {/* Komponen Tabel / Kartu Audit Log yang Dikembalikan */}
       {auditLogs.length > 0 && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-neutral-200 space-y-3">
           <div className="flex items-center gap-2">
@@ -416,6 +462,7 @@ export default function UserGovernance() {
         </div>
       )}
 
+      {/* Modal Tambah Pengguna */}
       <BaseModal
         isOpen={Boolean(showAddModal)}
         onClose={() => setShowAddModal(false)}
@@ -447,16 +494,27 @@ export default function UserGovernance() {
             />
           </div>
           <div>
-            <label className="font-bold text-neutral-600 block mb-1">Peran Pengguna</label>
+            <label className="font-bold text-neutral-600 block mb-1">Password Akun</label>
+            <input
+              type="password"
+              required
+              value={newUser.password}
+              onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2"
+              placeholder="••••••••"
+            />
+          </div>
+          <div>
+            <label className="font-bold text-neutral-600 block mb-1">Peran Pengguna (Role)</label>
             <select
               value={newUser.role}
               onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 font-medium"
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 font-medium cursor-pointer"
             >
-              <option value="Passenger">Passenger</option>
-              <option value="Driver Motor">Driver Motor</option>
-              <option value="Driver Mobil">Driver Mobil</option>
-              <option value="Admin Wilayah">Admin Wilayah</option>
+              <option value="customer">customer (Penumpang)</option>
+              <option value="regional">Admin Wilayah (Regional)</option>
+              <option value="admin">Superadmin (Admin)</option>
+              <option value="operator">Operator</option>
             </select>
           </div>
           <div>
@@ -470,27 +528,28 @@ export default function UserGovernance() {
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 font-bold text-neutral-500">Batal</button>
-            <button type="submit" className="px-4 py-2 bg-[#4B2172] text-white font-bold rounded-full">Simpan User</button>
+            <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 font-bold text-neutral-500 cursor-pointer">Batal</button>
+            <button type="submit" className="px-4 py-2 bg-[#4B2172] text-white font-bold rounded-full cursor-pointer">Simpan User</button>
           </div>
         </form>
       </BaseModal>
 
+      {/* Modal Konfirmasi Tindakan & Wajib Isi Alasan untuk Audit Log */}
       <BaseModal
         isOpen={Boolean(actionModal && selectedUser)}
         onClose={() => { setActionModal(null); setSelectedUser(null); setReason(''); }}
         title={`Konfirmasi ${actionModal} Akun`}
-        subtitle="Otentikasi Tindakan Super-Override & Log Audit"
+        subtitle="Otentikasi Tindakan Super-Override & Log Audit[cite: 9]"
         maxWidth="max-w-md"
       >
         <div className="space-y-4 text-neutral-800 text-[10px]">
           <p className="text-neutral-500">
-            Anda akan melakukan tindakan <strong className="text-neutral-800">{actionModal}</strong> secara sistemik pada akun <strong className="text-neutral-800">{selectedUser?.name}</strong> ({selectedUser?.id}).
+            Anda akan melakukan tindakan <strong className="text-neutral-800">{actionModal}</strong> secara sistemik pada akun <strong className="text-neutral-800">{selectedUser?.name}</strong> (ID: {selectedUser ? String(selectedUser.id) : ''}).
           </p>
 
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">
-              Alasan Override Sistem <span className="text-rose-600">*Wajib Diisi untuk Audit Log</span>
+              Alasan Override Sistem <span className="text-rose-600">*Wajib Diisi untuk Audit Log[cite: 9]</span>
             </label>
             <textarea 
               rows="3"

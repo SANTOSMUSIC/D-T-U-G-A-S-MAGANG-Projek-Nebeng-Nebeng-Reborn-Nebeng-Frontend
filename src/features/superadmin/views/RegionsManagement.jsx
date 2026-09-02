@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
+import { useState, useEffect } from 'react';
 import { 
   MapPin, 
   Plus, 
@@ -9,22 +8,17 @@ import {
   XCircle, 
   Save, 
   Eye,
-  Activity,
-  DollarSign,
   AlertTriangle
 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { getAllRegions, createRegion, updateRegion } from '../../../services/regionService';
 
 export default function RegionsManagement() {
-  const [regions, setRegions] = useState([
-    { id: "JKT-001", name: "Region Jakarta", hub: "Central Hub Cengkareng", activeOrders: 150, revenue: "Rp 150.000.000", status: "Active", description: "Melayani area Jabodetabek dan logistik utama bandara." },
-    { id: "YOG-001", name: "Region Yogyakarta", hub: "Hub Malioboro", activeOrders: 120, revenue: "Rp 120.000.000", status: "Active", description: "Pusat distribusi wilayah Jogja dan sekitarnya." },
-    { id: "BANY-001", name: "Region Banyumas", hub: "Hub Purwokerto", activeOrders: 110, revenue: "Rp 100.000.000", status: "Active", description: "Hub utama jalur selatan Jawa Tengah." },
-    { id: "SBY-001", name: "Region Surabaya", hub: "Hub Gubeng", activeOrders: 90, revenue: "Rp 80.000.000", status: "Inactive", description: "Sementara ditutup untuk evaluasi rute logistik." }
-  ]);
+  const [regions, setRegions] = useState([]);
+  const [isLoadingRegions, setIsLoadingRegions] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,30 +29,49 @@ export default function RegionsManagement() {
   const [selectedRegion, setSelectedRegion] = useState(null);
 
   const [formData, setFormData] = useState({
-    id: '',
     name: '',
-    hub: '',
-    status: 'Active',
-    description: ''
+    code: '',
   });
+
+  // Ambil data region riil dari backend NestJS
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRegions() {
+      try {
+        setIsLoadingRegions(true);
+        const res = await getAllRegions();
+        if (isMounted) {
+          setRegions(Array.isArray(res) ? res : []);
+        }
+      } catch (err) {
+        console.error('Gagal memuat data wilayah:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingRegions(false);
+        }
+      }
+    }
+
+    loadRegions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredRegions = regions.filter(region => 
     region.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    region.hub.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    region.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
     region.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const isLoadingRegions = useSimulatedLoading([searchTerm], 700);
 
   const handleOpenAddModal = () => {
     setIsEditing(false);
     setCurrentId(null);
     setFormData({
-      id: `REG-${Math.floor(100 + Math.random() * 900)}`,
       name: '',
-      hub: '',
-      status: 'Active',
-      description: ''
+      code: '',
     });
     setIsModalOpen(true);
   };
@@ -67,11 +80,9 @@ export default function RegionsManagement() {
     setIsEditing(true);
     setCurrentId(region.id);
     setFormData({
-      id: region.id,
       name: region.name,
-      hub: region.hub,
-      status: region.status,
-      description: region.description || ''
+      code: region.code,
+      isActive: region.isActive
     });
     setIsModalOpen(true);
   };
@@ -81,32 +92,40 @@ export default function RegionsManagement() {
     setIsDetailModalOpen(true);
   };
 
-  const handleSubmitForm = (e) => {
+  const handleSubmitForm = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.hub) return;
+    if (!formData.name || !formData.code) return;
 
-    if (isEditing) {
-      setRegions(regions.map(reg => reg.id === currentId ? { ...reg, ...formData } : reg));
-    } else {
-      const newRegion = {
-        ...formData,
-        activeOrders: 0,
-        revenue: "Rp 0"
+    try {
+      const payload = {
+        name: formData.name,
+        code: formData.code,
       };
-      setRegions([newRegion, ...regions]);
+
+      if (isEditing) {
+        await updateRegion(currentId, formData);
+      } else {
+        await createRegion(payload);
+      }
+      setIsModalOpen(false);
+      const res = await getAllRegions();
+      setRegions(Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Gagal menyimpan wilayah:', err);
+      alert(err.response?.data?.message || 'Terjadi kesalahan saat menyimpan wilayah.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleConfirmToggleStatus = () => {
+  const handleConfirmToggleStatus = async () => {
     if (!regionToToggle) return;
-    setRegions(regions.map(reg => {
-      if (reg.id === regionToToggle.id) {
-        return { ...reg, status: reg.status === 'Active' ? 'Inactive' : 'Active' };
-      }
-      return reg;
-    }));
-    setRegionToToggle(null);
+    try {
+      await updateRegion(regionToToggle.id, { isActive: !regionToToggle.isActive });
+      setRegionToToggle(null);
+      const ress = await getAllRegions();
+      setRegions(Array.isArray(ress) ? ress : []);
+    } catch (err) {
+      console.error('Gagal mengubah status wilayah:', err);
+    }
   };
 
   return (
@@ -137,7 +156,7 @@ export default function RegionsManagement() {
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input 
             type="text" 
-            placeholder="Cari nama wilayah, ID, atau hub..."
+            placeholder="Cari nama wilayah, kode, atau ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
@@ -163,18 +182,13 @@ export default function RegionsManagement() {
                       <MapPin size={14} />
                     </div>
                     <div>
-                      <span className="text-[8px] font-bold text-[#4B2172] font-mono">{region.id}</span>
+                      <span className="text-[8px] font-bold text-[#4B2172] font-mono">{region.code}</span>
                       <h3 className="font-bold text-neutral-800 text-[11px]">{region.name}</h3>
                     </div>
                   </div>
-                  <StatusBadge variant={region.status === 'Active' ? 'emerald' : 'rose'}>
-                    {region.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                  <StatusBadge variant={region.isActive ? 'emerald' : 'rose'}>
+                    {region.isActive ? 'Aktif' : 'Nonaktif'}
                   </StatusBadge>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] pt-1 border-t border-neutral-100">
-                  <span className="text-neutral-500 font-medium">Hub: <strong className="text-neutral-700">{region.hub}</strong></span>
-                  <span className="font-bold text-neutral-800">{region.revenue}</span>
                 </div>
 
                 <div className="flex items-center justify-end gap-1.5 pt-2">
@@ -184,8 +198,8 @@ export default function RegionsManagement() {
                   <button onClick={() => handleOpenEditModal(region)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
                     <Edit3 size={13} />
                   </button>
-                  <button onClick={() => setRegionToToggle(region)} className={`p-1.5 rounded-lg ${region.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                    {region.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                  <button onClick={() => setRegionToToggle(region)} className={`p-1.5 rounded-lg ${region.isActive ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {region.isActive ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
                   </button>
                 </div>
               </div>
@@ -201,16 +215,15 @@ export default function RegionsManagement() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                <th className="py-3 px-5">ID & Wilayah Operasional</th>
-                <th className="py-3 px-5">Pusat Hub Utama</th>
-                <th className="py-3 px-5">Aktivitas & Pesanan</th>
+                <th className="py-3 px-5">Kode & Wilayah Operasional</th>
+                <th className="py-3 px-5">Tanggal Dibuat</th>
                 <th className="py-3 px-5">Status Sistem</th>
                 <th className="py-3 px-5 text-center">Aksi Manajemen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoadingRegions ? (
-                <SkeletonTableRows rows={4} columns={5} />
+                <SkeletonTableRows rows={4} columns={4} />
               ) : filteredRegions.length > 0 ? (
                 filteredRegions.map((region) => (
                   <tr key={region.id} className="hover:bg-gray-50/50">
@@ -221,18 +234,16 @@ export default function RegionsManagement() {
                         </div>
                         <div>
                           <div className="font-bold text-neutral-800 text-[10px]">{region.name}</div>
-                          <div className="text-[8px] font-bold text-neutral-400 font-mono">{region.id}</div>
+                          <div className="text-[8px] font-bold text-neutral-400 font-mono">{region.code}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-5 font-semibold text-neutral-700">{region.hub}</td>
-                    <td className="py-3.5 px-5">
-                      <div className="font-bold text-neutral-800">{region.activeOrders} Pesanan Aktif</div>
-                      <div className="text-[8px] text-neutral-400">{region.revenue}</div>
+                    <td className="py-3.5 px-5 font-semibold text-neutral-700">
+                      {new Date(region.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="py-3.5 px-5">
-                      <StatusBadge variant={region.status === 'Active' ? 'emerald' : 'rose'}>
-                        {region.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                      <StatusBadge variant={region.isActive ? 'emerald' : 'rose'}>
+                        {region.isActive ? 'Aktif' : 'Nonaktif'}
                       </StatusBadge>
                     </td>
                     <td className="py-3.5 px-5">
@@ -243,8 +254,8 @@ export default function RegionsManagement() {
                         <button onClick={() => handleOpenEditModal(region)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
                           <Edit3 size={13} />
                         </button>
-                        <button onClick={() => setRegionToToggle(region)} className={`p-1.5 rounded-lg ${region.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {region.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                        <button onClick={() => setRegionToToggle(region)} className={`p-1.5 rounded-lg ${region.isActive ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {region.isActive ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
                         </button>
                       </div>
                     </td>
@@ -252,7 +263,7 @@ export default function RegionsManagement() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan="4">
                     <EmptyState icon={MapPin} title="Wilayah Tidak Ditemukan" description="Tidak ada wilayah yang cocok dengan pencarian Anda." />
                   </td>
                 </tr>
@@ -266,23 +277,13 @@ export default function RegionsManagement() {
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         title={selectedRegion?.name}
-        subtitle={`ID: ${selectedRegion?.id}`}
+        subtitle={`Kode: ${selectedRegion?.code}`}
         maxWidth="max-w-sm"
       >
         <div className="space-y-3 text-[10px]">
           <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
-            <span className="text-[8px] font-bold text-neutral-400 uppercase">Pusat Hub Utama</span>
-            <p className="font-bold text-neutral-800">{selectedRegion?.hub}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
-              <span className="text-[8px] font-bold text-neutral-400 uppercase flex items-center gap-1"><Activity size={10}/> Pesanan Aktif</span>
-              <p className="font-bold text-neutral-800">{selectedRegion?.activeOrders} Pesanan</p>
-            </div>
-            <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
-              <span className="text-[8px] font-bold text-neutral-400 uppercase flex items-center gap-1"><DollarSign size={10}/> Pendapatan</span>
-              <p className="font-bold text-neutral-800">{selectedRegion?.revenue}</p>
-            </div>
+            <span className="text-[8px] font-bold text-neutral-400 uppercase">ID Sistem</span>
+            <p className="font-bold text-neutral-800 font-mono">{selectedRegion?.id}</p>
           </div>
           <button onClick={() => setIsDetailModalOpen(false)} className="w-full py-2 bg-[#4B2172] text-white text-[10px] font-bold rounded-full mt-2 cursor-pointer">Tutup</button>
         </div>
@@ -301,8 +302,8 @@ export default function RegionsManagement() {
             <input type="text" required placeholder="Misal: Region Yogyakarta" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Lokasi Hub Utama</label>
-            <input type="text" required placeholder="Misal: Hub Malioboro" value={formData.hub} onChange={(e) => setFormData({...formData, hub: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Kode Unik Wilayah</label>
+            <input type="text" required placeholder="Misal: REG-DIY" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium font-mono" />
           </div>
           <div className="flex items-center justify-end gap-2 pt-3">
             <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
@@ -323,7 +324,7 @@ export default function RegionsManagement() {
             <AlertTriangle size={20} />
           </div>
           <p className="text-neutral-600">
-            Apakah Anda yakin ingin {regionToToggle?.status === 'Active' ? 'menonaktifkan' : 'mengaktifkan'} wilayah <strong>{regionToToggle?.name}</strong>?
+            Apakah Anda yakin ingin {regionToToggle?.isActive ? 'menonaktifkan' : 'mengaktifkan'} wilayah <strong>{regionToToggle?.name}</strong>?
           </p>
           <div className="flex gap-2 pt-2">
             <button onClick={() => setRegionToToggle(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>

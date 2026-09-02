@@ -58,17 +58,18 @@ export default function Login({ onSwitchToRegister, onLogin }) {
     const cleanEmail = email.trim();
 
     try {
-      // Kirim cleanEmail (sudah di-trim) ke backend
+      // 1. Ambil role dan token dari authService
       const { role, token } = await loginRequest({ email: cleanEmail, password });
 
+      // 2. Simpan ke AuthContext (pastikan token disertakan dalam objek session)
       login(role, { token, email: cleanEmail }, rememberMe);
 
+      // 3. Lanjutkan navigasi
       if (onLogin) onLogin(role);
     } catch (err) {
-      // Tangkap pesan spesifik dari backend jika ada, atau kembalikan error default
       const errorMessage = err?.response?.data?.message || 'Email atau kata sandi salah. Silakan coba lagi.';
       setErrors({ password: errorMessage });
-      setIsSubmitting(false); // Matikan loading state hanya jika terjadi error (tidak unmounted)
+      setIsSubmitting(false);
     }
   };
 

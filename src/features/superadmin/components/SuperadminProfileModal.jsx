@@ -1,12 +1,6 @@
+import { useState, useEffect } from 'react';
 import { X, Mail, ShieldCheck, UserCircle, Settings } from 'lucide-react';
-
-// Modal ringkasan profil Superadmin, dipicu dari SuperadminHeader saat
-// klik "Profil Saya" — TIDAK berpindah halaman/route. Sebelumnya modal ini
-// inline di SuperadminLayout.jsx dan murni read-only (cuma "Tutup").
-// Sekarang dipisah jadi komponen sendiri dan dapat tombol "Pengaturan
-// Akun" di footer, mengikuti pola yang sama dengan MitraProfileModal /
-// CustomerProfileModal — modal tetap ringkasan, perubahan data dilakukan
-// di halaman penuh lewat onSettingsClick.
+import apiClient from '../../../services/apiClient';
 
 const formatRole = (role) => {
   if (!role) return 'Superadmin';
@@ -17,14 +11,42 @@ const formatRole = (role) => {
 };
 
 export default function SuperadminProfileModal({ isOpen, onClose, session, role, superadminProfile, onSettingsClick }) {
+  const [dbUser, setDbUser] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    async function fetchModalProfile() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          setDbUser(res.data);
+        }
+      } catch (err) {
+        console.error('Gagal memuat profil modal dari database:', err);
+      }
+    }
+    fetchModalProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  // superadminProfile (hasil edit di Pengaturan Akun) diprioritaskan,
-  // fallback ke field session asli dari `extra` saat login.
-  const displayName = superadminProfile?.name || session?.name || session?.fullName || session?.username || 'Admin';
-  const displayEmail = superadminProfile?.email || session?.email || '';
-  const displayRole = formatRole(role || session?.role);
+  const displayName = dbUser?.name || superadminProfile?.name || session?.name || session?.fullName || session?.username || 'Admin';
+  const displayEmail = dbUser?.email || superadminProfile?.email || session?.email || '';
+  const displayRole = formatRole(dbUser?.role || role || session?.role);
   const initials = displayName.slice(0, 2).toUpperCase();
+
+  let avatarUrl = '';
+  const rawAvatar = dbUser?.avatar || superadminProfile?.photoDataUrl || '';
+  if (rawAvatar) {
+    const baseURL = apiClient.defaults.baseURL 
+      ? apiClient.defaults.baseURL.replace('/api', '') 
+      : 'http://localhost:3000';
+    avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : `${baseURL}${rawAvatar}`;
+  }
 
   const handleGoToSettings = () => {
     onClose?.();
@@ -46,9 +68,13 @@ export default function SuperadminProfileModal({ isOpen, onClose, session, role,
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[18px] shrink-0">
-            {initials}
-          </div>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" className="w-14 h-14 rounded-full object-cover border border-neutral-200 shrink-0 shadow-sm" />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[18px] shrink-0">
+              {initials}
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-[13px] font-bold text-neutral-800 truncate">{displayName}</p>
             <p className="text-[10px] text-neutral-400 truncate">{displayRole}</p>
@@ -66,7 +92,7 @@ export default function SuperadminProfileModal({ isOpen, onClose, session, role,
           </div>
           <div className="flex items-center gap-2.5 p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
             <UserCircle size={14} className="text-neutral-400 shrink-0" />
-            <span className="text-neutral-700">{session?.id || session?.username || '—'}</span>
+            <span className="text-neutral-700">{dbUser?.id || session?.id || session?.username || '—'}</span>
           </div>
         </div>
 

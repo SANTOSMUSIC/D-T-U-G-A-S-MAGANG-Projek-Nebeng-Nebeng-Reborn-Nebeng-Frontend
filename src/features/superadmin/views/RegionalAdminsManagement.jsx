@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
+import { useState, useEffect } from 'react';
 import { 
   Users, 
   Plus, 
@@ -18,21 +17,13 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { getAllUsers, createUser, updateUser, updateUserStatus } from '../../../services/userService';
+import { getAllRegions } from '../../../services/regionService';
 
 export default function AdminWilayahManagement() {
-  const [admins, setAdmins] = useState([
-    { id: "ADM-001", name: "Budi Santoso", email: "budi.santoso@ne-beng.com", region: "Region Jakarta", hub: "Central Hub Cengkareng", status: "Active", joinedDate: "12 Jan 2025" },
-    { id: "ADM-002", name: "Siti Rahmawati", email: "siti.rahmawati@ne-beng.com", region: "Region Yogyakarta", hub: "Hub Malioboro", status: "Active", joinedDate: "15 Feb 2025" },
-    { id: "ADM-003", name: "Eko Prasetyo", email: "eko.prasetyo@ne-beng.com", region: "Region Banyumas", hub: "Hub Purwokerto", status: "Active", joinedDate: "20 Mar 2025" },
-    { id: "ADM-004", name: "Dewi Lestari", email: "dewi.lestari@ne-beng.com", region: "Region Surabaya", hub: "Hub Gubeng", status: "Inactive", joinedDate: "05 Apr 2025" }
-  ]);
-
-  const availableRegions = [
-    { name: "Region Jakarta", hub: "Central Hub Cengkareng" },
-    { name: "Region Yogyakarta", hub: "Hub Malioboro" },
-    { name: "Region Banyumas", hub: "Hub Purwokerto" },
-    { name: "Region Surabaya", hub: "Hub Gubeng" }
-  ];
+  const [admins, setAdmins] = useState([]);
+  const [availableRegions, setAvailableRegions] = useState([]);
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,33 +34,73 @@ export default function AdminWilayahManagement() {
   const [selectedAdmin, setSelectedAdmin] = useState(null);
 
   const [formData, setFormData] = useState({
-    id: '',
     name: '',
     email: '',
-    region: 'Region Jakarta',
-    hub: 'Central Hub Cengkareng',
-    status: 'Active'
+    phone: '',
+    password: '',
+    regionId: '',
+    role: 'regional',
+    status: 'active'
   });
 
-  const filteredAdmins = admins.filter(admin => 
-    admin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.region.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Memuat data admin & wilayah secara aman tanpa warning linter
+  useEffect(() => {
+    let isMounted = true;
 
-  const isLoadingAdmins = useSimulatedLoading([searchTerm], 700);
+    async function loadData() {
+      try {
+        setIsLoadingAdmins(true);
+        const [usersRes, regionsRes] = await Promise.all([
+          getAllUsers(),
+          getAllRegions(true).catch(() => [])
+        ]);
+
+        if (isMounted) {
+          const regionalAdmins = Array.isArray(usersRes) 
+            ? usersRes.filter(u => u.role === 'regional') 
+            : [];
+          
+          setAdmins(regionalAdmins);
+          setAvailableRegions(Array.isArray(regionsRes) ? regionsRes : []);
+          
+          if (regionsRes && regionsRes.length > 0 && !formData.regionId) {
+            setFormData(prev => ({ ...prev, regionId: regionsRes[0].id }));
+          }
+        }
+      } catch (err) {
+        console.error('Gagal memuat data admin wilayah:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingAdmins(false);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredAdmins = admins.filter(admin => 
+    (admin.name && admin.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (admin.email && admin.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (admin.region && admin.region.name && admin.region.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (admin.id && String(admin.id).toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const handleOpenAddModal = () => {
     setIsEditing(false);
     setCurrentId(null);
     setFormData({
-      id: `ADM-${Math.floor(100 + Math.random() * 900)}`,
       name: '',
       email: '',
-      region: availableRegions[0].name,
-      hub: availableRegions[0].hub,
-      status: 'Active'
+      phone: '',
+      password: '',
+      regionId: availableRegions.length > 0 ? availableRegions[0].id : '',
+      role: 'regional',
+      status: 'active'
     });
     setIsModalOpen(true);
   };
@@ -77,15 +108,34 @@ export default function AdminWilayahManagement() {
   const handleOpenEditModal = (admin) => {
     setIsEditing(true);
     setCurrentId(admin.id);
+    
+    // Mencari ID region secara fleksibel (dari property langsung atau objek relasi)
+    const matchedRegionId = admin.regionId 
+      ? String(admin.regionId) 
+      : (admin.region?.id ? String(admin.region.id) : '');
+
     setFormData({
-      id: admin.id,
-      name: admin.name,
-      email: admin.email,
-      region: admin.region,
-      hub: admin.hub,
-      status: admin.status
+      name: admin.name || '',
+      email: admin.email || '',
+      phone: admin.phone || '',
+      password: '',
+      regionId: matchedRegionId,
+      role: 'regional',
+      status: admin.status || 'active'
     });
     setIsModalOpen(true);
+  };
+
+  // Cari nama wilayah berdasarkan objek relasi atau pencocokan ID dengan list availableRegions
+  const getRegionName = (admin) => {
+    if (admin.regionId) {
+      const matched = availableRegions.find(r => String(r.id) === String(admin.regionId));
+      if (matched) {
+        return matched.name;
+      }
+    }
+
+    return 'Belum Ditugaskan';
   };
 
   const handleOpenDetailModal = (admin) => {
@@ -93,37 +143,61 @@ export default function AdminWilayahManagement() {
     setIsDetailModalOpen(true);
   };
 
-  const handleRegionChange = (selectedRegionName) => {
-    const found = availableRegions.find(r => r.name === selectedRegionName);
-    setFormData({
-      ...formData,
-      region: selectedRegionName,
-      hub: found ? found.hub : '-'
-    });
-  };
-
-  const handleSubmitForm = (e) => {
+  const handleSubmitForm = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
 
-    if (isEditing) {
-      setAdmins(admins.map(adm => adm.id === currentId ? { ...adm, ...formData } : adm));
-    } else {
-      const newAdmin = { ...formData, joinedDate: "Hari Ini" };
-      setAdmins([newAdmin, ...admins]);
+    try {
+      if (isEditing) {
+        const payload = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          regionId: formData.regionId ? String(formData.regionId) : undefined,
+          status: formData.status
+        };
+        if (formData.password) {
+          payload.password = formData.password;
+        }
+        await updateUser(currentId, payload);
+      } else {
+        const payload = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+          password: formData.password || 'Password123!',
+          regionId: formData.regionId ? String(formData.regionId) : undefined,
+          role: 'regional',
+          status: 'active'
+        };
+        await createUser(payload);
+      }
+      setIsModalOpen(false);
+
+      // Refresh data tabel
+      const usersRes = await getAllUsers();
+      const regionalAdmins = Array.isArray(usersRes) ? usersRes.filter(u => u.role === 'regional') : [];
+      setAdmins(regionalAdmins);
+    } catch (err) {
+      console.error('Gagal menyimpan admin wilayah:', err);
+      alert(err.response?.data?.message || 'Terjadi kesalahan saat menyimpan data.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleConfirmToggleStatus = () => {
+  const handleConfirmToggleStatus = async () => {
     if (!adminToToggle) return;
-    setAdmins(admins.map(adm => {
-      if (adm.id === adminToToggle.id) {
-        return { ...adm, status: adm.status === 'Active' ? 'Inactive' : 'Active' };
-      }
-      return adm;
-    }));
-    setAdminToToggle(null);
+    try {
+      const newStatus = adminToToggle.status === 'active' ? 'inactive' : 'active';
+      await updateUserStatus(adminToToggle.id, newStatus);
+      setAdminToToggle(null);
+
+      // Refresh data tabel
+      const usersRes = await getAllUsers();
+      const regionalAdmins = Array.isArray(usersRes) ? usersRes.filter(u => u.role === 'regional') : [];
+      setAdmins(regionalAdmins);
+    } catch (err) {
+      console.error('Gagal mengubah status admin:', err);
+    }
   };
 
   return (
@@ -177,36 +251,40 @@ export default function AdminWilayahManagement() {
               <SkeletonTableRows rows={3} columns={1} />
             </div>
           ) : filteredAdmins.length > 0 ? (
-            filteredAdmins.map((admin) => (
-              <div key={admin.id} className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[8px] font-bold text-[#4B2172] font-mono">{admin.id}</span>
-                    <h3 className="font-bold text-neutral-800 text-[11px]">{admin.name}</h3>
+            filteredAdmins.map((admin) => {
+              const isActive = admin.status === 'active';
+              const regionName = getRegionName(admin);
+              return (
+                <div key={admin.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {String(admin.id)}</span>
+                      <h3 className="font-bold text-neutral-800 text-[11px]">{admin.name}</h3>
+                    </div>
+                    <StatusBadge variant={isActive ? 'emerald' : 'rose'}>
+                      {isActive ? 'Aktif' : 'Nonaktif'}
+                    </StatusBadge>
                   </div>
-                  <StatusBadge variant={admin.status === 'Active' ? 'emerald' : 'rose'}>
-                    {admin.status === 'Active' ? 'Aktif' : 'Nonaktif'}
-                  </StatusBadge>
-                </div>
 
-                <div className="text-[10px] text-neutral-500 space-y-0.5">
-                  <div className="flex items-center gap-1"><Mail size={11} className="text-neutral-400"/> {admin.email}</div>
-                  <div className="flex items-center gap-1"><MapPin size={11} className="text-[#4B2172]"/> {admin.region} ({admin.hub})</div>
-                </div>
+                  <div className="text-[10px] text-neutral-500 space-y-0.5">
+                    <div className="flex items-center gap-1"><Mail size={11} className="text-neutral-400"/> {admin.email}</div>
+                    <div className="flex items-center gap-1"><MapPin size={11} className="text-[#4B2172]"/> {regionName}</div>
+                  </div>
 
-                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-neutral-100">
-                  <button onClick={() => handleOpenDetailModal(admin)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
-                    <Eye size={13} />
-                  </button>
-                  <button onClick={() => handleOpenEditModal(admin)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                    <Edit3 size={13} />
-                  </button>
-                  <button onClick={() => setAdminToToggle(admin)} className={`p-1.5 rounded-lg ${admin.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                    {admin.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
-                  </button>
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-neutral-100">
+                    <button onClick={() => handleOpenDetailModal(admin)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
+                      <Eye size={13} />
+                    </button>
+                    <button onClick={() => handleOpenEditModal(admin)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                      <Edit3 size={13} />
+                    </button>
+                    <button onClick={() => setAdminToToggle(admin)} className={`p-1.5 rounded-lg ${isActive ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {isActive ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="p-4">
               <EmptyState icon={Users} title="Admin Tidak Ditemukan" description="Tidak ada admin wilayah yang cocok dengan pencarian." />
@@ -229,34 +307,38 @@ export default function AdminWilayahManagement() {
               {isLoadingAdmins ? (
                 <SkeletonTableRows rows={4} columns={5} />
               ) : filteredAdmins.length > 0 ? (
-                filteredAdmins.map((admin) => (
-                  <tr key={admin.id} className="hover:bg-gray-50/50">
-                    <td className="py-3.5 px-5">
-                      <div className="font-bold text-neutral-800 text-[10px]">{admin.name}</div>
-                      <div className="text-[8px] font-bold text-[#4B2172] font-mono">{admin.id}</div>
-                    </td>
-                    <td className="py-3.5 px-5 font-semibold text-neutral-700">{admin.email}</td>
-                    <td className="py-3.5 px-5 font-bold text-neutral-800">{admin.region}</td>
-                    <td className="py-3.5 px-5">
-                      <StatusBadge variant={admin.status === 'Active' ? 'emerald' : 'rose'}>
-                        {admin.status === 'Active' ? 'Aktif' : 'Nonaktif'}
-                      </StatusBadge>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => handleOpenDetailModal(admin)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
-                          <Eye size={13} />
-                        </button>
-                        <button onClick={() => handleOpenEditModal(admin)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                          <Edit3 size={13} />
-                        </button>
-                        <button onClick={() => setAdminToToggle(admin)} className={`p-1.5 rounded-lg ${admin.status === 'Active' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {admin.status === 'Active' ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filteredAdmins.map((admin) => {
+                  const isActive = admin.status === 'active';
+                  const regionName = getRegionName(admin);
+                  return (
+                    <tr key={admin.id} className="hover:bg-gray-50/50">
+                      <td className="py-3.5 px-5">
+                        <div className="font-bold text-neutral-800 text-[10px]">{admin.name}</div>
+                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {String(admin.id)}</div>
+                      </td>
+                      <td className="py-3.5 px-5 font-semibold text-neutral-700">{admin.email}</td>
+                      <td className="py-3.5 px-5 font-bold text-neutral-800">{regionName}</td>
+                      <td className="py-3.5 px-5">
+                        <StatusBadge variant={isActive ? 'emerald' : 'rose'}>
+                          {isActive ? 'Aktif' : 'Nonaktif'}
+                        </StatusBadge>
+                      </td>
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button onClick={() => handleOpenDetailModal(admin)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg">
+                            <Eye size={13} />
+                          </button>
+                          <button onClick={() => handleOpenEditModal(admin)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                            <Edit3 size={13} />
+                          </button>
+                          <button onClick={() => setAdminToToggle(admin)} className={`p-1.5 rounded-lg ${isActive ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                            {isActive ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="5">
@@ -273,14 +355,14 @@ export default function AdminWilayahManagement() {
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         title={selectedAdmin?.name}
-        subtitle={`ID: ${selectedAdmin?.id}`}
+        subtitle={`ID: ${selectedAdmin ? String(selectedAdmin.id) : ''}`}
         maxWidth="max-w-sm"
       >
         <div className="space-y-2 text-[10px]">
           <div><strong>Email:</strong> {selectedAdmin?.email}</div>
-          <div><strong>Wilayah:</strong> {selectedAdmin?.region}</div>
-          <div><strong>Hub Utama:</strong> {selectedAdmin?.hub}</div>
-          <div><strong>Tanggal Bergabung:</strong> {selectedAdmin?.joinedDate}</div>
+          <div><strong>Telepon:</strong> {selectedAdmin?.phone || '-'}</div>
+          <div><strong>Wilayah:</strong> {selectedAdmin?.region?.name || 'Belum Ditugaskan'}</div>
+          <div><strong>Bergabung:</strong> {selectedAdmin?.createdAt ? new Date(selectedAdmin.createdAt).toLocaleDateString('id-ID') : '-'}</div>
           <button onClick={() => setIsDetailModalOpen(false)} className="w-full py-2 bg-[#4B2172] text-white text-[10px] font-bold rounded-full mt-3 cursor-pointer">
             Tutup
           </button>
@@ -304,10 +386,19 @@ export default function AdminWilayahManagement() {
             <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
           </div>
           <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nomor Telepon</label>
+            <input type="text" placeholder="08123456789" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Password Akun {isEditing && '(Kosongkan jika tidak diubah)'}</label>
+            <input type="password" {...(!isEditing ? {required: true} : {})} placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium" />
+          </div>
+          <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Penempatan Wilayah</label>
-            <select value={formData.region} onChange={(e) => handleRegionChange(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold cursor-pointer">
-              {availableRegions.map((reg, idx) => (
-                <option key={idx} value={reg.name}>{reg.name} ({reg.hub})</option>
+            <select value={formData.regionId} onChange={(e) => setFormData({...formData, regionId: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold cursor-pointer">
+              <option value="">-- Pilih Wilayah --</option>
+              {availableRegions.map((reg) => (
+                <option key={reg.id} value={reg.id}>{reg.name} ({reg.code})</option>
               ))}
             </select>
           </div>
@@ -330,7 +421,7 @@ export default function AdminWilayahManagement() {
             <AlertTriangle size={20} />
           </div>
           <p className="text-neutral-600">
-            Apakah Anda yakin ingin {adminToToggle?.status === 'Active' ? 'menonaktifkan' : 'mengaktifkan'} akun admin <strong>{adminToToggle?.name}</strong>?
+            Apakah Anda yakin ingin {adminToToggle?.status === 'active' ? 'menonaktifkan' : 'mengaktifkan'} akun admin <strong>{adminToToggle?.name}</strong>?
           </p>
           <div className="flex gap-2 pt-2">
             <button onClick={() => setAdminToToggle(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>

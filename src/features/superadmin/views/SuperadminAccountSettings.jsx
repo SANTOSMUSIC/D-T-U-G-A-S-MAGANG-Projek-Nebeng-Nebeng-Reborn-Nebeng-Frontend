@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Settings,
   User,
@@ -14,20 +14,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
-
-// Halaman "Pengaturan Akun" Superadmin — satu-satunya tempat untuk
-// MENGUBAH data akun: profil & foto, kata sandi, 2FA, sesi login, sampai
-// preferensi notifikasi. "Profil Saya" (SuperadminProfileModal.jsx) tetap
-// murni ringkasan/read-only, tombol "Pengaturan Akun"-nya mengarah ke sini
-// (/admin/profile/pengaturan).
-//
-// Disamakan strukturnya dengan MitraAccountSettings, MINUS bagian yang
-// spesifik kendaraan (jenis kendaraan, plat, alamat domisili) dan MINUS
-// "Zona Berbahaya" (nonaktifkan akun) — di Mitra, nonaktifasi ditinjau
-// oleh Admin Regional; Superadmin ada di puncak hierarki jadi tidak ada
-// pihak yang meninjau kalau Superadmin menonaktifkan diri sendiri. Kalau
-// tetap dibutuhkan (mis. untuk transfer kepemilikan akun), beri tahu saya
-// alur persetujuannya seperti apa.
+import apiClient from '../../../services/apiClient';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
@@ -42,14 +29,14 @@ const formatRole = (role) => {
 
 export default function SuperadminAccountSettings() {
   const toast = useToast();
-  const { session, role, superadminProfile, updateSuperadminProfile, sessionPersisted } = useAuth();
+  const { session, role, updateSuperadminProfile } = useAuth();
 
-  const savedName = superadminProfile?.name || session?.name || session?.fullName || session?.username || '';
-  const savedEmail = superadminProfile?.email || session?.email || '';
-  const savedPhoto = superadminProfile?.photoDataUrl || '';
-
-  const [profileDraft, setProfileDraft] = useState({ name: savedName, email: savedEmail });
-  const [avatarPreview, setAvatarPreview] = useState(savedPhoto || null);
+  const [profileDraft, setProfileDraft] = useState({
+    name: '',
+    email: ''
+  });
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null); // Menyimpan file asli sebelum tombol simpan ditekan
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -59,35 +46,72 @@ export default function SuperadminAccountSettings() {
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [showLogoutSessionsModal, setShowLogoutSessionsModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [notifPrefs, setNotifPrefs] = useState({
-    accountAnomalies: true,
-    financialAlerts: true,
-    regionalApprovals: true,
-    systemNews: false,
+  const [notifPrefs, setNotifPrefs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('superadmin_notif_prefs');
+      return saved ? JSON.parse(saved) : {
+        accountAnomalies: true,
+        financialAlerts: true,
+        regionalApprovals: true,
+        systemNews: false,
+      };
+    } catch {
+      return { accountAnomalies: true, financialAlerts: true, regionalApprovals: true, systemNews: false };
+    }
   });
 
   const displayRole = formatRole(role || session?.role);
+
+  // Memuat data profil murni langsung dari database backend (/auth/me) saat komponen dipasang
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchDatabaseProfile() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          const dbUser = res.data;
+          
+          const freshName = dbUser.name || '';
+          const freshEmail = dbUser.email || '';
+          const rawAvatar = dbUser.avatar || '';
+
+          setProfileDraft({
+            name: freshName,
+            email: freshEmail
+          });
+
+          if (rawAvatar) {
+            const baseURL = apiClient.defaults.baseURL 
+              ? apiClient.defaults.baseURL.replace('/api', '') 
+              : 'http://localhost:3000';
+            const fullAvatarUrl = rawAvatar.startsWith('http') ? rawAvatar : `${baseURL}${rawAvatar}`;
+            setAvatarPreview(fullAvatarUrl);
+            
+            updateSuperadminProfile({ name: freshName, email: freshEmail, photoDataUrl: fullAvatarUrl });
+          } else {
+            setAvatarPreview('');
+            updateSuperadminProfile({ name: freshName, email: freshEmail, photoDataUrl: '' });
+          }
+        }
+      } catch (err) {
+        console.error('Gagal memuat profil dari database:', err);
+        toast.error('Gagal memuat data profil dari server.', { title: 'Kesalahan' });
+      }
+    }
+
+    fetchDatabaseProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleProfileFieldChange = (field, value) => {
     setProfileDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    if (!profileDraft.name.trim()) {
-      toast.warning('Nama lengkap wajib diisi.', { title: 'Data Tidak Lengkap' });
-      return;
-    }
-    if (!EMAIL_REGEX.test(profileDraft.email.trim())) {
-      toast.warning('Format email tidak valid.', { title: 'Email Tidak Valid' });
-      return;
-    }
-
-    updateSuperadminProfile({ name: profileDraft.name.trim(), email: profileDraft.email.trim() });
-    toast.success('Profil berhasil diperbarui.', { title: 'Profil Diperbarui' });
-  };
-
+  // HANYA MENYIMPAN FILE KE STATE (Belum dikirim ke server)
   const handleAvatarChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -104,19 +128,73 @@ export default function SuperadminAccountSettings() {
     }
 
     setAvatarError('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result);
-      updateSuperadminProfile({ photoDataUrl: reader.result });
-      toast.success('Foto profil berhasil diperbarui.', { title: 'Foto Diperbarui' });
-    };
-    reader.onerror = () => {
-      setAvatarError('Gagal membaca file foto. Coba lagi.');
-    };
-    reader.readAsDataURL(file);
+    setAvatarFile(file); // Simpan file untuk dikirim nanti saat tombol simpan ditekan
+
+    // Buat URL lokal sementara agar gambar langsung tampil sebagai preview
+    const localPreviewUrl = URL.createObjectURL(file);
+    setAvatarPreview(localPreviewUrl);
   };
 
-  const handleChangePassword = (e) => {
+  // KETIKA TOMBOL "SIMPAN PERUBAHAN" DITEKAN: Kirim Nama, Email, dan File Avatar Sekaligus
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!profileDraft.name.trim()) {
+      toast.warning('Nama lengkap wajib diisi.', { title: 'Data Tidak Lengkap' });
+      return;
+    }
+    if (!EMAIL_REGEX.test(profileDraft.email.trim())) {
+      toast.warning('Format email tidak valid.', { title: 'Email Tidak Valid' });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      // 1. Perbarui nama dan email dasar via PATCH /users/me
+      await apiClient.patch('/users/me', {
+        name: profileDraft.name.trim(),
+        email: profileDraft.email.trim(),
+      });
+
+      let finalAvatarUrl = avatarPreview;
+
+      // 2. Jika ada file foto baru yang dipilih, unggah sekarang via POST /users/me/avatar
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+
+        const uploadRes = await apiClient.post('/users/me/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const relativePath = uploadRes?.data?.avatar;
+        if (relativePath) {
+          const baseURL = apiClient.defaults.baseURL 
+            ? apiClient.defaults.baseURL.replace('/api', '') 
+            : 'http://localhost:3000';
+          finalAvatarUrl = relativePath.startsWith('http') ? relativePath : `${baseURL}${relativePath}`;
+          setAvatarPreview(finalAvatarUrl);
+          setAvatarFile(null); // Reset file state setelah berhasil disimpan
+        }
+      }
+
+      // Sinkronkan ke konteks global (Navbar dan UI lainnya)
+      updateSuperadminProfile({ 
+        name: profileDraft.name.trim(), 
+        email: profileDraft.email.trim(),
+        photoDataUrl: finalAvatarUrl 
+      });
+
+      toast.success('Profil dan foto berhasil diperbarui ke database.', { title: 'Berhasil' });
+    } catch (err) {
+      console.error('Gagal menyimpan profil ke database:', err);
+      toast.error(err.response?.data?.message || 'Gagal menyimpan perubahan ke server.', { title: 'Kesalahan Server' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
       toast.warning('Semua field kata sandi wajib diisi.', { title: 'Data Tidak Lengkap' });
@@ -131,8 +209,21 @@ export default function SuperadminAccountSettings() {
       return;
     }
 
-    setPasswordForm({ current: '', next: '', confirm: '' });
-    toast.success('Kata sandi berhasil diperbarui.', { title: 'Kata Sandi Diperbarui' });
+    try {
+      setIsSubmitting(true);
+      await apiClient.patch('/auth/change-password', {
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
+      });
+
+      setPasswordForm({ current: '', next: '', confirm: '' });
+      toast.success('Kata sandi berhasil diperbarui di database.', { title: 'Kata Sandi Diperbarui' });
+    } catch (err) {
+      console.error('Gagal mengubah kata sandi:', err);
+      toast.error(err.response?.data?.message || 'Gagal mengubah kata sandi. Periksa kembali sandi lama Anda.', { title: 'Gagal Ubah Sandi' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleToggle2FA = (nextValue) => {
@@ -141,22 +232,29 @@ export default function SuperadminAccountSettings() {
       return;
     }
     setIs2FAEnabled(false);
-    toast.warning('Autentikasi Dua Faktor dinonaktifkan. Akun Anda kini hanya dilindungi kata sandi.', { title: '2FA Nonaktif' });
+    toast.warning('Autentikasi Dua Faktor dinonaktifkan.', { title: '2FA Nonaktif' });
   };
 
   const handleConfirm2FA = () => {
     setIs2FAEnabled(true);
     setShow2FAModal(false);
-    toast.success('Autentikasi Dua Faktor berhasil diaktifkan untuk akun ini.', { title: '2FA Aktif' });
+    toast.success('Autentikasi Dua Faktor berhasil diaktifkan.', { title: '2FA Aktif' });
   };
 
   const handleToggleNotif = (key) => {
-    setNotifPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+    const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
+    setNotifPrefs(updated);
+    try {
+      localStorage.setItem('superadmin_notif_prefs', JSON.stringify(updated));
+      toast.success('Preferensi notifikasi disimpan.', { title: 'Pengaturan Disimpan' });
+    } catch {
+      // ignore
+    }
   };
 
   const handleLogoutOtherSessions = () => {
     setShowLogoutSessionsModal(false);
-    toast.success('Semua sesi lain berhasil dikeluarkan dari akun Anda.', { title: 'Sesi Dikeluarkan' });
+    toast.success('Semua sesi lain berhasil dikeluarkan dari sistem.', { title: 'Sesi Dikeluarkan' });
   };
 
   return (
@@ -189,7 +287,7 @@ export default function SuperadminAccountSettings() {
                 <img src={avatarPreview} alt="Foto Profil" className="w-16 h-16 rounded-full object-cover border-4 border-purple-50 shadow-sm" />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-[#4B2172] text-white flex items-center justify-center text-[20px] font-extrabold shadow-sm">
-                  {(savedName || 'S').trim().charAt(0).toUpperCase()}
+                  {(profileDraft.name || 'S').trim().charAt(0).toUpperCase()}
                 </div>
               )}
               <button
@@ -227,6 +325,7 @@ export default function SuperadminAccountSettings() {
                   value={profileDraft.name}
                   onChange={(e) => handleProfileFieldChange('name', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  required
                 />
               </div>
               <div>
@@ -237,15 +336,17 @@ export default function SuperadminAccountSettings() {
                   value={profileDraft.email}
                   onChange={(e) => handleProfileFieldChange('email', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  required
                 />
               </div>
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                Simpan Perubahan
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
           </form>
@@ -287,9 +388,10 @@ export default function SuperadminAccountSettings() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                Perbarui Kata Sandi
+                {isSubmitting ? 'Memproses...' : 'Perbarui Kata Sandi'}
               </button>
             </div>
           </form>
@@ -315,9 +417,7 @@ export default function SuperadminAccountSettings() {
               <div>
                 <p className="text-[10px] font-bold text-neutral-800">Sesi Login Saat Ini</p>
                 <p className="text-[8px] text-neutral-400">
-                  {sessionPersisted
-                    ? 'Sesi diingat di perangkat ini ("Ingat Saya" aktif).'
-                    : 'Sesi sementara — akan berakhir saat tab ditutup.'}
+                  Sesi aktif terverifikasi pada perangkat ini.
                 </p>
               </div>
             </div>
@@ -364,7 +464,7 @@ export default function SuperadminAccountSettings() {
       >
         <div className="space-y-3 text-[10px]">
           <p className="text-neutral-600">
-            Kode OTP akan dikirim ke email terdaftar ({savedEmail || 'email belum diatur'}) setiap kali login dari perangkat baru.
+            Kode OTP akan dikirim ke email terdaftar ({profileDraft.email || 'email belum diatur'}) setiap kali login dari perangkat baru.
           </p>
           <div className="flex gap-2 pt-1">
             <button
