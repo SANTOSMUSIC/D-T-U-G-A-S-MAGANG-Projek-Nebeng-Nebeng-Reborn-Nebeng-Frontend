@@ -1,7 +1,9 @@
 import apiClient from './apiClient';
 
-export async function getAllUsers() {
-  const response = await apiClient.get('/users');
+export async function getAllUsers(page = 1, limit = 50) {
+  const response = await apiClient.get('/users', {
+    params: { page, limit },
+  });
   return response.data;
 }
 

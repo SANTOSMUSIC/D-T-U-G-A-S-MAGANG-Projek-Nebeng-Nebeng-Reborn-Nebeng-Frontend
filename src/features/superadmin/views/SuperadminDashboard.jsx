@@ -46,6 +46,10 @@ export default function SuperadminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [escrowLedgerData, setEscrowLedgerData] = useState(null);
 
+  // State Paginasi Escrow Ledger (Mencegah beban data berlebih)
+  const [escrowPage, setEscrowPage] = useState(1);
+  const [paginationInfo, setPaginationInfo] = useState(null);
+
   // State Pencarian Utama (Header) & Pencarian Grafik
   const [mainQuery, setMainQuery] = useState('');
   const [chartQuery, setChartQuery] = useState('');
@@ -54,7 +58,7 @@ export default function SuperadminDashboard() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [filterSortBy, setFilterSortBy] = useState('default');
 
-  // Ambil data riil global dashboard & escrow ledger dari backend saat komponen dimuat
+  // Ambil data riil global dashboard & escrow ledger dari backend saat komponen dimuat atau halaman ledger berubah
   useEffect(() => {
     let isMounted = true;
     async function fetchData() {
@@ -62,11 +66,14 @@ export default function SuperadminDashboard() {
         setIsLoading(true);
         const [dashRes, escrowRes] = await Promise.all([
           getGlobalDashboard(),
-          getEscrowLedger().catch(() => null)
+          getEscrowLedger(escrowPage, 5).catch(() => null) // Membatasi limit 5 data terbaru untuk widget dashboard
         ]);
         if (isMounted) {
           setDashboardData(dashRes?.data || dashRes);
           setEscrowLedgerData(escrowRes?.data || escrowRes);
+          if (escrowRes?.pagination) {
+            setPaginationInfo(escrowRes.pagination);
+          }
         }
       } catch (err) {
         console.error('Gagal memuat data dashboard superadmin:', err);
@@ -80,10 +87,9 @@ export default function SuperadminDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [escrowPage]);
 
-  // Transformasi data wilayah riil dari respons backend (regionalSummary)[cite: 5]
-  // Transformasi data wilayah murni dari respons backend tanpa data tiruan
+  // Transformasi data wilayah murni dari respons backend tanpa data tiruan[cite: 37]
   const regionalActivities = useMemo(() => {
     const rawList = dashboardData?.regionalSummary || [];
     if (Array.isArray(rawList) && rawList.length > 0) {
@@ -93,10 +99,7 @@ export default function SuperadminDashboard() {
         const pointsCount = reg.pickupPointsCount || 0;
         const activeCount = reg.activeUserCount || 0;
         
-        // Pendapatan murni dari backend (jika ada properti revenue/totalRevenue, jika tidak 0)
         const realRevenue = Number(reg.revenue || reg.totalRevenue || 0);
-        
-        // Rasio aktivitas user murni dihitung dari perbandingan activeUserCount wilayah terhadap total global
         const userActivityShare = Math.round((activeCount / totalGlobalActive) * 100);
 
         return {
@@ -118,7 +121,7 @@ export default function SuperadminDashboard() {
 
   const [selectedChartRegion, setSelectedChartRegion] = useState('Semua');
 
-  // Target pendapatan riil dari overview backend[cite: 5]
+  // Target pendapatan riil dari overview backend[cite: 37]
   const targetRevenueJt = useMemo(() => {
     const totalRevBackend = dashboardData?.overview?.totalRevenue;
     if (totalRevBackend !== undefined && selectedChartRegion === 'Semua') {
@@ -132,7 +135,7 @@ export default function SuperadminDashboard() {
     return reg ? reg.revenueVal / 1_000_000 : 1;
   }, [selectedChartRegion, regionalActivities, dashboardData]);
 
-  // Insight dinamis murni berdasarkan data overview backend[cite: 5]
+  // Insight dinamis murni berdasarkan data overview backend[cite: 37]
   const insights = useMemo(() => {
     const overview = dashboardData?.overview || dashboardData || {};
     const escrowSummary = escrowLedgerData?.summary || escrowLedgerData || {};
@@ -170,7 +173,7 @@ export default function SuperadminDashboard() {
   const maxOrders = regionalActivities.length > 0 ? Math.max(...regionalActivities.map((r) => r.activeOrders), 1) : 1;
   const totalOrders = regionalActivities.reduce((sum, r) => sum + r.activeOrders, 0) || 1;
 
-  // Riwayat aktivitas diambil langsung dari riwayat transaksi escrow ledger backend[cite: 5]
+  // Riwayat aktivitas diambil langsung dari riwayat transaksi escrow ledger backend[cite: 37]
   const recentActivity = useMemo(() => {
     const rawTx = escrowLedgerData?.recentTransactions || escrowLedgerData?.transactions || [];
     if (Array.isArray(rawTx) && rawTx.length > 0) {
@@ -1050,6 +1053,29 @@ export default function SuperadminDashboard() {
                   })
                 )}
               </div>
+
+              {/* Kontrol Navigasi Paginasi Sederhana untuk Escrow Ledger */}
+              {paginationInfo && paginationInfo.totalPages > 1 && (
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-neutral-100 text-[9px] text-neutral-500">
+                  <span>Hal {escrowPage} dari {paginationInfo.totalPages}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={escrowPage <= 1}
+                      onClick={() => setEscrowPage(prev => Math.max(prev - 1, 1))}
+                      className="px-2 py-1 bg-neutral-100 rounded disabled:opacity-40 cursor-pointer"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      disabled={escrowPage >= paginationInfo.totalPages}
+                      onClick={() => setEscrowPage(prev => prev + 1)}
+                      className="px-2 py-1 bg-neutral-100 rounded disabled:opacity-40 cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}

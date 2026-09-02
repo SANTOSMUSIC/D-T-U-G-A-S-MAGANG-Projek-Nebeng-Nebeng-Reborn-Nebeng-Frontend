@@ -18,7 +18,10 @@ export default function AuditFinancialReport() {
   const [activeTab, setActiveTab] = useState('escrow');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  //const [unmaskedBankIds, setUnmaskedBankIds] = useState({});
+
+  // State Paginasi Ledger
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState(null);
 
   // Murni data dari backend
   const [escrowLedger, setEscrowLedger] = useState([]);
@@ -35,7 +38,7 @@ export default function AuditFinancialReport() {
     async function loadAuditData() {
       try {
         setIsLoadingLedger(true);
-        const res = await getEscrowLedgerData();
+        const res = await getEscrowLedgerData(currentPage, 20);
         if (isMounted && res) {
           const held = Number(res.totalHeldEscrow || 0);
           const released = Number(res.totalReleasedEscrow || 0);
@@ -46,8 +49,13 @@ export default function AuditFinancialReport() {
             totalTransactions: held + released
           });
           
+          if (res.pagination) {
+            setPaginationMeta(res.pagination);
+          }
+          
           // Memetakan transaksi murni dari backend database NestJS
-          const mappedLedger = (res.recentTransactions || []).map((tx) => ({
+          const rawTransactions = res.recentTransactions || res.transactions || [];
+          const mappedLedger = rawTransactions.map((tx) => ({
             id: `ESC-${String(tx.id).padStart(4, '0')}`,
             orderId: tx.orderId ? `ORD-${String(tx.orderId)}` : 'SYS-TX',
             client: tx.reference || 'Sistem Escrow',
@@ -74,7 +82,7 @@ export default function AuditFinancialReport() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage]);
 
   const filteredEscrow = escrowLedger.filter(item => {
     const matchesSearch = item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,7 +123,7 @@ export default function AuditFinancialReport() {
         </button>
       </div>
 
-      {/* 3 STAT CARDS KEMBALI LENGKAP */}
+      {/* 3 STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 print:grid-cols-3">
         <StatCard
           title="ESCROW HELD (DITAHAN)"
@@ -231,6 +239,31 @@ export default function AuditFinancialReport() {
               </tbody>
             </table>
           </div>
+
+          {/* Bar Navigasi Paginasi Ledger */}
+          {paginationMeta && paginationMeta.totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 bg-neutral-50/50 border-t border-neutral-200 text-[10px] print:hidden">
+              <span className="text-neutral-500">
+                Halaman <strong>{paginationMeta.currentPage}</strong> dari <strong>{paginationMeta.totalPages}</strong> (Total: {paginationMeta.totalData} Transaksi)
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  disabled={currentPage >= paginationMeta.totalPages}
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+                >
+                  Selanjutnya
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

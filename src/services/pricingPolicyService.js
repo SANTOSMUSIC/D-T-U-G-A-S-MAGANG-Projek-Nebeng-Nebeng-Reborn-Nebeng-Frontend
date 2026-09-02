@@ -14,3 +14,8 @@ export async function updateRewardPolicy(pointsMultiplier) {
   });
   return response.data;
 }
+
+export async function updateCompletePricingPolicy(payload) {
+  const response = await apiClient.patch('/admin/settings/pricing-policy', payload);
+  return response.data;
+}

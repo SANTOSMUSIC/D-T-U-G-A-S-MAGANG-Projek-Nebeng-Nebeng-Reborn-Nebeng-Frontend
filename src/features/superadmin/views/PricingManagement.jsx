@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Bike, 
   Car, 
@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { updatePlatformCommission, updateRewardSetting } from '../../../services/pricingService';
+import apiClient from '../../../services/apiClient';
+import { updateCompletePricingPolicy } from '../../../services/pricingService';
 
 export default function PricingPolicyManagement() {
   const [transportPricing, setTransportPricing] = useState({
@@ -24,14 +25,14 @@ export default function PricingPolicyManagement() {
     parcelFeePercent: 12
   });
 
-  // Matriks paket disesuaikan dengan batas berat (maxWeightNum) agar bisa dikonfigurasi dan disimpan
+  // Matriks paket disesuaikan menggunakan maxWeightKg agar konsisten dengan backend & database
   const [parcelMatrix, setParcelMatrix] = useState([
-    { size: "XXS", maxWeightNum: 1, baseRate: 6000, description: "Dokumen / Kunci / Flashdisk" },
-    { size: "XS", maxWeightNum: 3, baseRate: 10000, description: "Kotak Kecil / Kosmetik" },
-    { size: "S", maxWeightNum: 5, baseRate: 15000, description: "Tas Kecil / Sepatu" },
-    { size: "M", maxWeightNum: 10, baseRate: 25000, description: "Kardus Sedang / Helm" },
-    { size: "L", maxWeightNum: 20, baseRate: 40000, description: "Kardus Besar / Galon Air" },
-    { size: "XL", maxWeightNum: 25, baseRate: 70000, description: "Barang Besar / Elektronik" }
+    { size: "XXS", maxWeightKg: 1, baseRate: 6000, description: "Dokumen / Kunci / Flashdisk" },
+    { size: "XS", maxWeightKg: 3, baseRate: 10000, description: "Kotak Kecil / Kosmetik" },
+    { size: "S", maxWeightKg: 5, baseRate: 15000, description: "Tas Kecil / Sepatu" },
+    { size: "M", maxWeightKg: 10, baseRate: 25000, description: "Kardus Sedang / Helm" },
+    { size: "L", maxWeightKg: 20, baseRate: 40000, description: "Kardus Besar / Galon Air" },
+    { size: "XL", maxWeightKg: 25, baseRate: 70000, description: "Barang Besar / Elektronik" }
   ]);
 
   const [notification, setNotification] = useState(false);
@@ -42,6 +43,66 @@ export default function PricingPolicyManagement() {
   const MAX_FARE = 1000000;
   const MIN_FEE_PERCENT = 0;
   const MAX_FEE_PERCENT = 50;
+
+  useEffect(() => {
+    async function fetchPricingData() {
+      try {
+        const response = await apiClient.get('/admin/settings/pricing-policy');
+        const data = response.data;
+        
+        console.log("Data dari backend:", data);
+
+        if (Array.isArray(data) && data.length > 0) {
+          const motorData = data.find(item => item.serviceType === 'motor');
+          const carData = data.find(item => item.serviceType === 'mobil');
+          const barangList = data.filter(item => item.serviceType === 'barang' && item.size);
+
+          if (motorData) {
+            setTransportPricing(prev => ({
+              ...prev,
+              motorPerKm: Number(motorData.farePerKm) || 2500,
+              motorBaseFare: Number(motorData.baseFare) || 5000,
+            }));
+            setPlatformFee(prev => ({
+              ...prev,
+              rideFeePercent: Number(motorData.adminFeePercentage) || 15,
+            }));
+          }
+
+          if (carData) {
+            setTransportPricing(prev => ({
+              ...prev,
+              carPerKm: Number(carData.farePerKm) || 5000,
+              carBaseFare: Number(carData.baseFare) || 10000,
+            }));
+          }
+
+          if (barangList.length > 0) {
+            setPlatformFee(prev => ({
+              ...prev,
+              parcelFeePercent: Number(barangList[0].adminFeePercentage) || 12,
+            }));
+
+            setParcelMatrix(prevMatrix =>
+              prevMatrix.map(item => {
+                const found = barangList.find(b => b.size === item.size);
+                return found ? {
+                  ...item,
+                  baseRate: Number(found.baseFare) || item.baseRate,
+                  // Menggunakan kolom maxWeightKg dari database
+                  maxWeightKg: found.maxWeightKg !== null ? Number(found.maxWeightKg) : item.maxWeightKg
+                } : item;
+              })
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Gagal memuat data tarif dari database:', err);
+      }
+    }
+
+    fetchPricingData();
+  }, []);
 
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -84,11 +145,13 @@ export default function PricingPolicyManagement() {
   const handleSaveAll = async (e) => {
     e.preventDefault();
     const errors = [];
+    
     Object.entries(transportPricing).forEach(([key, value]) => {
       if (value === '' || Number.isNaN(Number(value)) || Number(value) < MIN_FARE) {
         errors.push(`Nilai tarif "${key}" tidak valid.`);
       }
     });
+    
     Object.entries(platformFee).forEach(([key, value]) => {
       if (value === '' || Number.isNaN(Number(value)) || Number(value) < MIN_FEE_PERCENT || Number(value) > MAX_FEE_PERCENT) {
         errors.push(`Komisi "${key}" harus di antara ${MIN_FEE_PERCENT}% - ${MAX_FEE_PERCENT}%.`);
@@ -105,12 +168,22 @@ export default function PricingPolicyManagement() {
     setIsSubmitting(true);
 
     try {
-      // 1. Update komisi global platform ke backend NestJS
-      await updatePlatformCommission(Number(platformFee.rideFeePercent));
-      
-      // 2. Sinkronkan bobot/tarif barang dengan fungsi update reward/fare per kg backend
-      const avgBaseRate = parcelMatrix.length > 0 ? parcelMatrix[0].baseRate : 6000;
-      await updateRewardSetting(Number(avgBaseRate));
+      // Menyusun payload lengkap sesuai DTO backend dengan properti maxWeightKg
+      const payload = {
+        motorPerKm: Number(transportPricing.motorPerKm),
+        carPerKm: Number(transportPricing.carPerKm),
+        motorBaseFare: Number(transportPricing.motorBaseFare),
+        carBaseFare: Number(transportPricing.carBaseFare),
+        rideFeePercent: Number(platformFee.rideFeePercent),
+        parcelFeePercent: Number(platformFee.parcelFeePercent),
+        parcelMatrix: parcelMatrix.map(item => ({
+          size: item.size,
+          maxWeightKg: Number(item.maxWeightKg),
+          baseRate: Number(item.baseRate)
+        }))
+      };
+
+      await updateCompletePricingPolicy(payload);
 
       setNotification(true);
       setTimeout(() => setNotification(false), 3000);
@@ -271,8 +344,8 @@ export default function PricingPolicyManagement() {
                         <Scale size={11} className="text-neutral-400" />
                         <input 
                           type="number"
-                          value={item.maxWeightNum}
-                          onChange={(e) => handleMatrixChange(index, 'maxWeightNum', e.target.value)}
+                          value={item.maxWeightKg}
+                          onChange={(e) => handleMatrixChange(index, 'maxWeightKg', e.target.value)}
                           className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 w-20 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
                         />
                         <span>KG</span>

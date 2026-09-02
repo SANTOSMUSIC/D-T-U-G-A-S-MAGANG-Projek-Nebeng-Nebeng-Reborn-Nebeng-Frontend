@@ -6,9 +6,7 @@ import apiClient from './apiClient';
  */
 export async function getGlobalDashboard() {
   try {
-    // Menggunakan path relatif '/admin/dashboard/global' karena baseURL apiClient sudah mengarah ke '/api'
     const response = await apiClient.get('/admin/dashboard/global');
-    console.log('Global Dashboard Response:', response.data);
     return response.data?.data || response.data;
   } catch (error) {
     console.error('Gagal mengambil data global dashboard:', error);
@@ -17,14 +15,14 @@ export async function getGlobalDashboard() {
 }
 
 /**
- * Mengambil buku besar audit Escrow (Superadmin Only).
- * Mengacu pada endpoint backend: GET /api/admin/escrow/ledger
+ * Mengambil buku besar audit Escrow (Superadmin Only) dengan dukungan Paginasi.
+ * Mengacu pada endpoint backend: GET /api/admin/escrow/ledger?page=1&limit=20
  */
-export async function getEscrowLedger() {
+export async function getEscrowLedger(page = 1, limit = 20) {
   try {
-    // Menggunakan path relatif '/admin/escrow/ledger'
-    const response = await apiClient.get('/admin/escrow/ledger');
-    console.log('Escrow Ledger Response:', response.data);
+    const response = await apiClient.get('/admin/escrow/ledger', {
+      params: { page, limit },
+    });
     return response.data?.data || response.data;
   } catch (error) {
     console.error('Gagal mengambil audit escrow ledger:', error);

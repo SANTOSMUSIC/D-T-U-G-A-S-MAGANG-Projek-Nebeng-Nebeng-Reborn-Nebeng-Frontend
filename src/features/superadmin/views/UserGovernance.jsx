@@ -30,6 +30,10 @@ export default function UserGovernance() {
   const [users, setUsers] = useState([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
+  // State Paginasi
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -37,8 +41,6 @@ export default function UserGovernance() {
   const [reason, setReason] = useState('');
 
   const [unmaskedUsers, setUnmaskedUsers] = useState({});
-  
-  // State Audit Log dikembalikan
   const [auditLogs, setAuditLogs] = useState([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -50,11 +52,17 @@ export default function UserGovernance() {
     password: '' 
   });
 
-  const fetchUsersData = async () => {
+  const fetchUsersData = async (page = 1) => {
     try {
       setIsLoadingUsers(true);
-      const res = await getAllUsers();
-      setUsers(Array.isArray(res) ? res : []);
+      const res = await getAllUsers(page, 20);
+      
+      // Menyesuaikan struktur jika API mengembalikan objek pagination atau array langsung
+      const listData = res?.data || res;
+      setUsers(Array.isArray(listData) ? listData : []);
+      if (res?.meta) {
+        setPaginationMeta(res.meta);
+      }
     } catch (err) {
       console.error('Gagal memuat data pengguna:', err);
     } finally {
@@ -68,9 +76,13 @@ export default function UserGovernance() {
     async function loadUsersData() {
       try {
         setIsLoadingUsers(true);
-        const res = await getAllUsers();
+        const res = await getAllUsers(currentPage, 20);
         if (isMounted) {
-          setUsers(Array.isArray(res) ? res : []);
+          const listData = res?.data || res;
+          setUsers(Array.isArray(listData) ? listData : []);
+          if (res?.meta) {
+            setPaginationMeta(res.meta);
+          }
         }
       } catch (err) {
         console.error('Gagal memuat data pengguna:', err);
@@ -86,7 +98,7 @@ export default function UserGovernance() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage]);
 
   const toggleMaskPII = (userId) => {
     setUnmaskedUsers(prev => ({ ...prev, [userId]: !prev[userId] }));
@@ -133,7 +145,7 @@ export default function UserGovernance() {
       await createUser(payload);
       setShowAddModal(false);
       setNewUser({ name: '', email: '', role: 'passenger', phone: '', password: '' });
-      await fetchUsersData();
+      await fetchUsersData(currentPage);
     } catch (err) {
       console.error('Gagal membuat user:', err);
       alert(err.response?.data?.message || 'Terjadi kesalahan saat membuat pengguna.');
@@ -151,7 +163,6 @@ export default function UserGovernance() {
 
       await updateUserStatus(selectedUser.id, newStatus);
 
-      // Pencatatan Audit Log otomatis saat aksi dijalankan
       const logEntry = {
         id: `LOG-${Date.now().toString().slice(-6)}`,
         timestamp: new Date().toLocaleString('id-ID'),
@@ -166,7 +177,7 @@ export default function UserGovernance() {
       setActionModal(null);
       setSelectedUser(null);
       setReason('');
-      await fetchUsersData();
+      await fetchUsersData(currentPage);
     } catch (err) {
       console.error('Gagal memperbarui status user:', err);
       alert(err.response?.data?.message || 'Gagal mengubah status akun.');
@@ -433,9 +444,33 @@ export default function UserGovernance() {
             </tbody>
           </table>
         </div>
+
+        {/* Bar Navigasi Paginasi */}
+        {paginationMeta && paginationMeta.totalPages > 1 && (
+          <div className="flex items-center justify-between p-4 bg-neutral-50/50 border-t border-neutral-200 text-[10px]">
+            <span className="text-neutral-500">
+              Halaman <strong>{paginationMeta.currentPage}</strong> dari <strong>{paginationMeta.totalPages}</strong> (Total: {paginationMeta.totalData} Pengguna)
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+              >
+                Sebelumnya
+              </button>
+              <button
+                disabled={currentPage >= paginationMeta.totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Komponen Tabel / Kartu Audit Log yang Dikembalikan */}
       {auditLogs.length > 0 && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-neutral-200 space-y-3">
           <div className="flex items-center gap-2">
@@ -462,7 +497,6 @@ export default function UserGovernance() {
         </div>
       )}
 
-      {/* Modal Tambah Pengguna */}
       <BaseModal
         isOpen={Boolean(showAddModal)}
         onClose={() => setShowAddModal(false)}
@@ -534,7 +568,6 @@ export default function UserGovernance() {
         </form>
       </BaseModal>
 
-      {/* Modal Konfirmasi Tindakan & Wajib Isi Alasan untuk Audit Log */}
       <BaseModal
         isOpen={Boolean(actionModal && selectedUser)}
         onClose={() => { setActionModal(null); setSelectedUser(null); setReason(''); }}
