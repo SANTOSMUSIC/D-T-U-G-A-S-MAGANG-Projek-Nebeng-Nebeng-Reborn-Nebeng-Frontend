@@ -4,6 +4,7 @@ import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import EmptyState from '../../../components/ui/EmptyState';
 import { useMitraData } from '../../../context/MitraDataContext';
+import { useAuth } from '../../../context/AuthContext';
 
 // Menghitung label hari ("Hari ini" / "Besok" / tanggal) dari tanggal ISO trip,
 // bukan teks statis seperti sebelumnya yang selalu bilang "Besok".
@@ -24,6 +25,20 @@ function formatTripSchedule(dateStr, timeStr) {
 
 export default function MitraDashboard() {
   const { trips, availableBalance, escrowHold } = useMitraData();
+  const { mitraVerificationStatus } = useAuth();
+
+  // FIX (badge status statis): sebelumnya "STATUS MITRA: Aktif &
+  // Terverifikasi" selalu tampil apa pun kondisi akunnya, tidak
+  // terhubung ke proses verifikasi di MitraOnboarding.jsx sama sekali.
+  // Sekarang mengikuti mitraVerificationStatus (unverified/pending/
+  // approved/rejected) yang persisten lewat AuthContext.
+  const STATUS_META = {
+    approved: { label: 'Aktif & Terverifikasi', dotClass: 'bg-emerald-400' },
+    pending: { label: 'Menunggu Verifikasi Admin', dotClass: 'bg-amber-400' },
+    rejected: { label: 'Verifikasi Ditolak', dotClass: 'bg-rose-400' },
+    unverified: { label: 'Belum Verifikasi', dotClass: 'bg-neutral-300' },
+  };
+  const statusMeta = STATUS_META[mitraVerificationStatus] ?? STATUS_META.unverified;
 
   const upcomingTrips = trips
     .filter((t) => t.status === 'Aktif' || t.status === 'In Transit')
@@ -36,6 +51,17 @@ export default function MitraDashboard() {
     .slice(0, 2);
 
   const totalWallet = availableBalance + escrowHold;
+
+  // FIX (hapus dummy data): sebelumnya rating "4.92 / 5.0" dan "128 ulasan"
+  // di-hardcode dan tidak pernah berubah siapa pun mitranya. Rating asli
+  // seharusnya berasal dari agregasi model TripReview (schema.prisma) —
+  // sementara itu belum diwire ke backend, jadi dihitung dari field
+  // `rating` pada trip yang sudah Selesai (kalau ada), dan tampil sebagai
+  // "Belum ada rating" kalau belum ada satu pun trip dengan rating.
+  const ratedTrips = trips.filter((t) => t.status === 'Selesai' && typeof t.rating === 'number');
+  const avgRating = ratedTrips.length > 0
+    ? (ratedTrips.reduce((sum, t) => sum + t.rating, 0) / ratedTrips.length).toFixed(2)
+    : null;
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -61,7 +87,10 @@ export default function MitraDashboard() {
           </div>
           <div>
             <p className="text-[8px] font-bold text-[#4B2172] uppercase tracking-wider">STATUS MITRA</p>
-            <p className="text-[10px] font-bold text-neutral-800">Aktif & Terverifikasi</p>
+            <p className="text-[10px] font-bold text-neutral-800 flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClass}`} />
+              {statusMeta.label}
+            </p>
           </div>
         </div>
       </div>
@@ -75,8 +104,8 @@ export default function MitraDashboard() {
         />
         <StatCard
           title="STATISTIK RATING MITRA"
-          value="4.92 / 5.0"
-          subtitle="Berdasarkan 128 ulasan"
+          value={avgRating ? `${avgRating} / 5.0` : 'Belum ada rating'}
+          subtitle={ratedTrips.length > 0 ? `Berdasarkan ${ratedTrips.length} ulasan` : 'Rating akan muncul setelah trip pertama diulas'}
           icon={Star}
         />
       </div>
