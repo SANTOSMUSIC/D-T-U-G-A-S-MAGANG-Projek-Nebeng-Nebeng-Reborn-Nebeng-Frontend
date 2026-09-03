@@ -15,7 +15,7 @@ export default function Register({ onSwitchToLogin }) {
     name: '',
     email: '',
     phone: '',
-    role: 'Customer',
+    role: 'customer',
     password: '',
     confirmPassword: '',
   });
@@ -175,8 +175,8 @@ export default function Register({ onSwitchToLogin }) {
               onChange={handleChange('role')}
               className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] text-[15px] transition font-normal cursor-pointer"
             >
-              <option value="Customer">Customer</option>
-              <option value="Mitra">Mitra (Driver)</option>
+              <option value="customer">Customer</option>
+              <option value="mitra">Mitra (Driver)</option>
             </select>
             <ChevronDown className="pointer-events-none absolute inset-y-0 right-4 my-auto w-[18px] h-[18px] text-zinc-500" />
           </div>
