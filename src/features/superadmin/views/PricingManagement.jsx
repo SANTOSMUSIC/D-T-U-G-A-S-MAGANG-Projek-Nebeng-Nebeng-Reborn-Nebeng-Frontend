@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Bike, 
   Car, 
   Percent, 
   Save, 
-  Info, 
   Scale, 
   Package,
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import apiClient from '../../../services/apiClient';
+import { updateCompletePricingPolicy } from '../../../services/pricingService';
 
 export default function PricingPolicyManagement() {
   const [transportPricing, setTransportPricing] = useState({
@@ -24,22 +25,84 @@ export default function PricingPolicyManagement() {
     parcelFeePercent: 12
   });
 
+  // Matriks paket disesuaikan menggunakan maxWeightKg agar konsisten dengan backend & database
   const [parcelMatrix, setParcelMatrix] = useState([
-    { size: "XXS", maxWeight: "1 KG", baseRate: 6000, description: "Dokumen / Kunci / Flashdisk" },
-    { size: "XS", maxWeight: "3 KG", baseRate: 10000, description: "Kotak Kecil / Kosmetik" },
-    { size: "S", maxWeight: "5 KG", baseRate: 15000, description: "Tas Kecil / Sepatu" },
-    { size: "M", maxWeight: "10 KG", baseRate: 25000, description: "Kardus Sedang / Helm" },
-    { size: "L", maxWeight: "20 KG", baseRate: 40000, description: "Kardus Besar / Galon Air" },
-    { size: "XL", maxWeight: "> 20 KG", baseRate: 70000, description: "Barang Besar / Elektronik" }
+    { size: "XXS", maxWeightKg: 1, baseRate: 6000, description: "Dokumen / Kunci / Flashdisk" },
+    { size: "XS", maxWeightKg: 3, baseRate: 10000, description: "Kotak Kecil / Kosmetik" },
+    { size: "S", maxWeightKg: 5, baseRate: 15000, description: "Tas Kecil / Sepatu" },
+    { size: "M", maxWeightKg: 10, baseRate: 25000, description: "Kardus Sedang / Helm" },
+    { size: "L", maxWeightKg: 20, baseRate: 40000, description: "Kardus Besar / Galon Air" },
+    { size: "XL", maxWeightKg: 25, baseRate: 70000, description: "Barang Besar / Elektronik" }
   ]);
 
   const [notification, setNotification] = useState(false);
   const [formErrors, setFormErrors] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const MIN_FARE = 0;
   const MAX_FARE = 1000000;
   const MIN_FEE_PERCENT = 0;
   const MAX_FEE_PERCENT = 50;
+
+  useEffect(() => {
+    async function fetchPricingData() {
+      try {
+        const response = await apiClient.get('/admin/settings/pricing-policy');
+        const data = response.data;
+        
+        console.log("Data dari backend:", data);
+
+        if (Array.isArray(data) && data.length > 0) {
+          const motorData = data.find(item => item.serviceType === 'motor');
+          const carData = data.find(item => item.serviceType === 'mobil');
+          const barangList = data.filter(item => item.serviceType === 'barang' && item.size);
+
+          if (motorData) {
+            setTransportPricing(prev => ({
+              ...prev,
+              motorPerKm: Number(motorData.farePerKm) || 2500,
+              motorBaseFare: Number(motorData.baseFare) || 5000,
+            }));
+            setPlatformFee(prev => ({
+              ...prev,
+              rideFeePercent: Number(motorData.adminFeePercentage) || 15,
+            }));
+          }
+
+          if (carData) {
+            setTransportPricing(prev => ({
+              ...prev,
+              carPerKm: Number(carData.farePerKm) || 5000,
+              carBaseFare: Number(carData.baseFare) || 10000,
+            }));
+          }
+
+          if (barangList.length > 0) {
+            setPlatformFee(prev => ({
+              ...prev,
+              parcelFeePercent: Number(barangList[0].adminFeePercentage) || 12,
+            }));
+
+            setParcelMatrix(prevMatrix =>
+              prevMatrix.map(item => {
+                const found = barangList.find(b => b.size === item.size);
+                return found ? {
+                  ...item,
+                  baseRate: Number(found.baseFare) || item.baseRate,
+                  // Menggunakan kolom maxWeightKg dari database
+                  maxWeightKg: found.maxWeightKg !== null ? Number(found.maxWeightKg) : item.maxWeightKg
+                } : item;
+              })
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Gagal memuat data tarif dari database:', err);
+      }
+    }
+
+    fetchPricingData();
+  }, []);
 
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -79,14 +142,16 @@ export default function PricingPolicyManagement() {
     setParcelMatrix(updated);
   };
 
-  const handleSaveAll = (e) => {
+  const handleSaveAll = async (e) => {
     e.preventDefault();
     const errors = [];
+    
     Object.entries(transportPricing).forEach(([key, value]) => {
       if (value === '' || Number.isNaN(Number(value)) || Number(value) < MIN_FARE) {
         errors.push(`Nilai tarif "${key}" tidak valid.`);
       }
     });
+    
     Object.entries(platformFee).forEach(([key, value]) => {
       if (value === '' || Number.isNaN(Number(value)) || Number(value) < MIN_FEE_PERCENT || Number(value) > MAX_FEE_PERCENT) {
         errors.push(`Komisi "${key}" harus di antara ${MIN_FEE_PERCENT}% - ${MAX_FEE_PERCENT}%.`);
@@ -100,13 +165,38 @@ export default function PricingPolicyManagement() {
     }
 
     setFormErrors([]);
-    setNotification(true);
-    setTimeout(() => setNotification(false), 3000);
+    setIsSubmitting(true);
+
+    try {
+      // Menyusun payload lengkap sesuai DTO backend dengan properti maxWeightKg
+      const payload = {
+        motorPerKm: Number(transportPricing.motorPerKm),
+        carPerKm: Number(transportPricing.carPerKm),
+        motorBaseFare: Number(transportPricing.motorBaseFare),
+        carBaseFare: Number(transportPricing.carBaseFare),
+        rideFeePercent: Number(platformFee.rideFeePercent),
+        parcelFeePercent: Number(platformFee.parcelFeePercent),
+        parcelMatrix: parcelMatrix.map(item => ({
+          size: item.size,
+          maxWeightKg: Number(item.maxWeightKg),
+          baseRate: Number(item.baseRate)
+        }))
+      };
+
+      await updateCompletePricingPolicy(payload);
+
+      setNotification(true);
+      setTimeout(() => setNotification(false), 3000);
+    } catch (err) {
+      console.error('Gagal menyimpan kebijakan tarif:', err);
+      setFormErrors([err.response?.data?.message || 'Terjadi kesalahan saat menyimpan ke database.']);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      {/* Header Halaman */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -116,22 +206,24 @@ export default function PricingPolicyManagement() {
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Konfigurasi Tarif Global & Komisi</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Atur tarif dasar perjalanan, matriks logistik paket, serta potongan komisi platform.</p>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Atur tarif dasar perjalanan, matriks logistik paket berdasarkan batas berat, serta potongan komisi.</p>
         </div>
         
         <button 
+          type="button"
           onClick={handleSaveAll}
-          className="flex items-center gap-2 px-4 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
+          disabled={isSubmitting}
+          className="flex items-center gap-2 px-4 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0 disabled:opacity-50"
         >
           <Save size={14} />
-          <span>Simpan Kebijakan Tarif</span>
+          <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Kebijakan Tarif'}</span>
         </button>
       </div>
 
       {notification && (
         <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center gap-2.5 text-emerald-800 text-[10px] font-bold">
           <CheckCircle2 size={16} className="text-emerald-600" />
-          <span>Kebijakan tarif global dan persentase komisi berhasil diperbarui!</span>
+          <span>Kebijakan tarif global dan matriks berat paket berhasil disinkronkan ke database!</span>
         </div>
       )}
 
@@ -150,7 +242,7 @@ export default function PricingPolicyManagement() {
       )}
 
       <form onSubmit={handleSaveAll} className="space-y-6">
-        {/* BAGIAN 1 */}
+        {/* BAGIAN 1: Tarif Dasar Perjalanan */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
             <div className="p-2 bg-[#4B2172]/10 text-[#4B2172] rounded-xl">
@@ -217,15 +309,15 @@ export default function PricingPolicyManagement() {
           </div>
         </div>
 
-        {/* BAGIAN 2 */}
+        {/* BAGIAN 2: Matriks Biaya Pengiriman Paket Berbasis Batas Berat */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
             <div className="p-2 bg-[#4B2172]/10 text-[#4B2172] rounded-xl">
               <Package size={16} />
             </div>
             <div>
-              <h2 className="text-[14px] font-bold text-neutral-800">2. Matriks Biaya Pengiriman Paket</h2>
-              <p className="text-[9px] text-neutral-400">Atur tarif dasar berdasarkan ukuran dan batas berat.</p>
+              <h2 className="text-[14px] font-bold text-neutral-800">2. Matriks Biaya Pengiriman Paket & Batas Berat</h2>
+              <p className="text-[9px] text-neutral-400">Atur batas berat (Kg) dan tarif dasar sesuai kapasitas muatan.</p>
             </div>
           </div>
 
@@ -234,7 +326,7 @@ export default function PricingPolicyManagement() {
               <thead>
                 <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
                   <th className="py-2.5 px-4">Ukuran</th>
-                  <th className="py-2.5 px-4">Batas Berat</th>
+                  <th className="py-2.5 px-4">Batas Berat Maksimum (KG)</th>
                   <th className="py-2.5 px-4">Deskripsi</th>
                   <th className="py-2.5 px-4">Tarif Dasar (Rp)</th>
                 </tr>
@@ -248,8 +340,15 @@ export default function PricingPolicyManagement() {
                       </span>
                     </td>
                     <td className="py-2.5 px-4 font-semibold text-neutral-700">
-                      <div className="flex items-center gap-1">
-                        <Scale size={11} className="text-neutral-400" /> {item.maxWeight}
+                      <div className="flex items-center gap-1.5">
+                        <Scale size={11} className="text-neutral-400" />
+                        <input 
+                          type="number"
+                          value={item.maxWeightKg}
+                          onChange={(e) => handleMatrixChange(index, 'maxWeightKg', e.target.value)}
+                          className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 w-20 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
+                        />
+                        <span>KG</span>
                       </div>
                     </td>
                     <td className="py-2.5 px-4 text-neutral-500">{item.description}</td>
@@ -268,7 +367,7 @@ export default function PricingPolicyManagement() {
           </div>
         </div>
 
-        {/* BAGIAN 3 */}
+        {/* BAGIAN 3: Persentase Komisi Platform */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
             <div className="p-2 bg-[#4B2172]/10 text-[#4B2172] rounded-xl">

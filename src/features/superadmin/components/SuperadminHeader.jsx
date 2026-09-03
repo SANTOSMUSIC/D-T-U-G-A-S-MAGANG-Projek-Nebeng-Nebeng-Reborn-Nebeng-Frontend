@@ -8,8 +8,8 @@ import {
   UserCircle,
   Settings
 } from 'lucide-react';
+import apiClient from '../../../services/apiClient';
 
-// Inisial dari nama, dipakai sebagai fallback avatar (mis. "Gibyan Pratama" -> "GP")
 const getInitials = (name) => {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -19,7 +19,6 @@ const getInitials = (name) => {
   return initials.toUpperCase();
 };
 
-// role dari AuthContext disimpan mentah (mis. "superadmin"); format jadi label rapi.
 const formatRole = (role) => {
   if (!role) return 'Superadmin';
   return role
@@ -32,6 +31,9 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // State untuk menampung data riil dari database
+  const [dbUser, setDbUser] = useState(null);
 
   const profileRef = useRef(null);
   const notifRef = useRef(null);
@@ -48,6 +50,25 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
     setNotifications(notifications.map((n) => ({ ...n, unread: false })));
   };
 
+  // Ambil data langsung dari database backend (/auth/me) agar Navbar sinkron
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchHeaderProfile() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          setDbUser(res.data);
+        }
+      } catch (err) {
+        console.error('Gagal memuat profil header dari database:', err);
+      }
+    }
+    fetchHeaderProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Tutup dropdown saat klik di luar area profil / notifikasi
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -62,14 +83,19 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // AuthContext hanya menjamin `role`; field lain (name/email/username) tergantung
-  // apa yang dikirim sebagai `extra` saat login(), jadi dicoba beberapa kemungkinan.
-  // superadminProfile (hasil edit di halaman Pengaturan Akun) diprioritaskan
-  // dulu sebelum fallback ke field session asli dari login.
-  const displayName = superadminProfile?.name || session?.name || session?.fullName || session?.username || 'Admin';
-  const displayRole = formatRole(role || session?.role);
-  const displayEmail = superadminProfile?.email || session?.email || '';
-  const displayPhoto = superadminProfile?.photoDataUrl || '';
+  // Prioritas data: DB Backend -> Prop SuperadminProfile -> Session Login
+  const displayName = dbUser?.name || superadminProfile?.name || session?.name || session?.fullName || session?.username || 'Admin';
+  const displayRole = formatRole(dbUser?.role || role || session?.role);
+  const displayEmail = dbUser?.email || superadminProfile?.email || session?.email || '';
+  
+  let avatarUrl = '';
+  const rawAvatar = dbUser?.avatar || superadminProfile?.photoDataUrl || '';
+  if (rawAvatar) {
+    const baseURL = apiClient.defaults.baseURL 
+      ? apiClient.defaults.baseURL.replace('/api', '') 
+      : 'http://localhost:3000';
+    avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : `${baseURL}${rawAvatar}`;
+  }
 
   return (
     <div className="flex items-center justify-end gap-2 sm:gap-3 pl-14 lg:pl-0 h-11 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
@@ -134,7 +160,7 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
         )}
       </div>
 
-      {/* Profil Pengguna (terhubung ke sesi login, bukan nama statis) */}
+      {/* Profil Pengguna */}
       <div className="relative" ref={profileRef}>
         <button
           onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -143,13 +169,13 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
           aria-expanded={showProfileMenu}
         >
           <div className="relative shrink-0">
-            <div className="w-10 h-10 sm:w-9 sm:h-9 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[13px] overflow-hidden">
-              {displayPhoto ? (
-                <img src={displayPhoto} alt="Foto Profil" className="w-full h-full object-cover" />
-              ) : (
-                getInitials(displayName)
-              )}
-            </div>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="w-10 h-10 sm:w-9 sm:h-9 rounded-full object-cover border border-neutral-200 shadow-sm" />
+            ) : (
+              <div className="w-10 h-10 sm:w-9 sm:h-9 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[13px]">
+                {getInitials(displayName)}
+              </div>
+            )}
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
           </div>
           <div className="hidden sm:flex flex-col text-left">
@@ -162,13 +188,13 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
         {showProfileMenu && (
           <div className="absolute right-0 top-12 w-64 bg-white rounded-2xl shadow-2xl border border-neutral-200 z-50 overflow-hidden animate-in fade-in duration-150">
             <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[13px] shrink-0 overflow-hidden">
-                {displayPhoto ? (
-                  <img src={displayPhoto} alt="Foto Profil" className="w-full h-full object-cover" />
-                ) : (
-                  getInitials(displayName)
-                )}
-              </div>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-neutral-200 shrink-0" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[13px] shrink-0">
+                  {getInitials(displayName)}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-[12px] font-bold text-neutral-800 truncate">{displayName}</p>
                 <p className="text-[9px] text-neutral-400 truncate">{displayEmail || displayRole}</p>
