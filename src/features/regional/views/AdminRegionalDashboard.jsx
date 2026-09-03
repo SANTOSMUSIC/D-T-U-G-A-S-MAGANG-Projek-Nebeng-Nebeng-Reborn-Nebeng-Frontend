@@ -15,54 +15,48 @@ import { useToast } from '../../../context/ToastContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import StatCard from '../../../components/ui/StatCard';
 import BaseModal from '../../../components/ui/BaseModal';
+import { regionalService } from '../../../services/regionalService';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function AdminRegionalDashboard() {
   const toast = useToast();
-  const [isLoadingDisrupted, setIsLoadingDisrupted] = useState(true);
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
 
-  const [disruptedTrips, setDisruptedTrips] = useState([
-    { 
-      id: 'TRIP-701', 
-      origin: 'Solo (Pos Pusat)', 
-      destination: 'Yogyakarta', 
-      mitra: 'Budi Santoso', 
-      phone: '081234567890',
-      vehicle: 'Motor (AD 1234 XX)', 
-      issue: 'Kendaraan Mogok / Mesin Rusak', 
-      location: 'Km 15 Jalur Solo-Jogja', 
-      time: '15 menit lalu',
-      assistanceStatus: 'Penanganan Awal'
-    },
-    { 
-      id: 'TRIP-804', 
-      origin: 'Solo', 
-      destination: 'Semarang', 
-      mitra: 'Siti Aminah', 
-      phone: '081398765432',
-      vehicle: 'Mobil (H 5678 YY)', 
-      issue: 'Ban Bocor / Kempes', 
-      location: 'Bypass Bawen', 
-      time: '40 menit lalu',
-      assistanceStatus: 'Menunggu Bantuan'
-    }
-  ]);
-
+  const [disruptedTrips, setDisruptedTrips] = useState([]);
   const [selectedResolveTrip, setSelectedResolveTrip] = useState(null);
   const [selectedAssistTrip, setSelectedAssistTrip] = useState(null);
   const [unmaskedPhone, setUnmaskedPhone] = useState(false);
   const [emergencyLogs, setEmergencyLogs] = useState([]);
+  const [recentRegionalActivities, setRecentRegionalActivities] = useState([]);
 
-  const [recentRegionalActivities] = useState([
-    { id: 1, text: 'Pos Mitra Solo Grand Mall melaporkan 12 paket masuk.', time: '10 menit lalu', type: 'Pos' },
-    { id: 2, text: 'Trip TRIP-901 (Solo → Jogja) berhasil berangkat dari pos.', time: '25 menit lalu', type: 'Trip' },
-    { id: 3, text: 'Verifikasi berkas kurir atas nama Agus Setiawan disetujui.', time: '1 jam lalu', type: 'Verifikasi' },
-    { id: 4, text: 'Transaksi lokal senilai Rp 145.000 tercatat di Pos Pasar Klewer.', time: '2 jam lalu', type: 'Transaksi' },
-  ]);
-
+  // Fetch data langsung dari Backend (/api/admin/dashboard/regional)
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoadingDisrupted(false), 700);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchDashboard = async () => {
+      try {
+        setIsLoading(true);
+        // Mengirim regionId milik user yang sedang login jika ada
+        const data = await regionalService.getRegionalDashboard(user?.regionId);
+        setDashboardData(data);
+        
+        // Memetakan data dari backend ke state komponen
+        if (data?.disruptedTrips) {
+          setDisruptedTrips(data.disruptedTrips);
+        }
+        if (data?.activities) {
+          setRecentRegionalActivities(data.activities);
+        }
+      } catch (error) {
+        console.error('Gagal memuat dashboard regional:', error);
+        toast.error('Gagal mengambil data dari server backend.', { title: 'Koneksi Gagal' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, [user]);
 
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
@@ -78,12 +72,11 @@ export default function AdminRegionalDashboard() {
       mitra: selectedResolveTrip.mitra,
       action: 'RUTE RESOLVED',
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      admin: 'Admin Regional Surakarta'
+      admin: user?.name || 'Admin Regional'
     };
     setEmergencyLogs([newLog, ...emergencyLogs]);
-
     setDisruptedTrips(disruptedTrips.filter(t => t.id !== selectedResolveTrip.id));
-    toast.success(`Kendala Trip ${selectedResolveTrip.id} telah diselesaikan dan rute dinyatakan normal kembali.`, { title: 'Trip Dipulihkan' });
+    toast.success(`Kendala Trip ${selectedResolveTrip.id} telah diselesaikan.`, { title: 'Trip Dipulihkan' });
     setSelectedResolveTrip(null);
   };
 
@@ -96,7 +89,7 @@ export default function AdminRegionalDashboard() {
       mitra: selectedAssistTrip.mitra,
       action: 'DISPATCH ASSISTANCE',
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      admin: 'Admin Regional Surakarta'
+      admin: user?.name || 'Admin Regional'
     };
     setEmergencyLogs([newLog, ...emergencyLogs]);
 
@@ -106,7 +99,7 @@ export default function AdminRegionalDashboard() {
       }
       return t;
     }));
-    toast.info(`Tim Pos terdekat telah dikirim ke lokasi ${selectedAssistTrip.location}.`, { title: 'Bantuan Dikirim' });
+    toast.info(`Tim Pos terdekat telah dikirim ke lokasi.`, { title: 'Bantuan Dikirim' });
     setSelectedAssistTrip(null);
     setUnmaskedPhone(false);
   };
@@ -133,16 +126,16 @@ export default function AdminRegionalDashboard() {
           </div>
           <div>
             <p className="text-[8px] font-bold text-[#4B2172] uppercase tracking-wider">WILAYAH AKTIF</p>
-            <p className="text-[10px] font-bold text-neutral-800">Jawa Tengah - Surakarta</p>
+            <p className="text-[10px] font-bold text-neutral-800">{dashboardData?.regionName || user?.regionName || 'Memuat Wilayah...'}</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard title="JUMLAH POS AKTIF" value="14 Pos" subtitle="+2 pos baru bulan ini" icon={MapPin} />
-        <StatCard title="TRIP BERANGKAT / TIBA" value="42 Trip" subtitle="18 berangkat, 24 tiba hari ini" icon={Compass} />
+        <StatCard title="JUMLAH POS AKTIF" value={dashboardData ? `${dashboardData.activePosCount ?? 0} Pos` : '0 Pos'} subtitle="Pos resmi terdaftar" icon={MapPin} />
+        <StatCard title="TRIP BERANGKAT / TIBA" value={dashboardData ? `${dashboardData.tripCount ?? 0} Trip` : '0 Trip'} subtitle="Arus logistik wilayah" icon={Compass} />
         <StatCard title="TRIP DISRUPTED (KENDALA)" value={`${disruptedTrips.length} Trip`} subtitle={disruptedTrips.length > 0 ? 'Butuh Penanganan Rute' : 'Aman Lancar'} icon={AlertTriangle} />
-        <StatCard title="ANTEAN VERIFIKASI" value="5 Berkas" subtitle="Menunggu review KTP & Face ID" icon={ShieldCheck} />
+        <StatCard title="ANTREAN VERIFIKASI" value={dashboardData ? `${dashboardData.pendingVerificationCount ?? 0} Berkas` : '0 Berkas'} subtitle="Menunggu review KTP & Face ID" icon={ShieldCheck} />
       </div>
 
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
@@ -161,7 +154,7 @@ export default function AdminRegionalDashboard() {
           </span>
         </div>
 
-        {isLoadingDisrupted ? (
+        {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {Array.from({ length: 2 }).map((_, i) => (
               <div key={i} className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/60 space-y-2">
@@ -178,7 +171,7 @@ export default function AdminRegionalDashboard() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">{trip.id}</span>
-                    <span className="text-[8px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{trip.assistanceStatus}</span>
+                    <span className="text-[8px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{trip.assistanceStatus || 'Pending'}</span>
                   </div>
                   <div className="text-[11px] font-bold text-neutral-800 flex items-center gap-1.5">
                     <span>{trip.origin}</span>
@@ -244,22 +237,26 @@ export default function AdminRegionalDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200">
           <h2 className="text-[14px] font-bold text-neutral-800 mb-3">Aktivitas & Logistik Regional Terbaru</h2>
-          <div className="space-y-3">
-            {recentRegionalActivities.map((act) => (
-              <div key={act.id} className="flex items-start gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 hover:bg-neutral-100/60 transition">
-                <div className="w-7 h-7 rounded-lg bg-[#4B2172]/10 text-[#4B2172] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
-                  {act.type[0]}
+          {recentRegionalActivities.length > 0 ? (
+            <div className="space-y-3">
+              {recentRegionalActivities.map((act, index) => (
+                <div key={act.id || index} className="flex items-start gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 hover:bg-neutral-100/60 transition">
+                  <div className="w-7 h-7 rounded-lg bg-[#4B2172]/10 text-[#4B2172] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                    {(act.type || 'A')[0]}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-semibold text-neutral-800">{act.text || act.description}</p>
+                    <p className="text-[8px] text-neutral-400 mt-0.5">{act.time || act.timestamp}</p>
+                  </div>
+                  <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-[#4B2172]/10 text-[#4B2172]">
+                    {act.type || 'Log'}
+                  </span>
                 </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-semibold text-neutral-800">{act.text}</p>
-                  <p className="text-[8px] text-neutral-400 mt-0.5">{act.time}</p>
-                </div>
-                <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-[#4B2172]/10 text-[#4B2172]">
-                  {act.type}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[10px] text-neutral-400 py-4 text-center">Belum ada aktivitas regional tercatat dari backend.</p>
+          )}
         </div>
 
         <div className="bg-gradient-to-br from-[#4B2172] to-[#2a1042] rounded-2xl p-5 text-white shadow-sm flex flex-col justify-between">
@@ -275,10 +272,10 @@ export default function AdminRegionalDashboard() {
           <div className="pt-4 border-t border-white/10 mt-4">
             <div className="flex items-center justify-between text-[10px]">
               <span className="text-purple-200 font-medium">Tingkat Kepatuhan Pos</span>
-              <span className="font-bold text-white">98.4%</span>
+              <span className="font-bold text-white">{dashboardData?.complianceRate ? `${dashboardData.complianceRate}%` : '98.4%'}</span>
             </div>
             <div className="w-full bg-white/20 h-1.5 rounded-full mt-1.5 overflow-hidden">
-              <div className="bg-emerald-400 h-full w-[98.4%] rounded-full"></div>
+              <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${dashboardData?.complianceRate || 98.4}%` }}></div>
             </div>
           </div>
         </div>

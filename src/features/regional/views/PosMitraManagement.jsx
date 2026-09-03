@@ -1,74 +1,279 @@
-import { useRef, useState } from 'react';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
-import { MapPin, Search, Plus, QrCode, Trash2, Pencil, Printer, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, Search, Plus, QrCode, Trash2, Pencil, Printer, AlertTriangle, Building2, UserCheck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
-import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { regionalService } from '../../../services/regionalService';
+import { useAuth } from '../../../context/AuthContext';
+import apiClient from '../../../services/apiClient';
 
 export default function PosMitraManagement() {
   const toast = useToast();
-  const [posList, setPosList] = useState([
-    { id: 'POS-01', name: 'Pos Mitra Solo Grand Mall', address: 'Jl. Slamet Riyadi No.273, Surakarta', lat: '-7.5561', long: '110.8173', operator: 'Rian Hidayat', status: 'Aktif' },
-    { id: 'POS-02', name: 'Pos Mitra Pasar Klewer', address: 'Jl. Dr. Radjiman, Gajahan, Surakarta', lat: '-7.5753', long: '110.8241', operator: 'Dewi Lestari', status: 'Aktif' },
-    { id: 'POS-03', name: 'Pos Mitra Jebres Stasiun', address: 'Jl. Perintis Kemerdekaan, Jebres, Surakarta', lat: '-7.5582', long: '110.8435', operator: 'Fajar Nugroho', status: 'Aktif' },
-  ]);
-
-  const nextPosIdRef = useRef(posList.length + 1);
+  const { user } = useAuth();
+  
+  const [activeRegionId, setActiveRegionId] = useState(user?.regionId || null);
+  const [posList, setPosList] = useState([]);
+  const [cityList, setCityList] = useState([]);
+  const [operatorList, setOperatorList] = useState([]); // Daftar operator dengan region yang sama
+  const [isLoadingPos, setIsLoadingPos] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCityModalOpen, setIsCityModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  
   const [currentPos, setCurrentPos] = useState(null);
   const [posToDelete, setPosToDelete] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '', address: '', lat: '', long: '', operator: 'Rian Hidayat'
+    name: '', address: '', latitude: '', longitude: '', cityId: '', operatorId: '', regionId: ''
   });
 
-  const operatorsList = ['Rian Hidayat', 'Dewi Lestari', 'Fajar Nugroho', 'Budi Santoso'];
+  const [cityFormData, setCityFormData] = useState({
+    name: '', province: ''
+  });
 
-  const handleOpenAdd = () => {
+  // Fetch data awal (Pos, Kota, dan Operator Wilayah) murni dari backend
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      try {
+        setIsLoadingPos(true);
+        let regId = user?.regionId;
+        
+        if (!regId) {
+          try {
+            const res = await apiClient.get('/auth/me'); // Mendapatkan profil user aktif[cite: 23]
+            if (res.data && res.data.regionId) {
+              regId = String(res.data.regionId);
+              setActiveRegionId(regId);
+            }
+          } catch (err) {
+            console.error('Gagal memuat profil region:', err);
+          }
+        } else {
+          setActiveRegionId(String(regId));
+        }
+
+        if (!regId) {
+          if (isMounted) {
+            toast.warning('Akun Anda tidak memiliki penugasan Wilayah (Region ID).', { title: 'Peringatan' });
+            setIsLoadingPos(false);
+          }
+          return;
+        }
+        
+        // 1. Ambil data Pickup Points
+        const posData = await regionalService.getPickupPoints(regId);
+        const formattedPos = (posData || []).map(p => ({
+          id: String(p.id),
+          name: p.name,
+          address: p.address,
+          lat: String(p.latitude),
+          long: String(p.longitude),
+          cityId: p.cityId ? String(p.cityId) : '',
+          cityName: p.city?.name || '-',
+          operatorId: p.operatorId ? String(p.operatorId) : '',
+          operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
+          status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
+          qrCodePos: p.qrCodePos
+        }));
+
+        // 2. Ambil data Cities
+        const cityRes = await apiClient.get('/cities');
+
+        // 3. Ambil data Users dengan role 'operator' dan filter wilayah yang sama persis
+        const userRes = await apiClient.get('/users', { params: { role: 'operator' } });
+        const validOperators = (userRes.data || []).filter(op => {
+          const opRegion = op.regionId ? String(op.regionId) : null;
+          return opRegion === String(regId) && op.status === 'active';
+        });
+
+        if (isMounted) {
+          setPosList(formattedPos);
+          setCityList(cityRes.data || []);
+          setOperatorList(validOperators);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Gagal memuat data dari backend:', error);
+          toast.error('Gagal mengambil data dari server backend.', { title: 'Koneksi Gagal' });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingPos(false);
+        }
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.regionId, toast]);
+
+  const handleOpenAdd = async () => {
     setIsEditing(false);
-    setFormData({ name: '', address: '', lat: '', long: '', operator: operatorsList[0] });
+    let regId = activeRegionId;
+    if (!regId) {
+      try {
+        const res = await apiClient.get('/auth/me');
+        regId = res.data?.regionId ? String(res.data.regionId) : '';
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    if (!regId) {
+      toast.error('Wilayah penugasan akun Anda tidak ditemukan.', { title: 'Akses Ditolak' });
+      return;
+    }
+
+    const defaultCityId = cityList.length > 0 ? String(cityList[0].id) : '';
+    
+    setFormData({ 
+      name: '', 
+      address: '', 
+      latitude: '', 
+      longitude: '', 
+      cityId: defaultCityId, 
+      operatorId: '',
+      regionId: String(regId)
+    });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (pos) => {
     setIsEditing(true);
     setCurrentPos(pos);
-    setFormData({ name: pos.name, address: pos.address, lat: pos.lat, long: pos.long, operator: pos.operator });
+    setFormData({ 
+      name: pos.name, 
+      address: pos.address, 
+      latitude: pos.lat, 
+      longitude: pos.long,
+      cityId: pos.cityId ? String(pos.cityId) : (cityList.length > 0 ? String(cityList[0].id) : ''),
+      operatorId: pos.operatorId || '',
+      regionId: String(activeRegionId || '')
+    });
     setIsModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSaveCity = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.address) {
-      toast.warning('Nama Pos dan Alamat wajib diisi!', { title: 'Form Belum Lengkap' });
+    if (!cityFormData.name || !cityFormData.province) {
+      toast.warning('Nama kota dan provinsi wajib diisi!', { title: 'Form Belum Lengkap' });
       return;
     }
 
-    if (isEditing && currentPos) {
-      setPosList(prev => prev.map(p => p.id === currentPos.id ? { ...p, ...formData } : p));
-    } else {
-      const newPos = {
-        id: `POS-${String(nextPosIdRef.current).padStart(2, '0')}`,
-        ...formData,
-        status: 'Aktif'
-      };
-      nextPosIdRef.current += 1;
-      setPosList([newPos, ...posList]);
+    try {
+      const response = await apiClient.post('/cities', {
+        name: cityFormData.name.trim(),
+        province: cityFormData.province.trim()
+      });
+      
+      toast.success(`Kota ${cityFormData.name} berhasil ditambahkan!`, { title: 'Berhasil' });
+      setIsCityModalOpen(false);
+      setCityFormData({ name: '', province: '' });
+      
+      // Refresh cities
+      const cityRes = await apiClient.get('/cities');
+      setCityList(cityRes.data || []);
+      
+      if (response.data && response.data.id) {
+        setFormData(prev => ({ ...prev, cityId: String(response.data.id) }));
+      }
+    } catch (error) {
+      console.error('Gagal menambah kota:', error);
+      toast.error(error.response?.data?.message || 'Gagal menambahkan kota baru ke database.', { title: 'Error' });
     }
-    setIsModalOpen(false);
   };
 
-  const handleConfirmDelete = () => {
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.address || !formData.cityId) {
+      toast.warning('Nama Pos, Alamat, dan Kota wajib diisi!', { title: 'Form Belum Lengkap' });
+      return;
+    }
+
+    try {
+      const regId = activeRegionId;
+      if (!regId) {
+        toast.error('Wilayah penugasan akun Anda tidak ditemukan.', { title: 'Akses Ditolak' });
+        return;
+      }
+
+      // Payload sesuai CreatePickupPointDto backend[cite: 17, 22]
+      const payload = {
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        latitude: parseFloat(formData.latitude) || 0,
+        longitude: parseFloat(formData.longitude) || 0,
+        regionId: String(regId),
+        cityId: String(formData.cityId),
+        operatorId: formData.operatorId ? String(formData.operatorId) : null
+      };
+
+      if (isEditing && currentPos) {
+        await regionalService.updatePickupPoint(currentPos.id, payload);
+        toast.success(`Pos ${currentPos.id} berhasil diperbarui.`, { title: 'Berhasil' });
+      } else {
+        await regionalService.createPickupPoint(payload);
+        toast.success('Pos resmi baru berhasil ditambahkan untuk wilayah Anda.', { title: 'Berhasil' });
+      }
+      setIsModalOpen(false);
+      
+      // Reload ulang data pos
+      const posData = await regionalService.getPickupPoints(regId);
+      const formattedPos = (posData || []).map(p => ({
+        id: String(p.id),
+        name: p.name,
+        address: p.address,
+        lat: String(p.latitude),
+        long: String(p.longitude),
+        cityId: p.cityId ? String(p.cityId) : '',
+        cityName: p.city?.name || '-',
+        operatorId: p.operatorId ? String(p.operatorId) : '',
+        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
+        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
+        qrCodePos: p.qrCodePos
+      }));
+      setPosList(formattedPos);
+
+    } catch (error) {
+      console.error('Gagal menyimpan pos:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan data pos ke server.', { title: 'Error' });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
     if (!posToDelete) return;
-    setPosList(prev => prev.filter(p => p.id !== posToDelete.id));
-    toast.success(`Pos ${posToDelete.id} berhasil dihapus.`, { title: 'Hapus Berhasil' });
-    setPosToDelete(null);
+    try {
+      await regionalService.deletePickupPoint(posToDelete.id);
+      toast.success(`Pos ${posToDelete.id} berhasil dinonaktifkan.`, { title: 'Berhasil' });
+      setPosToDelete(null);
+      
+      const posData = await regionalService.getPickupPoints(activeRegionId);
+      const formattedPos = (posData || []).map(p => ({
+        id: String(p.id),
+        name: p.name,
+        address: p.address,
+        lat: String(p.latitude),
+        long: String(p.longitude),
+        cityId: p.cityId ? String(p.cityId) : '',
+        cityName: p.city?.name || '-',
+        operatorId: p.operatorId ? String(p.operatorId) : '',
+        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
+        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
+        qrCodePos: p.qrCodePos
+      }));
+      setPosList(formattedPos);
+    } catch (error) {
+      toast.error('Gagal menghapus pos.', { title: error });
+    }
   };
 
   const handleShowQr = (pos) => {
@@ -83,10 +288,8 @@ export default function PosMitraManagement() {
   const filteredPos = posList.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.operator.toLowerCase().includes(searchQuery.toLowerCase())
+    p.operatorName.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const isLoadingPos = useSimulatedLoading([searchQuery], 700);
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter'] print:p-0 print:bg-white">
@@ -112,7 +315,7 @@ export default function PosMitraManagement() {
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Manajemen Pos Mitra & Terminal</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Kelola lokasi pos, koordinat lat/long, penugasan operator, serta cetak QR Code.</p>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Kelola lokasi pos, koordinat lat/long, penugasan operator wilayah, serta cetak QR Code.</p>
         </div>
 
         <button 
@@ -141,54 +344,14 @@ export default function PosMitraManagement() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden print-hidden">
-        <div className="block sm:hidden divide-y divide-gray-100">
-          {isLoadingPos ? (
-            <div className="p-4 space-y-3">
-              <SkeletonTableRows rows={3} columns={1} />
-            </div>
-          ) : filteredPos.length > 0 ? (
-            filteredPos.map((pos) => (
-              <div key={pos.id} className="p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[8px] font-bold text-[#4B2172] font-mono">{pos.id}</span>
-                    <h3 className="font-bold text-neutral-800 text-[11px]">{pos.name}</h3>
-                  </div>
-                  <StatusBadge variant="emerald">{pos.status}</StatusBadge>
-                </div>
-                <p className="text-[9px] text-neutral-500">{pos.address}</p>
-                <div className="flex items-center justify-between text-[9px] pt-1">
-                  <span className="font-mono text-[#4B2172] font-bold">{pos.lat}, {pos.long}</span>
-                  <span className="font-semibold text-neutral-700">Op: {pos.operator}</span>
-                </div>
-                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-neutral-100">
-                  <button onClick={() => handleShowQr(pos)} className="p-1.5 bg-[#4B2172]/10 text-[#4B2172] rounded-lg cursor-pointer">
-                    <QrCode size={13} />
-                  </button>
-                  <button onClick={() => handleOpenEdit(pos)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg cursor-pointer">
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => setPosToDelete(pos)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg cursor-pointer">
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-4">
-              <EmptyState icon={MapPin} title="Pos Tidak Ditemukan" description="Tidak ada pos yang cocok dengan pencarian Anda." />
-            </div>
-          )}
-        </div>
-
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
                 <th className="py-3 px-5">Nama & Kode Pos</th>
                 <th className="py-3 px-5">Alamat Lokasi</th>
-                <th className="py-3 px-5">Koordinat Lat/Long</th>
-                <th className="py-3 px-5">Operator Pos</th>
+                <th className="py-3 px-5">Kota / Wilayah</th>
+                <th className="py-3 px-5">Operator Pos (Wilayah Sama)</th>
                 <th className="py-3 px-5 text-center">Aksi & QR Code</th>
               </tr>
             </thead>
@@ -203,17 +366,21 @@ export default function PosMitraManagement() {
                       <div className="text-[8px] font-bold text-[#4B2172] font-mono">{pos.id}</div>
                     </td>
                     <td className="py-3.5 px-5 font-medium text-neutral-600">{pos.address}</td>
-                    <td className="py-3.5 px-5 font-mono font-bold text-[#4B2172]">{pos.lat}, {pos.long}</td>
-                    <td className="py-3.5 px-5 font-semibold text-neutral-700">{pos.operator}</td>
+                    <td className="py-3.5 px-5 font-mono font-bold text-neutral-700">{pos.cityName}</td>
+                    <td className="py-3.5 px-5">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold ${pos.operatorName !== 'Belum Ditugaskan' ? 'bg-purple-50 text-[#4B2172] border border-purple-200' : 'bg-neutral-100 text-neutral-500'}`}>
+                        <UserCheck size={11} /> {pos.operatorName}
+                      </span>
+                    </td>
                     <td className="py-3.5 px-5">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => handleShowQr(pos)} className="p-1.5 bg-[#4B2172]/10 hover:bg-[#4B2172]/20 text-[#4B2172] rounded-lg transition cursor-pointer">
+                        <button onClick={() => handleShowQr(pos)} className="p-1.5 bg-[#4B2172]/10 hover:bg-[#4B2172]/20 text-[#4B2172] rounded-lg transition cursor-pointer" title="Lihat QR Code">
                           <QrCode size={13} />
                         </button>
-                        <button onClick={() => handleOpenEdit(pos)} className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition cursor-pointer">
+                        <button onClick={() => handleOpenEdit(pos)} className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition cursor-pointer" title="Edit Pos & Tugaskan Operator">
                           <Pencil size={13} />
                         </button>
-                        <button onClick={() => setPosToDelete(pos)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer">
+                        <button onClick={() => setPosToDelete(pos)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer" title="Hapus Pos">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -223,7 +390,7 @@ export default function PosMitraManagement() {
               ) : (
                 <tr>
                   <td colSpan="5">
-                    <EmptyState icon={MapPin} title="Pos Tidak Ditemukan" description="Tidak ada pos yang cocok dengan pencarian." />
+                    <EmptyState icon={MapPin} title="Pos Tidak Ditemukan" description="Tidak ada pos yang terdaftar di database untuk wilayah ini." />
                   </td>
                 </tr>
               )}
@@ -232,10 +399,11 @@ export default function PosMitraManagement() {
         </div>
       </div>
 
+      {/* Modal Tambah / Edit Pos & Penugasan Operator */}
       <BaseModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={isEditing ? 'Ubah Data Pos Checkpoint' : 'Tambah Pos Checkpoint Baru'}
+        title={isEditing ? 'Ubah Data Pos & Penugasan Operator' : 'Tambah Pos Checkpoint & Operator Baru'}
         subtitle="Sistem Manajemen Wilayah & Terminal"
         maxWidth="max-w-md"
       >
@@ -250,24 +418,58 @@ export default function PosMitraManagement() {
             <textarea rows="2" required value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] resize-none" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-neutral-500 uppercase">Latitude</label>
-              <input type="text" required value={formData.lat} onChange={(e) => setFormData({...formData, lat: e.target.value.replace(/[^0-9.-]/g, '')})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-mono font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-bold text-neutral-500 uppercase">Pilih Kota / Kabupaten</label>
+              <button 
+                type="button" 
+                onClick={() => setIsCityModalOpen(true)}
+                className="text-[9px] font-bold text-[#4B2172] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Building2 size={11} /> + Tambah Kota Baru
+              </button>
             </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-neutral-500 uppercase">Longitude</label>
-              <input type="text" required value={formData.long} onChange={(e) => setFormData({...formData, long: e.target.value.replace(/[^0-9.-]/g, '')})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-mono font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
-            </div>
+            <select 
+              value={formData.cityId} 
+              onChange={(e) => setFormData({...formData, cityId: e.target.value})} 
+              required
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
+            >
+              {cityList.length === 0 ? (
+                <option value="">Belum ada data kota. Silakan klik Tambah Kota Baru.</option>
+              ) : (
+                cityList.map((city) => (
+                  <option key={city.id} value={city.id}>{city.name} ({city.province})</option>
+                ))
+              )}
+            </select>
           </div>
 
+          {/* Pemilihan Operator Pos (Hanya operator yang wilayahnya sama) */}
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Penetapan Operator</label>
-            <select value={formData.operator} onChange={(e) => setFormData({...formData, operator: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer">
-              {operatorsList.map((op, idx) => (
-                <option key={idx} value={op}>{op}</option>
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Tugaskan Operator Pos (Wilayah Sama)</label>
+            <select 
+              value={formData.operatorId} 
+              onChange={(e) => setFormData({...formData, operatorId: e.target.value})} 
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
+            >
+              <option value="">-- Belum Ditugaskan (Opsional) --</option>
+              {operatorList.map((op) => (
+                <option key={op.id} value={op.id}>{op.name} ({op.email})</option>
               ))}
             </select>
+            <p className="text-[8px] text-neutral-400 italic">Hanya menampilkan akun ber-role operator di wilayah regional Anda.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-neutral-500 uppercase">Latitude (-90 s/d 90)</label>
+              <input type="number" step="any" min="-90" max="90" required placeholder="Contoh: -7.5666" value={formData.latitude} onChange={(e) => setFormData({...formData, latitude: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-mono font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-neutral-500 uppercase">Longitude (-180 s/d 180)</label>
+              <input type="number" step="any" min="-180" max="180" required placeholder="Contoh: 110.8283" value={formData.longitude} onChange={(e) => setFormData({...formData, longitude: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-mono font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3">
@@ -277,6 +479,47 @@ export default function PosMitraManagement() {
         </form>
       </BaseModal>
 
+      {/* Modal Tambah Kota Baru */}
+      <BaseModal
+        isOpen={isCityModalOpen}
+        onClose={() => setIsCityModalOpen(false)}
+        title="Tambah Kota / Kabupaten Baru"
+        subtitle="Master Data Wilayah"
+        maxWidth="max-w-sm"
+      >
+        <form onSubmit={handleSaveCity} className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Kota / Kabupaten</label>
+            <input 
+              type="text" 
+              required 
+              placeholder="Contoh: Surakarta"
+              value={cityFormData.name} 
+              onChange={(e) => setCityFormData({...cityFormData, name: e.target.value})} 
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" 
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Provinsi</label>
+            <input 
+              type="text" 
+              required 
+              placeholder="Contoh: Jawa Tengah"
+              value={cityFormData.province} 
+              onChange={(e) => setCityFormData({...cityFormData, province: e.target.value})} 
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" 
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3">
+            <button type="button" onClick={() => setIsCityModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
+            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm">Simpan Kota</button>
+          </div>
+        </form>
+      </BaseModal>
+
+      {/* Modal QR Code */}
       <BaseModal
         isOpen={Boolean(isQrModalOpen && currentPos)}
         onClose={() => setIsQrModalOpen(false)}
@@ -288,12 +531,12 @@ export default function PosMitraManagement() {
           <div className="text-center space-y-4">
             <div id="printable-qr-area" className="bg-white p-4 rounded-xl border border-neutral-200 space-y-3">
               <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(currentPos.id + '-' + currentPos.name)}`} 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(currentPos.qrCodePos || currentPos.id)}`} 
                 alt={`QR Code ${currentPos.id}`}
                 className="w-32 h-32 mx-auto object-contain"
               />
               <span className="text-[10px] font-mono font-bold bg-neutral-100 text-neutral-800 px-2.5 py-0.5 rounded-full inline-block">
-                {currentPos.id}
+                {currentPos.qrCodePos || currentPos.id}
               </span>
               <div>
                 <h4 className="text-[11px] font-bold text-neutral-800">{currentPos.name}</h4>
@@ -309,6 +552,7 @@ export default function PosMitraManagement() {
         )}
       </BaseModal>
 
+      {/* Modal Konfirmasi Hapus */}
       <BaseModal
         isOpen={Boolean(posToDelete)}
         onClose={() => setPosToDelete(null)}
@@ -321,11 +565,11 @@ export default function PosMitraManagement() {
             <AlertTriangle size={20} />
           </div>
           <p className="text-neutral-600">
-            Apakah Anda yakin ingin menghapus <strong>{posToDelete?.name}</strong> ({posToDelete?.id})?
+            Apakah Anda yakin ingin menonaktifkan pos <strong>{posToDelete?.name}</strong>?
           </p>
           <div className="flex gap-2 pt-2">
             <button onClick={() => setPosToDelete(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>
-            <button onClick={handleConfirmDelete} className="flex-1 py-2 bg-rose-600 text-white rounded-full font-bold cursor-pointer shadow-sm">Ya, Hapus</button>
+            <button onClick={handleConfirmDelete} className="flex-1 py-2 bg-rose-600 text-white rounded-full font-bold cursor-pointer shadow-sm">Ya, Nonaktifkan</button>
           </div>
         </div>
       </BaseModal>

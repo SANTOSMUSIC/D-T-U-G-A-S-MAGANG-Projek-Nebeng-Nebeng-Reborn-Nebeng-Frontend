@@ -1,41 +1,77 @@
-import { useRef, useState } from 'react';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
-import { Users, Search, Plus, Trash2, Pencil, Calendar, MapPin, AlertTriangle, Eye, EyeOff, History } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Search, Plus, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import BaseModal from '../../../components/ui/BaseModal';
+import { regionalService } from '../../../services/regionalService';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function OperatorPosPage() {
   const toast = useToast();
-  const [operatorList, setOperatorList] = useState([
-    { id: 'OP-01', name: 'Rian Hidayat', email: 'rian.hidayat@nebeng.id', pos: 'Pos Mitra Solo Grand Mall', schedule: 'Senin - Jumat (08:00 - 16:00)', status: 'Aktif' },
-    { id: 'OP-02', name: 'Dewi Lestari', email: 'dewi.lestari@nebeng.id', pos: 'Pos Mitra Pasar Klewer', schedule: 'Senin - Sabtu (07:00 - 15:00)', status: 'Aktif' },
-    { id: 'OP-03', name: 'Fajar Nugroho', email: 'fajar.nugroho@nebeng.id', pos: 'Pos Mitra Jebres Stasiun', schedule: 'Selasa - Minggu (13:00 - 21:00)', status: 'Aktif' },
-  ]);
-
-  const nextOperatorIdRef = useRef(operatorList.length + 1);
+  const { user } = useAuth();
+  const [operatorList, setOperatorList] = useState([]);
+  const [isLoadingOperators, setIsLoadingOperators] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentOp, setCurrentOp] = useState(null);
   const [operatorToDelete, setOperatorToDelete] = useState(null);
 
   // Security PII & Audit Log State
   const [unmaskedEmails, setUnmaskedEmails] = useState({});
-  const [operatorLogs, setOperatorLogs] = useState([]);
 
   const [formData, setFormData] = useState({
-    name: '', email: '', pos: 'Pos Mitra Solo Grand Mall', schedule: 'Senin - Jumat (08:00 - 16:00)'
+    name: '', email: '', password: 'Password123!', phone: '08123456789', regionId: user?.regionId || '1'
   });
 
-  const availablePosList = [
-    'Pos Mitra Solo Grand Mall',
-    'Pos Mitra Pasar Klewer',
-    'Pos Mitra Jebres Stasiun',
-    'Pos Mitra Manahan'
-  ];
+  // Fetch Operator dari Backend murni tanpa cascading render warning
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOperators = async () => {
+      try {
+        if (isMounted) setIsLoadingOperators(true);
+        const data = await regionalService.getOperatorList ? await regionalService.getOperatorList('operator') : await regionalService.getOperators('operator');
+        
+        // Filter operator berdasarkan wilayah (regionId) admin yang login
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
+        
+        const formatted = (data || [])
+          .filter(op => {
+            if (!currentRegionId) return true;
+            return op.regionId ? String(op.regionId) === currentRegionId : true;
+          })
+          .map(op => ({
+            id: String(op.id),
+            name: op.name,
+            email: op.email,
+            pos: op.posName || op.assignedPickupPoints?.[0]?.name || 'Belum Ditugaskan',
+            schedule: 'Senin - Jumat (08:00 - 16:00)',
+            status: op.status === 'active' ? 'Aktif' : 'Nonaktif'
+          }));
+
+        if (isMounted) {
+          setOperatorList(formatted);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Gagal mengambil data operator:', error);
+          toast.error('Gagal mengambil data operator dari server.', { title: 'Koneksi Gagal' });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingOperators(false);
+        }
+      }
+    };
+
+    loadOperators();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.regionId, toast]);
 
   const maskEmail = (email) => {
     if (!email) return email;
@@ -50,77 +86,83 @@ export default function OperatorPosPage() {
 
   const handleOpenAdd = () => {
     setIsEditing(false);
-    setFormData({ name: '', email: '', pos: availablePosList[0], schedule: 'Senin - Jumat (08:00 - 16:00)' });
+    setFormData({ name: '', email: '', password: 'Password123!', phone: '08123456789', regionId: user?.regionId || '1' });
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (op) => {
-    setIsEditing(true);
-    setCurrentOp(op);
-    setFormData({ name: op.name, email: op.email, pos: op.pos, schedule: op.schedule });
-    setIsModalOpen(true);
-  };
-
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) {
       toast.warning('Nama dan Email akun operator wajib diisi!', { title: 'Form Belum Lengkap' });
       return;
     }
 
-    if (isEditing && currentOp) {
-      setOperatorList(prev => prev.map(o => o.id === currentOp.id ? { ...o, ...formData } : o));
-      
-      const newLog = {
-        id: `LOG-OP-${Date.now().toString().slice(-4)}`,
-        opId: currentOp.id,
-        action: 'UPDATE OPERATOR',
-        pos: formData.pos,
-        timestamp: new Date().toLocaleTimeString('id-ID')
-      };
-      setOperatorLogs([newLog, ...operatorLogs]);
+    try {
+      if (isEditing) {
+        // Logika edit jika diperlukan
+        toast.success('Data operator diperbarui.', { title: 'Berhasil' });
+      } else {
+        await regionalService.createOperator({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          password: formData.password,
+          phone: formData.phone.trim(),
+          regionId: String(user?.regionId || formData.regionId)
+        });
+        toast.success('Akun operator baru berhasil dibuat di database.', { title: 'Operator Dibuat' });
+      }
+      setIsModalOpen(false);
 
-      toast.success(`Akun operator ${currentOp.id} berhasil diperbarui.`, { title: 'Perbaruan Berhasil' });
-    } else {
-      const generatedId = `OP-${String(nextOperatorIdRef.current).padStart(2, '0')}`;
-      const newOperator = {
-        id: generatedId,
-        ...formData,
-        status: 'Aktif'
-      };
-      nextOperatorIdRef.current += 1;
-      setOperatorList([newOperator, ...operatorList]);
+      // Reload data operator setelah simpan
+      const data = await regionalService.getOperators('operator');
+      const currentRegionId = user?.regionId ? String(user.regionId) : null;
+      const formatted = (data || [])
+        .filter(op => {
+          if (!currentRegionId) return true;
+          return op.regionId ? String(op.regionId) === currentRegionId : true;
+        })
+        .map(op => ({
+          id: String(op.id),
+          name: op.name,
+          email: op.email,
+          pos: op.posName || op.assignedPickupPoints?.[0]?.name || 'Belum Ditugaskan',
+          schedule: 'Senin - Jumat (08:00 - 16:00)',
+          status: op.status === 'active' ? 'Aktif' : 'Nonaktif'
+        }));
+      setOperatorList(formatted);
 
-      const newLog = {
-        id: `LOG-OP-${Date.now().toString().slice(-4)}`,
-        opId: generatedId,
-        action: 'CREATE OPERATOR',
-        pos: formData.pos,
-        timestamp: new Date().toLocaleTimeString('id-ID')
-      };
-      setOperatorLogs([newLog, ...operatorLogs]);
-
-      toast.success(`Akun operator baru berhasil dibuat.`, { title: 'Operator Dibuat' });
+    } catch (error) {
+      console.error('Gagal menyimpan operator:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan akun operator ke server.', { title: 'Error' });
     }
-    setIsModalOpen(false);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!operatorToDelete) return;
+    try {
+      await regionalService.updateOperatorStatus(operatorToDelete.id, 'inactive');
+      toast.success(`Akun operator ${operatorToDelete.id} berhasil dinonaktifkan.`, { title: 'Berhasil' });
+      setOperatorToDelete(null);
 
-    setOperatorList(prev => prev.filter(o => o.id !== operatorToDelete.id));
-
-    const newLog = {
-      id: `LOG-OP-${Date.now().toString().slice(-4)}`,
-      opId: operatorToDelete.id,
-      action: 'DELETE OPERATOR',
-      pos: operatorToDelete.pos,
-      timestamp: new Date().toLocaleTimeString('id-ID')
-    };
-    setOperatorLogs([newLog, ...operatorLogs]);
-
-    toast.success(`Akun operator ${operatorToDelete.id} berhasil dihapus.`, { title: 'Hapus Berhasil' });
-    setOperatorToDelete(null);
+      const data = await regionalService.getOperators('operator');
+      const currentRegionId = user?.regionId ? String(user.regionId) : null;
+      const formatted = (data || [])
+        .filter(op => {
+          if (!currentRegionId) return true;
+          return op.regionId ? String(op.regionId) === currentRegionId : true;
+        })
+        .map(op => ({
+          id: String(op.id),
+          name: op.name,
+          email: op.email,
+          pos: op.posName || op.assignedPickupPoints?.[0]?.name || 'Belum Ditugaskan',
+          schedule: 'Senin - Jumat (08:00 - 16:00)',
+          status: op.status === 'active' ? 'Aktif' : 'Nonaktif'
+        }));
+      setOperatorList(formatted);
+    } catch (error) {
+      toast.error('Gagal menonaktifkan operator.', { title: error });
+    }
   };
 
   const filteredOperators = operatorList.filter(o => 
@@ -128,8 +170,6 @@ export default function OperatorPosPage() {
     o.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.pos.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const isLoadingOperators = useSimulatedLoading([searchQuery], 700);
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -216,10 +256,7 @@ export default function OperatorPosPage() {
                       </td>
                       <td className="py-3.5 px-5">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button onClick={() => handleOpenEdit(op)} className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition cursor-pointer">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => setOperatorToDelete(op)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer">
+                          <button onClick={() => setOperatorToDelete(op)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer" title="Nonaktifkan">
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -230,7 +267,7 @@ export default function OperatorPosPage() {
               ) : (
                 <tr>
                   <td colSpan="6">
-                    <EmptyState icon={Users} title="Operator Tidak Ditemukan" description="Tidak ada operator pos yang cocok." />
+                    <EmptyState icon={Users} title="Operator Tidak Ditemukan" description="Tidak ada operator pos yang ditemukan dari backend untuk wilayah ini." />
                   </td>
                 </tr>
               )}
@@ -239,31 +276,10 @@ export default function OperatorPosPage() {
         </div>
       </div>
 
-      {operatorLogs.length > 0 && (
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-3">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-[#4B2172]" />
-            <h3 className="text-[12px] font-bold text-neutral-800">Catatan Audit Log Manajemen Operator</h3>
-          </div>
-          <div className="space-y-2">
-            {operatorLogs.map((log) => (
-              <div key={log.id} className="p-2.5 bg-neutral-50 border border-neutral-100 rounded-xl text-[9px] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-neutral-800 font-mono">{log.id}</span>
-                  <span className="px-2 py-0.5 font-bold rounded-full bg-purple-100 text-[#4B2172]">{log.action}</span>
-                  <span className="text-neutral-600">ID Operator: <strong>{log.opId}</strong> ({log.pos})</span>
-                </div>
-                <span className="text-[8px] text-neutral-400">{log.timestamp}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <BaseModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={isEditing ? 'Ubah Operator Pos' : 'Buat Operator Pos Baru'}
+        title="Buat Operator Pos Baru"
         subtitle="Sistem Akun Operasional Regional"
         maxWidth="max-w-md"
       >
@@ -277,16 +293,12 @@ export default function OperatorPosPage() {
             <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Pos Penugasan</label>
-            <select value={formData.pos} onChange={(e) => setFormData({...formData, pos: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer">
-              {availablePosList.map((pos, idx) => (
-                <option key={idx} value={pos}>{pos}</option>
-              ))}
-            </select>
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nomor Telepon</label>
+            <input type="text" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Shift Kerja</label>
-            <input type="text" required value={formData.schedule} onChange={(e) => setFormData({...formData, schedule: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Password Awal</label>
+            <input type="password" required value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3">
@@ -299,7 +311,7 @@ export default function OperatorPosPage() {
       <BaseModal
         isOpen={Boolean(operatorToDelete)}
         onClose={() => setOperatorToDelete(null)}
-        title="Konfirmasi Hapus Akun"
+        title="Konfirmasi Nonaktifkan Akun"
         subtitle="Manajemen Akses Operator Pos"
         maxWidth="max-w-sm"
       >
@@ -308,11 +320,11 @@ export default function OperatorPosPage() {
             <AlertTriangle size={20} />
           </div>
           <p className="text-neutral-600">
-            Apakah Anda yakin ingin menghapus akun operator <strong>{operatorToDelete?.name}</strong> ({operatorToDelete?.id})?
+            Apakah Anda yakin ingin menonaktifkan akun operator <strong>{operatorToDelete?.name}</strong> ({operatorToDelete?.id})?
           </p>
           <div className="flex gap-2 pt-2">
             <button onClick={() => setOperatorToDelete(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>
-            <button onClick={handleConfirmDelete} className="flex-1 py-2 bg-rose-600 text-white rounded-full font-bold cursor-pointer shadow-sm">Ya, Hapus</button>
+            <button onClick={handleConfirmDelete} className="flex-1 py-2 bg-rose-600 text-white rounded-full font-bold cursor-pointer shadow-sm">Ya, Nonaktifkan</button>
           </div>
         </div>
       </BaseModal>
