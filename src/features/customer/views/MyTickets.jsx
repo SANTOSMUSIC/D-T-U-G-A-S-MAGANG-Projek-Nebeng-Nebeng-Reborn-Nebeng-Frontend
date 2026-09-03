@@ -49,11 +49,8 @@ export default function MyTickets() {
   };
 
   const rewardData = {
-    totalPoints: 450,
-    history: [
-      { id: 'REW-01', title: 'Reward Trip Selesai (TKT-2026-003)', points: '+50', date: '20 Aug 2026', desc: 'Bonus loyalitas perjalanan aman' },
-      { id: 'REW-02', title: 'Penukaran Voucher Diskon Pos Rp 20.000', points: '-100', date: '15 Aug 2026', desc: 'Potongan biaya trip berikutnya' }
-    ]
+    totalPoints: 0,
+    history: []
   };
 
   const filteredTickets = allTickets.filter(ticket => {
@@ -301,6 +298,9 @@ export default function MyTickets() {
           <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 space-y-3">
             <h3 className="text-[14px] font-bold text-neutral-800">Riwayat Perolehan & Penukaran Poin</h3>
             <div className="space-y-2">
+              {rewardData.history.length === 0 && (
+                <p className="text-[10px] text-neutral-400 text-center py-4">Belum ada riwayat poin reward.</p>
+              )}
               {rewardData.history.map(item => (
                 <div key={item.id} className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl flex items-center justify-between text-[10px]">
                   <div>

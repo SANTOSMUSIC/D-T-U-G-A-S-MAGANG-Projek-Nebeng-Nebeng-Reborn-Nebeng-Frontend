@@ -34,54 +34,37 @@ export default function SearchTrip() {
   const [itemCategory, setItemCategory] = useState('Elektronik');
   const [itemCount, setItemCount] = useState(1);
   const [itemWeight, setItemWeight] = useState(5);
-  const [itemSize, setItemSize] = useState('M');
+  const [itemSize, setItemSize] = useState('m');
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
 
+  // FIX (kesesuaian schema): sebelumnya `code` di sini uppercase (XXS, S,
+  // M, ...) sementara enum ParcelSize di schema.prisma nilainya lowercase
+  // (xxs, xs, s, m, l, xl). Kalau `itemSize` ini langsung dikirim sebagai
+  // `sizeEnum` ke backend (field ItemOrder.sizeEnum), Prisma akan menolak
+  // karena enum case-sensitive. `code` sekarang disamakan lowercase dengan
+  // schema; `label` tetap uppercase untuk ditampilkan ke user.
   const sizeOptions = [
-    { code: 'XXS', label: 'XXS (< 1 kg)', weight: 1 },
-    { code: 'XS', label: 'XS (1-2 kg)', weight: 2 },
-    { code: 'S', label: 'S (2-5 kg)', weight: 4 },
-    { code: 'M', label: 'M (5-10 kg)', weight: 7 },
-    { code: 'L', label: 'L (10-20 kg)', weight: 15 },
-    { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
+    { code: 'xxs', label: 'XXS (< 1 kg)', weight: 1 },
+    { code: 'xs', label: 'XS (1-2 kg)', weight: 2 },
+    { code: 's', label: 'S (2-5 kg)', weight: 4 },
+    { code: 'm', label: 'M (5-10 kg)', weight: 7 },
+    { code: 'l', label: 'L (10-20 kg)', weight: 15 },
+    { code: 'xl', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  const mockTrips = [
-    {
-      id: 1,
-      mitraName: 'Budi Santoso',
-      origin: 'Pos Solo Kota',
-      destination: 'Pos Semarang Indah',
-      date: '2026-08-25',
-      type: 'penumpang',
-      vehicle: 'Toyota Avanza (H 1234 AB)',
-      vehicleCategory: 'mobil',
-      price: 'Rp 75.000',
-      basePrice: 75000,
-      priceUnit: 'kursi',
-      capacity: '3 Kursi Tersedia',
-      maxSeats: 3,
-      rating: '4.9 (120 trip)'
-    },
-    {
-      id: 2,
-      mitraName: 'Siti Aminah',
-      origin: 'Pos Solo Kota',
-      destination: 'Pos Yogyakarta Pusat',
-      date: '2026-08-25',
-      type: 'barang',
-      vehicle: 'Yamaha NMAX (AD 5678 CD - Motor)',
-      vehicleCategory: 'motor',
-      price: 'Rp 50.000 / paket',
-      basePrice: 50000,
-      priceUnit: 'paket',
-      remainingCapacityKg: 20,
-      rating: '4.8 (85 trip)'
-    }
-  ];
+  // FIX (hapus dummy data): dulu ada 2 trip contoh (Budi Santoso / Siti
+  // Aminah) yang di-hardcode di sini dan selalu muncul di hasil pencarian
+  // apa pun filternya. Trip model di schema (mitra, vehicle, originPoint,
+  // destinationPoint, price, seatAvailable, remainingWeightCapacityKg,
+  // status) berasal dari database, bukan dari kode frontend, jadi data
+  // contoh ini dihapus. `trips` sekarang kosong sampai diwire ke endpoint
+  // pencarian trip nyata (mis. GET /api/trips?origin=&destination=&date=
+  // &type= via apiClient) yang mengembalikan Trip beserta relasi mitra,
+  // vehicle, originPoint, destinationPoint sesuai schema.
+  const trips = [];
 
-  const filteredTrips = mockTrips.filter(trip => {
+  const filteredTrips = trips.filter(trip => {
     const matchOrigin = origin ? trip.origin.toLowerCase().includes(origin.toLowerCase()) : true;
     const matchDest = destination ? trip.destination.toLowerCase().includes(destination.toLowerCase()) : true;
     const matchDate = date ? trip.date === date : true;
@@ -129,7 +112,7 @@ export default function SearchTrip() {
     setItemCategory('Elektronik');
     setItemCount(1);
     setItemWeight(7);
-    setItemSize('M');
+    setItemSize('m');
     setReceiverName('');
     setReceiverPhone('');
   };
@@ -177,6 +160,20 @@ export default function SearchTrip() {
     const isBarang = selectedTrip.type === 'barang';
     const newTicketId = `TKT-${selectedTrip.id}-${Date.now().toString().slice(-6)}`;
 
+    // CATATAN KESESUAIAN SCHEMA (belum diperbaiki di sini karena butuh
+    // endpoint backend, bukan sekadar bug frontend):
+    // 1. `type: 'penumpang' | 'barang'` di bawah ini adalah label Indonesia
+    //    lokal, sedangkan enum OrderType di schema pakai 'passenger' |
+    //    'parcel'. Perlu mapping saat POST ke /api/orders.
+    // 2. PIN 6-digit di sini hanya dicek "sudah terisi semua", TIDAK
+    //    pernah diverifikasi ke User.pinHash — siapa pun bisa checkout
+    //    dengan PIN sembarang. Verifikasi PIN wajib dilakukan di backend
+    //    (bandingkan hash), bukan hanya validasi panjang di client.
+    // 3. Objek tiket lokal ini (id, title, from, to, mitra, ...) bentuknya
+    //    tidak sama dengan model Order (tripId, customerId, seatsBooked,
+    //    totalPrice Decimal, qrCodeTicket, escrowStatus, dst). Saat
+    //    backend order tersedia, addTicket() sebaiknya diganti dengan
+    //    hasil response API, bukan objek buatan sendiri di client.
     addTicket({
       id: newTicketId,
       type: selectedTrip.type,
