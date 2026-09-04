@@ -7,6 +7,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../services/apiClient';
+import { regionalService } from '../../../services/regionalService';
 
 export default function VerificationCenterPage() {
   const toast = useToast();
@@ -40,13 +41,9 @@ export default function VerificationCenterPage() {
         if (isMounted) setIsLoadingVerification(true);
         const currentRegionId = user?.regionId ? String(user.regionId) : null;
         
-        const response = await apiClient.get('/verifications', {
-          params: currentRegionId ? { regionId: currentRegionId } : {}
-        }).catch(() => ({ data: [] }));
+        const responseData = await regionalService.getVerifications(undefined, currentRegionId);
 
-        const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-
-        const formatted = rawData.map(item => ({
+        const formatted = responseData.map(item => ({
           id: String(item.id),
           userId: String(item.userId || item.user?.id),
           name: item.user?.name || 'Pengguna Tanpa Nama',
@@ -63,10 +60,7 @@ export default function VerificationCenterPage() {
             faceId: item.user?.profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
             livenessScore: '98.5%'
           }
-        })).filter(item => {
-          if (!currentRegionId) return true;
-          return item.regionId === currentRegionId || !item.regionId;
-        });
+        }));
 
         if (isMounted) {
           setVerificationList(formatted);
@@ -90,6 +84,38 @@ export default function VerificationCenterPage() {
     };
   }, [user?.regionId, toast]);
 
+  const handleApprove = async (id) => {
+    const target = verificationList.find(item => item.id === id);
+    if (isDecided(target)) {
+      toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
+      return;
+    }
+
+    try {
+      await regionalService.reviewVerification(id, 'approved');
+
+      setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
+
+      // Menggunakan panjang array log sebagai indeks unik pengganti Math.random / Date.now
+      const logIndex = verificationAuditLogs.length + 1;
+      const newLog = {
+        id: `LOG-VER-${logIndex}`,
+        verId: id,
+        name: target.name,
+        decision: 'APPROVED',
+        admin: user?.name || 'Admin Regional',
+        timestamp: new Date().toLocaleString('id-ID')
+      };
+      setVerificationAuditLogs(prevLogs => [newLog, ...prevLogs]);
+
+      setIsDetailModalOpen(false);
+      toast.success(`Verifikasi ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
+    } catch (error) {
+      console.error('Gagal menyetujui verifikasi:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyetujui dokumen di server.', { title: 'Error' });
+    }
+  };
+
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
     return `${phone.slice(0, 4)}****${phone.slice(-3)}`;
@@ -105,39 +131,6 @@ export default function VerificationCenterPage() {
   };
 
   const isDecided = (item) => !!item && item.status !== 'Menunggu Review';
-
-  const handleApprove = async (id) => {
-    const target = verificationList.find(item => item.id === id);
-    if (isDecided(target)) {
-      toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
-      return;
-    }
-
-    try {
-      await apiClient.patch(`/verifications/${id}/review`, {
-        status: 'approved',
-        assignedRegionId: user?.regionId ? String(user.regionId) : undefined
-      });
-
-      setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
-
-      const newLog = {
-        id: `LOG-VER-${Date.now().toString().slice(-4)}`,
-        verId: id,
-        name: target.name,
-        decision: 'APPROVED',
-        admin: user?.name || 'Admin Regional',
-        timestamp: new Date().toLocaleString('id-ID')
-      };
-      setVerificationAuditLogs([newLog, ...verificationAuditLogs]);
-
-      setIsDetailModalOpen(false);
-      toast.success(`Verifikasi ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
-    } catch (error) {
-      console.error('Gagal menyetujui verifikasi:', error);
-      toast.error(error.response?.data?.message || 'Gagal menyetujui dokumen di server.', { title: 'Error' });
-    }
-  };
 
   const handleOpenRejectModal = (item) => {
     if (isDecided(item)) {

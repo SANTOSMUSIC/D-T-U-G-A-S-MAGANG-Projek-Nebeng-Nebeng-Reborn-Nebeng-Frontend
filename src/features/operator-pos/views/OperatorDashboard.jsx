@@ -5,7 +5,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import { useAuth } from '../../../context/AuthContext';
-import apiClient from '../../../services/apiClient';
+import { operatorService } from '../../../services/operatorService';
 
 export default function OperatorDashboard() {
   const { user } = useAuth();
@@ -19,10 +19,10 @@ export default function OperatorDashboard() {
       try {
         if (isMounted) setIsLoadingTrips(true);
         
-        // Memanggil endpoint backend untuk mendapatkan daftar trip/operasional pos
-        const response = await apiClient.get('/trips').catch(() => ({ data: [] }));
+        // Memanggil operatorService untuk mendapatkan daftar trip
+        const rawData = await operatorService.getTrips();
 
-        const formatted = (response.data || []).map((t, index) => ({
+        const formatted = rawData.map((t, index) => ({
           id: String(t.id || `TRIP-${index + 9080}`),
           type: index % 2 === 0 ? 'Masuk' : 'Keluar',
           partnerName: t.driver?.name || t.mitraName || 'Driver Mitra',

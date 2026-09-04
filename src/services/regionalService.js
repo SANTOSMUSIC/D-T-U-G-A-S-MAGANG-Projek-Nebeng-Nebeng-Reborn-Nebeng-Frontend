@@ -39,18 +39,35 @@ export const regionalService = {
     return response.data;
   },
 
-  getVerifications: async (status = 'pending') => {
-    const response = await apiClient.get('/verifications', { params: { status } });
-    return response.data;
+  getVerifications: async (status, regionId) => {
+    const params = {};
+    if (status) params.status = status;
+    if (regionId) params.regionId = regionId;
+    
+    const response = await apiClient.get('/verifications', { params });
+    return Array.isArray(response.data) ? response.data : (response.data?.data || []);
   },
+
   getTrips: async (filters) => {
     const response = await apiClient.get('/trips', { params: filters });
-    return response.data;
+    return Array.isArray(response.data) ? response.data : (response.data?.data || []);
   },
   getUsersByRole: async (role, regionId) => {
     const params = { role };
     if (regionId) params.regionId = regionId;
     const response = await apiClient.get('/users', { params });
+    return response.data;
+  },
+  getPayments: async (regionId) => {
+    const params = regionId ? { regionId } : {};
+    const response = await apiClient.get('/payments', { params });
+    return Array.isArray(response.data) ? response.data : (response.data?.data || []);
+  },
+  reviewVerification: async (id, status, rejectionReason) => {
+    const payload = { status };
+    if (rejectionReason) payload.rejectionReason = rejectionReason;
+    
+    const response = await apiClient.patch(`/verifications/${id}/review`, payload);
     return response.data;
   },
 };

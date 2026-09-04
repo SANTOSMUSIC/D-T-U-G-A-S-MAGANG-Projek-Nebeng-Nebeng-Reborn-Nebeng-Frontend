@@ -6,7 +6,7 @@ import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
-import apiClient from '../../../services/apiClient';
+import { regionalService } from '../../../services/regionalService';
 
 export default function FinancialReportPage() {
   const { user } = useAuth();
@@ -25,21 +25,18 @@ export default function FinancialReportPage() {
         if (isMounted) setIsLoadingReports(true);
         const currentRegionId = user?.regionId ? String(user.regionId) : null;
 
-        const response = await apiClient.get('/payments', {
-          params: currentRegionId ? { regionId: currentRegionId } : {}
-        }).catch(() => ({ data: [] }));
+        // Memanggil service yang sudah diselaraskan dengan BE
+        const responseData = await regionalService.getPayments(currentRegionId);
 
-        const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-
-        const formatted = rawData.map(item => ({
+        const formatted = responseData.map(item => ({
           id: String(item.id || `TRX-${Math.floor(Math.random() * 9000 + 1000)}`),
           tripId: String(item.tripId || 'TRIP-9081'),
-          posName: item.pickupPoint?.name || 'Pos Regional Utama',
-          serviceType: item.serviceType || 'Logistik / Pengiriman',
+          posName: item.order?.trip?.originPoint?.name || item.pickupPoint?.name || 'Pos Regional Utama',
+          serviceType: item.serviceType || item.order?.type || 'Logistik / Pengiriman',
           amount: item.amount ? `Rp ${Number(item.amount).toLocaleString('id-ID')}` : 'Rp 35.000',
           commission: item.amount ? `Rp ${Math.round(Number(item.amount) * 0.15).toLocaleString('id-ID')}` : 'Rp 5.250',
           status: item.status === 'completed' || item.status === 'success' ? 'Lunas / Selesai' : 'Pending',
-          statusDetail: 'Transaksi tervalidasi sistem database.',
+          statusDetail: 'Transaksi tervalidasi sistem database escrow.',
           date: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Hari ini',
           paymentMethod: item.paymentMethod || 'QRIS / Non-Tunai'
         }));

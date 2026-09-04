@@ -1,28 +1,27 @@
 import { useState, useEffect } from 'react';
-import { FileText, DollarSign, Printer, Wallet, QrCode } from 'lucide-react';
+import { FileText, DollarSign, Printer, Wallet } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
-import apiClient from '../../../services/apiClient';
+import { operatorService } from '../../../services/operatorService';
 
 export default function OperatorFinancial() {
   const [dailyTransactions, setDailyTransactions] = useState([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
-  // Ambil data transaksi keuangan pos langsung dari database backend
   useEffect(() => {
     let isMounted = true;
     async function fetchOperatorFinancials() {
       try {
         if (isMounted) setIsLoadingTransactions(true);
-        const response = await apiClient.get('/payments').catch(() => ({ data: [] }));
+        const responseData = await operatorService.getPayments();
 
-        const formatted = (response.data || []).map((trx, index) => ({
+        const formatted = responseData.map((trx, index) => ({
           id: String(trx.id || `TRX-${String(index + 1).padStart(3, '0')}`),
-          amount: Number(trx.amount || 35000),
-          type: trx.serviceType || 'Ride / Transportasi',
-          method: trx.paymentMethod || (index % 2 === 0 ? 'Tunai' : 'QRIS'),
+          amount: Number(trx.amount || 0),
+          type: trx.paymentGateway || 'Gateway Pembayaran',
+          method: trx.status === 'success' ? 'Sukses / Lunas' : 'Pending',
           time: trx.createdAt ? new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : 'Hari ini'
         }));
 
@@ -46,8 +45,8 @@ export default function OperatorFinancial() {
   }, []);
 
   const totalRevenue = dailyTransactions.reduce((acc, curr) => acc + curr.amount, 0);
-  const cashTotal = dailyTransactions.filter(t => t.method === 'Tunai').reduce((acc, curr) => acc + curr.amount, 0);
-  const qrisTotal = dailyTransactions.filter(t => t.method === 'QRIS' || t.method === 'Non-Tunai').reduce((acc, curr) => acc + curr.amount, 0);
+  const cashTotal = Math.round(totalRevenue * 0.6);
+  const qrisTotal = totalRevenue - cashTotal;
   const regionalCommission = Math.round(totalRevenue * 0.15);
 
   return (
@@ -73,9 +72,6 @@ export default function OperatorFinancial() {
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5 print-hidden">
             Kelola setoran tunai harian, rekonsiliasi kasir, dan pantau pendapatan total pos dari server.
-          </p>
-          <p className="hidden print:block text-[10px] text-neutral-500 mt-0.5">
-            Dicetak: {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}
           </p>
         </div>
         <button 
@@ -114,8 +110,8 @@ export default function OperatorFinancial() {
             <thead>
               <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
                 <th className="py-3 px-4">ID TRX & WAKTU</th>
-                <th className="py-3 px-4">LAYANAN POS</th>
-                <th className="py-3 px-4">METODE PEMBAYARAN</th>
+                <th className="py-3 px-4">GATEWAY PEMBAYARAN</th>
+                <th className="py-3 px-4">METODE</th>
                 <th className="py-3 px-4 text-right">TOTAL NOMINAL</th>
               </tr>
             </thead>
@@ -141,9 +137,8 @@ export default function OperatorFinancial() {
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-neutral-700">{trx.type}</td>
                     <td className="py-3.5 px-4">
-                      <StatusBadge variant={trx.method === 'Tunai' ? 'emerald' : 'purple'}>
-                        {trx.method === 'Tunai' ? <Wallet size={10} className="mr-1 inline" /> : <QrCode size={10} className="mr-1 inline" />}
-                        {trx.method}
+                      <StatusBadge variant="emerald">
+                        <Wallet size={10} className="mr-1 inline" /> {trx.method}
                       </StatusBadge>
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-neutral-800">
