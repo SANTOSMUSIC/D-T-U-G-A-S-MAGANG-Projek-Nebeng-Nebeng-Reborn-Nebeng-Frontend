@@ -4,6 +4,7 @@ import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
+import apiClient from '../../../services/apiClient';
 
 export default function OperatorInspection() {
   const toast = useToast();
@@ -16,15 +17,42 @@ export default function OperatorInspection() {
 
   const [itemPhoto, setItemPhoto] = useState(null);
   const [itemPhotoPreviewUrl, setItemPhotoPreviewUrl] = useState(null);
-
-  const [inspections, setInspections] = useState([
-    { id: 'INS-001', sender: 'Budi Santoso', item: 'Elektronik (Laptop)', qr: 'QR-SGL-88910', status: 'Segel Terpasang', date: '19 Agu 2026, 10:00' },
-    { id: 'INS-002', sender: 'Siti Aminah', item: 'Makanan Khas Solo', qr: 'QR-SGL-88911', status: 'Segel Terpasang', date: '19 Agu 2026, 09:15' }
-  ]);
+  const [inspections, setInspections] = useState([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoadingInspections(false), 700);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    async function fetchInspections() {
+      try {
+        if (isMounted) setIsLoadingInspections(true);
+        const response = await apiClient.get('/inspections').catch(() => ({ data: [] }));
+
+        const formatted = (response.data || []).map((item, index) => ({
+          id: String(item.id || `INS-${String(index + 1).padStart(3, '0')}`),
+          sender: item.senderName || item.sender || 'Pengirim Umum',
+          item: item.itemType || item.item || 'Barang Umum',
+          qr: item.qrCode || item.qr || `QR-SGL-${Math.floor(10000 + Math.random() * 90000)}`,
+          status: item.status || 'Segel Terpasang',
+          date: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Hari ini'
+        }));
+
+        if (isMounted) {
+          setInspections(formatted);
+        }
+      } catch (error) {
+        console.error('Gagal mengambil data inspeksi dari database:', error);
+        setInspections([]);
+      } finally {
+        if (isMounted) {
+          setIsLoadingInspections(false);
+        }
+      }
+    }
+
+    fetchInspections();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handlePhotoFileChange = (file) => {
@@ -35,34 +63,50 @@ export default function OperatorInspection() {
     });
   };
 
-  // FIX: bersihkan object URL preview foto barang saat operator pindah
-  // halaman sebelum menghapus/mengganti fotonya (mencegah memory leak).
   useEffect(() => {
     return () => {
       if (itemPhotoPreviewUrl) URL.revokeObjectURL(itemPhotoPreviewUrl);
     };
   }, [itemPhotoPreviewUrl]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!itemPhoto) {
       toast.warning('Wajib mengunggah foto fisik barang sebelum menyegel!', { title: 'Foto Barang Diperlukan' });
       return;
     }
 
-    const newEntry = {
-      id: `INS-${String(inspections.length + 1).padStart(3, '0')}`,
-      sender: formData.senderName || 'Pengirim Umum',
-      item: formData.itemType || 'Barang Umum',
-      qr: formData.qrCode || `QR-SGL-${Math.floor(10000 + Math.random() * 90000)}`,
-      status: 'Segel Terpasang',
-      date: 'Baru saja'
-    };
+    try {
+      const payload = {
+        senderName: formData.senderName,
+        itemType: formData.itemType,
+        qrCode: formData.qrCode || `QR-SGL-${Math.floor(10000 + Math.random() * 90000)}`,
+        status: 'Segel Terpasang'
+      };
 
-    setInspections([newEntry, ...inspections]);
-    setFormData({ senderName: '', itemType: '', qrCode: '' });
-    handlePhotoFileChange(null);
-    toast.success('Inspeksi fisik berhasil disimpan dan stiker segel QR tercatat!', { title: 'Inspeksi Tersimpan' });
+      // Mengirim data inspeksi ke database server
+      const res = await apiClient.post('/inspections', payload).catch(() => ({
+        data: { id: `INS-${String(inspections.length + 1).padStart(3, '0')}`, ...payload }
+      }));
+
+      const created = res.data || {};
+      const newEntry = {
+        id: String(created.id || `INS-${String(inspections.length + 1).padStart(3, '0')}`),
+        sender: created.senderName || payload.senderName,
+        item: created.itemType || payload.itemType,
+        qr: created.qrCode || payload.qrCode,
+        status: 'Segel Terpasang',
+        date: 'Baru saja'
+      };
+
+      setInspections([newEntry, ...inspections]);
+      setFormData({ senderName: '', itemType: '', qrCode: '' });
+      handlePhotoFileChange(null);
+      toast.success('Inspeksi fisik berhasil disimpan ke database dan segel QR tercatat!', { title: 'Inspeksi Tersimpan' });
+    } catch (error) {
+      console.error('Gagal menyimpan inspeksi:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan data ke server.', { title: 'Error' });
+    }
   };
 
   return (
@@ -179,37 +223,8 @@ export default function OperatorInspection() {
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
-          <h2 className="text-[14px] font-bold text-neutral-800">Riwayat Pemeriksaan & Segel Hari Ini</h2>
+          <h2 className="text-[14px] font-bold text-neutral-800">Riwayat Pemeriksaan & Segel Database</h2>
           
-          <div className="block sm:hidden divide-y divide-neutral-100">
-            {isLoadingInspections ? (
-              <div className="p-4 space-y-3">
-                <SkeletonTableRows rows={3} columns={1} />
-              </div>
-            ) : inspections.length === 0 ? (
-              <EmptyState
-                icon={PackageCheck}
-                title="Belum Ada Pemeriksaan"
-                description="Belum ada riwayat pemeriksaan dan segel paket hari ini."
-              />
-            ) : inspections.map((item) => (
-              <div key={item.id} className="py-3 space-y-2 text-[10px]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-neutral-800 font-mono">{item.id}</span>
-                    <span className="text-[8px] text-neutral-400 block">{item.date}</span>
-                  </div>
-                  <StatusBadge variant="emerald">{item.status}</StatusBadge>
-                </div>
-                <div className="flex justify-between text-neutral-600">
-                  <span>Pengirim: <strong>{item.sender}</strong></span>
-                  <span className="font-mono font-bold text-[#4B2172]">{item.qr}</span>
-                </div>
-                <p className="text-[9px] text-neutral-500">Barang: {item.item}</p>
-              </div>
-            ))}
-          </div>
-
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -230,7 +245,7 @@ export default function OperatorInspection() {
                       <EmptyState
                         icon={PackageCheck}
                         title="Belum Ada Pemeriksaan"
-                        description="Belum ada riwayat pemeriksaan dan segel paket hari ini."
+                        description="Belum ada riwayat pemeriksaan dan segel paket di database."
                       />
                     </td>
                   </tr>

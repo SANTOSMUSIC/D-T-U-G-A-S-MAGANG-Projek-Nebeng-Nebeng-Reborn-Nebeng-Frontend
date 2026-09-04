@@ -3,57 +3,51 @@ import { ChevronDown, User, Settings } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import apiClient from '../../../services/apiClient';
 
-/**
- * RegionalTopbar
- * Menampilkan identitas admin regional yang sedang login (avatar + nama + role)
- * dengan dropdown "Profil Saya" dan "Pengaturan Akun". 
- * Foto profil disinkronkan otomatis dari sesi/database saat pertama kali dimuat.
- */
 export default function RegionalTopbar({ user: initialUser, onSettingsClick }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState(initialUser);
+  const [fetchedUser, setFetchedUser] = useState(null);
   const dropdownRef = useRef(null);
 
-  // Sinkronisasi data user real-time dari backend/database saat komponen dimuat
+  // Hanya melakukan fetch asinkron jika initialUser belum lengkap (Tanpa setState sinkron di else)
   useEffect(() => {
     let isMounted = true;
-    async function syncUserData() {
+
+    async function fetchLatestProfile() {
       try {
         const res = await apiClient.get('/auth/me');
         if (isMounted && res?.data) {
-          const dbUser = res.data;
-          const rawAvatar = dbUser.avatar || dbUser.photoDataUrl || '';
-          
-          let formattedAvatar = rawAvatar;
-          if (rawAvatar && !rawAvatar.startsWith('http') && !rawAvatar.startsWith('data:')) {
-            const baseURL = apiClient.defaults.baseURL 
-              ? apiClient.defaults.baseURL.replace('/api', '') 
-              : 'http://localhost:3000';
-            formattedAvatar = `${baseURL}${rawAvatar}`;
-          }
-
-          setCurrentUser((prev) => ({
-            ...prev,
-            ...dbUser,
-            photoDataUrl: formattedAvatar || prev?.photoDataUrl || ''
-          }));
+          setFetchedUser(res.data);
         }
       } catch (err) {
-        console.error('Gagal menyinkronkan data user topbar:', err);
+        console.error('Gagal memuat profil terkini topbar:', err);
       }
     }
 
-    syncUserData();
+    if (!initialUser?.name || initialUser.name === 'Admin Regional') {
+      fetchLatestProfile();
+    }
+
     return () => {
       isMounted = false;
     };
   }, [initialUser]);
 
+  // Menggabungkan data secara langsung (Derived State) tanpa memicu setState beruntun
+  const currentUser = fetchedUser || initialUser || {};
+
   const displayName = currentUser?.name?.trim() || 'Admin Regional';
   const firstName = displayName.split(' ')[0];
   const displayRole = currentUser?.role?.trim() || 'Admin Regional';
-  const photoDataUrl = currentUser?.photoDataUrl || currentUser?.avatar || '';
+  
+  let rawAvatar = currentUser?.avatar || currentUser?.photoDataUrl || '';
+  let formattedAvatar = rawAvatar;
+  
+  if (rawAvatar && !rawAvatar.startsWith('http') && !rawAvatar.startsWith('data:')) {
+    const baseURL = 'http://localhost:3000';
+    formattedAvatar = `${baseURL}${rawAvatar}`;
+  }
+  const photoDataUrl = formattedAvatar;
 
   const initials = displayName
     .split(' ')

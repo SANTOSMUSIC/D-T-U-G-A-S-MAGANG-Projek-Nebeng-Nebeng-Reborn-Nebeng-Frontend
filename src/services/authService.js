@@ -11,14 +11,16 @@ export async function loginRequest({ email, password }) {
   });
 
   const responseData = response.data;
-  const userObj = responseData?.data || responseData?.user || responseData;
 
+  const userObj = responseData?.data || responseData?.user || responseData;
   const role = userObj?.role || responseData?.role || 'customer';
-  const token = responseData?.accessToken || responseData?.token || userObj?.token;
+  const accessToken = responseData?.accessToken || responseData?.token || userObj?.token;
+  const refreshToken = responseData?.refreshToken || responseData?.refresh_token;
 
   return {
-    role: role.toLowerCase(), // Langsung menggunakan role dari backend ('admin', 'regional', dll)
-    token: token,             // Token JWT asli dari backend
+    role: role.toLowerCase(),
+    token: accessToken,
+    refreshToken: refreshToken,
     email: userObj?.email || email,
     name: userObj?.name,
   };

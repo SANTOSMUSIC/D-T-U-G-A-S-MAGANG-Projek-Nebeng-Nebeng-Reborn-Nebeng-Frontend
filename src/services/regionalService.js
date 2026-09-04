@@ -1,14 +1,12 @@
 import apiClient from './apiClient';
 
 export const regionalService = {
-  // Dashboard Regional
   getRegionalDashboard: async (regionId) => {
     const params = regionId ? { regionId } : {};
     const response = await apiClient.get('/admin/dashboard/regional', { params });
     return response.data;
   },
 
-  // Pickup Points (Pos Mitra)
   getPickupPoints: async (regionId) => {
     const response = await apiClient.get('/pickup-points', {
       params: { regionId, onlyActive: true }
@@ -28,11 +26,8 @@ export const regionalService = {
     return response.data;
   },
 
-  // Manajemen Operator / Users
   getOperators: async (role = 'operator') => {
-    const response = await apiClient.get('/users', {
-      params: { role }
-    });
+    const response = await apiClient.get('/users', { params: { role } });
     return response.data;
   },
   createOperator: async (data) => {
@@ -44,7 +39,6 @@ export const regionalService = {
     return response.data;
   },
 
-  // Verifikasi Dokumen & Trip
   getVerifications: async (status = 'pending') => {
     const response = await apiClient.get('/verifications', { params: { status } });
     return response.data;
@@ -52,5 +46,11 @@ export const regionalService = {
   getTrips: async (filters) => {
     const response = await apiClient.get('/trips', { params: filters });
     return response.data;
-  }
+  },
+  getUsersByRole: async (role, regionId) => {
+    const params = { role };
+    if (regionId) params.regionId = regionId;
+    const response = await apiClient.get('/users', { params });
+    return response.data;
+  },
 };

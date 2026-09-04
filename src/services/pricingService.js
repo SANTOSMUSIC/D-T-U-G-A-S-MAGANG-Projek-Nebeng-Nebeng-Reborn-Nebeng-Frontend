@@ -12,9 +12,9 @@ export async function updateRegionRate(regionId, pricePerKm) {
   return response.data;
 }
 
-// Tambahkan fungsi ini di pricingService.js
+// Mengambil seluruh data kebijakan tarif global & matriks paket
 export async function getPricingPolicy() {
-  const response = await apiClient.get('/admin/settings/pricing-policy'); // Sesuaikan dengan endpoint GET di backend Anda jika ada
+  const response = await apiClient.get('/admin/settings/pricing-policy');
   return response.data;
 }
 
@@ -24,7 +24,7 @@ export async function updateRewardSetting(pointsMultiplier) {
   return response.data;
 }
 
-// TAMBAHKAN FUNGSI INI: Memperbarui seluruh kebijakan tarif global, komisi, dan matriks paket
+// Memperbarui seluruh kebijakan tarif global, komisi, dan matriks paket
 export async function updateCompletePricingPolicy(payload) {
   const response = await apiClient.patch('/admin/settings/pricing-policy', payload);
   return response.data;

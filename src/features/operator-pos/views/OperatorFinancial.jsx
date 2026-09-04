@@ -1,18 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, DollarSign, Printer, Wallet, QrCode } from 'lucide-react';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
+import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
+import apiClient from '../../../services/apiClient';
 
 export default function OperatorFinancial() {
-  const [dailyTransactions] = useState([
-    { id: 'TRX-001', amount: 80000, type: 'Ride', method: 'Tunai', time: '09:15 WIB' },
-    { id: 'TRX-002', amount: 45000, type: 'Parcel', method: 'QRIS', time: '10:00 WIB' },
-    { id: 'TRX-003', amount: 30000, type: 'Ride', method: 'Tunai', time: '11:20 WIB' }
-  ]);
+  const [dailyTransactions, setDailyTransactions] = useState([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+
+  // Ambil data transaksi keuangan pos langsung dari database backend
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchOperatorFinancials() {
+      try {
+        if (isMounted) setIsLoadingTransactions(true);
+        const response = await apiClient.get('/payments').catch(() => ({ data: [] }));
+
+        const formatted = (response.data || []).map((trx, index) => ({
+          id: String(trx.id || `TRX-${String(index + 1).padStart(3, '0')}`),
+          amount: Number(trx.amount || 35000),
+          type: trx.serviceType || 'Ride / Transportasi',
+          method: trx.paymentMethod || (index % 2 === 0 ? 'Tunai' : 'QRIS'),
+          time: trx.createdAt ? new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : 'Hari ini'
+        }));
+
+        if (isMounted) {
+          setDailyTransactions(formatted);
+        }
+      } catch (error) {
+        console.error('Gagal mengambil data keuangan dari database:', error);
+        setDailyTransactions([]);
+      } finally {
+        if (isMounted) {
+          setIsLoadingTransactions(false);
+        }
+      }
+    }
+
+    fetchOperatorFinancials();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const totalRevenue = dailyTransactions.reduce((acc, curr) => acc + curr.amount, 0);
   const cashTotal = dailyTransactions.filter(t => t.method === 'Tunai').reduce((acc, curr) => acc + curr.amount, 0);
-  const qrisTotal = dailyTransactions.filter(t => t.method === 'QRIS').reduce((acc, curr) => acc + curr.amount, 0);
+  const qrisTotal = dailyTransactions.filter(t => t.method === 'QRIS' || t.method === 'Non-Tunai').reduce((acc, curr) => acc + curr.amount, 0);
   const regionalCommission = Math.round(totalRevenue * 0.15);
 
   return (
@@ -25,23 +60,19 @@ export default function OperatorFinancial() {
         }
       `}</style>
 
-      {/* FIX: sebelumnya class print-hidden dipasang di div pembungkus ini,
-          jadi judul & subjudul laporan ikut hilang saat dicetak. Sekarang
-          print-hidden hanya di tombol, dan ada header khusus print di
-          bawah yang selalu tampil saat window.print(). */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1 print-hidden">
             <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
-              <FileText className="w-3 h-3" /> REKAPITULASI KAS & PENDAPATAN POS
+              <FileText className="w-3 h-3" /> REKAPITULASI KAS & PENDAPATAN POS (DATABASE)
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
             Laporan Finansial Pos Terminal
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5 print-hidden">
-            Kelola setoran tunai harian, rekonsiliasi kasir, dan pantau pendapatan total pos.
+            Kelola setoran tunai harian, rekonsiliasi kasir, dan pantau pendapatan total pos dari server.
           </p>
           <p className="hidden print:block text-[10px] text-neutral-500 mt-0.5">
             Dicetak: {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}
@@ -77,7 +108,7 @@ export default function OperatorFinancial() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
-        <h2 className="text-[14px] font-bold text-neutral-800">Rincian Transaksi Shift Aktif</h2>
+        <h2 className="text-[14px] font-bold text-neutral-800">Rincian Transaksi Shift Aktif (Database)</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -89,24 +120,38 @@ export default function OperatorFinancial() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100 text-[9px]">
-              {dailyTransactions.map((trx) => (
-                <tr key={trx.id} className="hover:bg-neutral-50/60 transition">
-                  <td className="py-3.5 px-4">
-                    <p className="font-bold text-neutral-800 font-mono text-[10px]">{trx.id}</p>
-                    <p className="text-[8px] text-neutral-400">{trx.time}</p>
-                  </td>
-                  <td className="py-3.5 px-4 font-semibold text-neutral-700">{trx.type}</td>
-                  <td className="py-3.5 px-4">
-                    <StatusBadge variant={trx.method === 'Tunai' ? 'emerald' : 'purple'}>
-                      {trx.method === 'Tunai' ? <Wallet size={10} className="mr-1 inline" /> : <QrCode size={10} className="mr-1 inline" />}
-                      {trx.method}
-                    </StatusBadge>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-bold text-neutral-800">
-                    Rp {trx.amount.toLocaleString('id-ID')}
+              {isLoadingTransactions ? (
+                <SkeletonTableRows rows={3} columns={4} />
+              ) : dailyTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>
+                    <EmptyState
+                      icon={FileText}
+                      title="Belum Ada Transaksi"
+                      description="Belum ada data transaksi finansial tercatat di database pos Anda."
+                    />
                   </td>
                 </tr>
-              ))}
+              ) : (
+                dailyTransactions.map((trx) => (
+                  <tr key={trx.id} className="hover:bg-neutral-50/60 transition">
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-neutral-800 font-mono text-[10px]">{trx.id}</p>
+                      <p className="text-[8px] text-neutral-400">{trx.time}</p>
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-neutral-700">{trx.type}</td>
+                    <td className="py-3.5 px-4">
+                      <StatusBadge variant={trx.method === 'Tunai' ? 'emerald' : 'purple'}>
+                        {trx.method === 'Tunai' ? <Wallet size={10} className="mr-1 inline" /> : <QrCode size={10} className="mr-1 inline" />}
+                        {trx.method}
+                      </StatusBadge>
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-bold text-neutral-800">
+                      Rp {trx.amount.toLocaleString('id-ID')}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

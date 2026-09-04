@@ -15,7 +15,6 @@ export default function Login({ onSwitchToRegister, onLogin }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
 
-  // Bersihkan error spesifik saat pengguna mulai mengetik ulang
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
     if (errors.email || errors.general) {
@@ -58,17 +57,15 @@ export default function Login({ onSwitchToRegister, onLogin }) {
     const cleanEmail = email.trim();
 
     try {
-      // Kirim cleanEmail (sudah di-trim) ke backend
-      const { role, token } = await loginRequest({ email: cleanEmail, password });
+      const { role, token, refreshToken, user } = await loginRequest({ email: cleanEmail, password });
 
-      login(role, { token, email: cleanEmail }, rememberMe);
+      login(role, { token, refreshToken, email: cleanEmail, user }, rememberMe);
 
       if (onLogin) onLogin(role);
     } catch (err) {
-      // Tangkap pesan spesifik dari backend jika ada, atau kembalikan error default
       const errorMessage = err?.response?.data?.message || 'Email atau kata sandi salah. Silakan coba lagi.';
       setErrors({ password: errorMessage });
-      setIsSubmitting(false); // Matikan loading state hanya jika terjadi error (tidak unmounted)
+      setIsSubmitting(false);
     }
   };
 

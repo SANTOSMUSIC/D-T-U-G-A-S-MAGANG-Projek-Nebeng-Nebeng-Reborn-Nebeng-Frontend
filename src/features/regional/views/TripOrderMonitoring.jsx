@@ -50,20 +50,15 @@ export default function RegionalTripMonitoringPage() {
     const loadTrips = async () => {
       try {
         if (isMounted) setIsLoadingTrips(true);
-        let regId = user?.regionId;
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
 
-        if (!regId) {
-          try {
-            const res = await apiClient.get('/auth/me');
-            regId = res.data?.regionId ? String(res.data.regionId) : null;
-          } catch (err) {
-            console.error('Gagal memuat profil region:', err);
-          }
-        }
-
-        const response = await apiClient.get('/trips').catch(() => ({ data: [] }));
+        const response = await apiClient.get('/trips', {
+          params: currentRegionId ? { regionId: currentRegionId } : {}
+        }).catch(() => ({ data: [] }));
         
-        const formatted = (response.data || []).map(t => ({
+        const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+        
+        const formatted = rawData.map(t => ({
           id: String(t.id || `TRIP-${Math.floor(Math.random() * 9000 + 1000)}`),
           passenger: t.customer?.name || t.passengerName || 'Pelanggan Umum',
           driver: t.driver?.name || t.mitraName || 'Driver Mitra',

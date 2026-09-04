@@ -33,30 +33,40 @@ export default function AdminRegionalDashboard() {
 
   // Fetch data langsung dari Backend (/api/admin/dashboard/regional)
   useEffect(() => {
+    let isMounted = true;
+
     const fetchDashboard = async () => {
       try {
         setIsLoading(true);
-        // Mengirim regionId milik user yang sedang login jika ada
+
         const data = await regionalService.getRegionalDashboard(user?.regionId);
-        setDashboardData(data);
-        
-        // Memetakan data dari backend ke state komponen
-        if (data?.disruptedTrips) {
-          setDisruptedTrips(data.disruptedTrips);
-        }
-        if (data?.activities) {
-          setRecentRegionalActivities(data.activities);
+
+        if (isMounted && data) {
+          setDashboardData(data);
+          
+          if (data.disruptedTrips) {
+            setDisruptedTrips(Array.isArray(data.disruptedTrips) ? data.disruptedTrips : []);
+          }
+          if (data.activities) {
+            setRecentRegionalActivities(Array.isArray(data.activities) ? data.activities : []);
+          }
         }
       } catch (error) {
-        console.error('Gagal memuat dashboard regional:', error);
+        console.error('[DEBUG] Gagal memuat dashboard regional:', error);
         toast.error('Gagal mengambil data dari server backend.', { title: 'Koneksi Gagal' });
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchDashboard();
-  }, [user]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.regionId]);
 
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
@@ -132,10 +142,30 @@ export default function AdminRegionalDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard title="JUMLAH POS AKTIF" value={dashboardData ? `${dashboardData.activePosCount ?? 0} Pos` : '0 Pos'} subtitle="Pos resmi terdaftar" icon={MapPin} />
-        <StatCard title="TRIP BERANGKAT / TIBA" value={dashboardData ? `${dashboardData.tripCount ?? 0} Trip` : '0 Trip'} subtitle="Arus logistik wilayah" icon={Compass} />
-        <StatCard title="TRIP DISRUPTED (KENDALA)" value={`${disruptedTrips.length} Trip`} subtitle={disruptedTrips.length > 0 ? 'Butuh Penanganan Rute' : 'Aman Lancar'} icon={AlertTriangle} />
-        <StatCard title="ANTREAN VERIFIKASI" value={dashboardData ? `${dashboardData.pendingVerificationCount ?? 0} Berkas` : '0 Berkas'} subtitle="Menunggu review KTP & Face ID" icon={ShieldCheck} />
+        <StatCard 
+          title="JUMLAH POS AKTIF" 
+          value={`${dashboardData?.metrics?.activePosCount ?? 0} Pos`} 
+          subtitle="Pos resmi terdaftar" 
+          icon={MapPin} 
+        />
+        <StatCard 
+          title="TRIP BERANGKAT / TIBA" 
+          value={`${(dashboardData?.metrics?.departedTripsCount ?? 0) + (dashboardData?.metrics?.arrivedTripsCount ?? 0)} Trip`} 
+          subtitle={`Berangkat: ${dashboardData?.metrics?.departedTripsCount ?? 0} | Tiba: ${dashboardData?.metrics?.arrivedTripsCount ?? 0}`} 
+          icon={Compass} 
+        />
+        <StatCard 
+          title="TRIP DISRUPTED (KENDALA)" 
+          value={`${disruptedTrips.length} Trip`} 
+          subtitle={disruptedTrips.length > 0 ? 'Butuh Penanganan Rute' : 'Aman Lancar'} 
+          icon={AlertTriangle} 
+        />
+        <StatCard 
+          title="ANTREAN VERIFIKASI" 
+          value={`${dashboardData?.metrics?.pendingVerificationCount ?? 0} Berkas`} 
+          subtitle="Menunggu review KTP & Face ID" 
+          icon={ShieldCheck} 
+        />
       </div>
 
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
@@ -259,7 +289,7 @@ export default function AdminRegionalDashboard() {
           )}
         </div>
 
-        <div className="bg-gradient-to-br from-[#4B2172] to-[#2a1042] rounded-2xl p-5 text-white shadow-sm flex flex-col justify-between">
+        <div className="bg-linear-to-br from-[#4B2172] to-[#2a1042] rounded-2xl p-5 text-white shadow-sm flex flex-col justify-between">
           <div>
             <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center font-bold mb-3">
               <ShieldCheck className="w-4 h-4 text-purple-200" />

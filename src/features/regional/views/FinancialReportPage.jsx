@@ -23,20 +23,15 @@ export default function FinancialReportPage() {
     const loadFinancialData = async () => {
       try {
         if (isMounted) setIsLoadingReports(true);
-        let regId = user?.regionId;
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
 
-        if (!regId) {
-          try {
-            const res = await apiClient.get('/auth/me');
-            regId = res.data?.regionId ? String(res.data.regionId) : null;
-          } catch (err) {
-            console.error('Gagal memuat profil region:', err);
-          }
-        }
+        const response = await apiClient.get('/payments', {
+          params: currentRegionId ? { regionId: currentRegionId } : {}
+        }).catch(() => ({ data: [] }));
 
-        const response = await apiClient.get('/payments').catch(() => ({ data: [] }));
+        const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
 
-        const formatted = (response.data || []).map(item => ({
+        const formatted = rawData.map(item => ({
           id: String(item.id || `TRX-${Math.floor(Math.random() * 9000 + 1000)}`),
           tripId: String(item.tripId || 'TRIP-9081'),
           posName: item.pickupPoint?.name || 'Pos Regional Utama',

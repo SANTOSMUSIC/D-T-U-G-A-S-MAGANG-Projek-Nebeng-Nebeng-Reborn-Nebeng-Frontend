@@ -4,7 +4,7 @@ import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import { useAuth } from '../../../context/AuthContext';
-import apiClient from '../../../services/apiClient';
+import { regionalService } from '../../../services/regionalService';
 
 export default function FleetCourierPage() {
   const toast = useToast();
@@ -20,19 +20,12 @@ export default function FleetCourierPage() {
     const loadData = async () => {
       try {
         if (isMounted) setIsLoading(true);
-        let regId = user?.regionId;
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
 
-        if (!regId) {
-          const res = await apiClient.get('/auth/me');
-          regId = res.data?.regionId ? String(res.data.regionId) : null;
-        }
+        const userRes = await regionalService.getUsersByRole('mitra', currentRegionId).catch(() => []);
+        const rawUsers = Array.isArray(userRes) ? userRes : (userRes?.data || []);
 
-        // Karena backend hanya menyediakan manajemen kendaraan berbasis kepemilikan mitra (/vehicles/me) 
-        // dan belum ada endpoint global GET /vehicles untuk admin, kita ambil data dari user ber-role mitra
-        const userRes = await apiClient.get('/users', { params: { role: 'mitra' } }).catch(() => ({ data: [] }));
-        const currentRegionId = regId ? String(regId) : null;
-
-        const formatted = (userRes.data || [])
+        const formatted = rawUsers
           .filter(u => {
             const isMitra = u.role && String(u.role).toLowerCase() === 'mitra';
             if (!isMitra) return false;

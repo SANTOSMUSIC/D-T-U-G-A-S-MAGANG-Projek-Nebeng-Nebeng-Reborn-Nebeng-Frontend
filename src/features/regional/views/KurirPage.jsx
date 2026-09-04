@@ -5,7 +5,7 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
-import apiClient from '../../../services/apiClient';
+import { regionalService } from '../../../services/regionalService';
 
 export default function KurirPage() {
   const toast = useToast();
@@ -22,22 +22,12 @@ export default function KurirPage() {
     const loadKurirData = async () => {
       try {
         if (isMounted) setIsLoadingKurir(true);
-        let regId = user?.regionId;
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
 
-        if (!regId) {
-          try {
-            const res = await apiClient.get('/auth/me');
-            regId = res.data?.regionId ? String(res.data.regionId) : null;
-          } catch (err) {
-            console.error('Gagal memuat profil region:', err);
-          }
-        }
+        const userRes = await regionalService.getUsersByRole('mitra', currentRegionId).catch(() => []);
+        const rawUsers = Array.isArray(userRes) ? userRes : (userRes?.data || []);
 
-        // Ambil data dari /users dengan parameter role 'mitra'
-        const userRes = await apiClient.get('/users', { params: { role: 'mitra' } });
-        const currentRegionId = regId ? String(regId) : null;
-
-        const formatted = (userRes.data || [])
+        const formatted = rawUsers
           .filter(u => {
             const isMitraRole = u.role && String(u.role).toLowerCase() === 'mitra';
             if (!isMitraRole) return false;

@@ -9,8 +9,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import apiClient from '../../../services/apiClient';
-import { updateCompletePricingPolicy } from '../../../services/pricingService';
+import { updateCompletePricingPolicy, getPricingPolicy } from '../../../services/pricingService';
 
 export default function PricingPolicyManagement() {
   const [transportPricing, setTransportPricing] = useState({
@@ -47,10 +46,7 @@ export default function PricingPolicyManagement() {
   useEffect(() => {
     async function fetchPricingData() {
       try {
-        const response = await apiClient.get('/admin/settings/pricing-policy');
-        const data = response.data;
-        
-        console.log("Data dari backend:", data);
+        const data = await getPricingPolicy();
 
         if (Array.isArray(data) && data.length > 0) {
           const motorData = data.find(item => item.serviceType === 'motor');

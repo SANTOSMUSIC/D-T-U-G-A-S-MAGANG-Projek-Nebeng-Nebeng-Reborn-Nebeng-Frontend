@@ -21,7 +21,6 @@ export default function VerificationCenterPage() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState('Foto KTP buram / tidak terbaca');
 
-  // Keamanan PII & Audit Log State
   const [unmaskedPhones, setUnmaskedPhones] = useState({});
   const [verificationAuditLogs, setVerificationAuditLogs] = useState([]);
 
@@ -33,21 +32,27 @@ export default function VerificationCenterPage() {
     'Skor Liveness Scan Face ID di bawah ambang batas minimum'
   ];
 
-  // Fetch data dari endpoint GET /verifications backend (mendukung filter wilayah otomatis di controller)
   useEffect(() => {
     let isMounted = true;
 
     const loadVerificationData = async () => {
       try {
         if (isMounted) setIsLoadingVerification(true);
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
         
-        const response = await apiClient.get('/verifications');
-        const formatted = (response.data || []).map(item => ({
+        const response = await apiClient.get('/verifications', {
+          params: currentRegionId ? { regionId: currentRegionId } : {}
+        }).catch(() => ({ data: [] }));
+
+        const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+
+        const formatted = rawData.map(item => ({
           id: String(item.id),
           userId: String(item.userId || item.user?.id),
           name: item.user?.name || 'Pengguna Tanpa Nama',
           phone: item.user?.phone || '-',
           role: item.user?.role ? item.user.role.toUpperCase() : 'MITRA',
+          regionId: item.user?.regionId ? String(item.user.regionId) : null,
           submissionDate: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Baru saja',
           status: item.status === 'approved' ? 'Disetujui' : item.status === 'rejected' ? 'Ditolak' : 'Menunggu Review',
           rejectionReason: item.rejectionReason || '',
@@ -58,7 +63,10 @@ export default function VerificationCenterPage() {
             faceId: item.user?.profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
             livenessScore: '98.5%'
           }
-        }));
+        })).filter(item => {
+          if (!currentRegionId) return true;
+          return item.regionId === currentRegionId || !item.regionId;
+        });
 
         if (isMounted) {
           setVerificationList(formatted);
@@ -80,7 +88,7 @@ export default function VerificationCenterPage() {
     return () => {
       isMounted = false;
     };
-  }, [toast]);
+  }, [user?.regionId, toast]);
 
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
@@ -106,9 +114,9 @@ export default function VerificationCenterPage() {
     }
 
     try {
-      // Memanggil endpoint PATCH /verifications/:id/review sesuai controller backend
       await apiClient.patch(`/verifications/${id}/review`, {
-        status: 'approved'
+        status: 'approved',
+        assignedRegionId: user?.regionId ? String(user.regionId) : undefined
       });
 
       setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
@@ -144,8 +152,12 @@ export default function VerificationCenterPage() {
     e.preventDefault();
     if (!selectedVerification || isDecided(selectedVerification)) return;
 
+    if (!selectedReason) {
+      toast.warning('Alasan penolakan wajib dipilih.', { title: 'Peringatan' });
+      return;
+    }
+
     try {
-      // Memanggil endpoint PATCH /verifications/:id/review dengan menyertakan rejectionReason
       await apiClient.patch(`/verifications/${selectedVerification.id}/review`, {
         status: 'rejected',
         rejectionReason: selectedReason
@@ -153,20 +165,9 @@ export default function VerificationCenterPage() {
 
       setVerificationList(prev => prev.map(item => item.id === selectedVerification.id ? { ...item, status: 'Ditolak', rejectionReason: selectedReason } : item));
 
-      const newLog = {
-        id: `LOG-VER-${Date.now().toString().slice(-4)}`,
-        verId: selectedVerification.id,
-        name: selectedVerification.name,
-        decision: 'REJECTED',
-        reason: selectedReason,
-        admin: user?.name || 'Admin Regional',
-        timestamp: new Date().toLocaleString('id-ID')
-      };
-      setVerificationAuditLogs([newLog, ...verificationAuditLogs]);
-
       setIsRejectModalOpen(false);
       setIsDetailModalOpen(false);
-      toast.error(`Verifikasi ID ${selectedVerification.id} ditolak: "${selectedReason}"`, { title: 'Ditolak' });
+      toast.error(`Verifikasi ID ${selectedVerification.id} ditolak.`, { title: 'Ditolak' });
     } catch (error) {
       console.error('Gagal menolak verifikasi:', error);
       toast.error(error.response?.data?.message || 'Gagal menolak dokumen di server.', { title: 'Error' });

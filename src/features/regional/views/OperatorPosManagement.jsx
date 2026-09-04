@@ -32,9 +32,11 @@ export default function OperatorPosPage() {
     const loadOperators = async () => {
       try {
         if (isMounted) setIsLoadingOperators(true);
-        const data = await regionalService.getOperatorList ? await regionalService.getOperatorList('operator') : await regionalService.getOperators('operator');
+        // Menggunakan pemanggilan service yang bersih
+        const data = typeof regionalService.getOperators === 'function' 
+          ? await regionalService.getOperators('operator') 
+          : [];
         
-        // Filter operator berdasarkan wilayah (regionId) admin yang login
         const currentRegionId = user?.regionId ? String(user.regionId) : null;
         
         const formatted = (data || [])

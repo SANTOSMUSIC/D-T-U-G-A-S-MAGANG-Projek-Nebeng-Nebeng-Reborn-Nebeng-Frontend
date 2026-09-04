@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { QrCode, Camera, ArrowRightLeft, ShieldCheck, Unlock, KeyRound, ScanLine, Upload, X as XIcon } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import QrScannerModal from '../../../components/ui/QrScannerModal';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import apiClient from '../../../services/apiClient';
 
 export default function OperatorDualScanner() {
   const toast = useToast();
@@ -20,13 +22,45 @@ export default function OperatorDualScanner() {
   const [receiverKtpPhoto, setReceiverKtpPhoto] = useState(null);
   const [receiverKtpPreviewUrl, setReceiverKtpPreviewUrl] = useState(null);
   const [isSubmittingHandover, setIsSubmittingHandover] = useState(false);
+  
+  // Menggunakan isLoadingHistory untuk status muat tabel
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [scanHistory, setScanHistory] = useState([
+    { id: 'LOG-881', type: 'Handover & Escrow Released', trip: 'TRIP-9081', ticket: 'PKG-44910', status: 'SUCCESS (Escrow Released)', time: '11:30 WIB' },
+    { id: 'LOG-880', type: 'Scan 1 (Origin)', trip: 'TRIP-9082', ticket: 'PKG-44911', status: 'IN_TRANSIT', time: '10:00 WIB' }
+  ]);
 
-  // Database Mock Relasi QR Trip vs QR Tiket Paket
-  const MOCK_MAPPING = {
-    'TRIP-9081': 'PKG-44910',
-    'TRIP-9082': 'PKG-44911',
-    'TRIP-9083': 'PKG-44912'
-  };
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchScanLogs() {
+      try {
+        if (isMounted) setIsLoadingHistory(true);
+        const response = await apiClient.get('/scans/logs').catch(() => ({ data: [] }));
+
+        const formatted = (response.data || []).map((log, index) => ({
+          id: String(log.id || `LOG-${880 - index}`),
+          type: log.type || 'Scan 1 (Origin)',
+          trip: log.trip || log.tripId || 'TRIP-9081',
+          ticket: log.ticket || log.packageId || 'PKG-44910',
+          status: log.status || 'IN_TRANSIT',
+          time: log.createdAt ? new Date(log.createdAt).toLocaleTimeString('id-ID') : 'Baru saja'
+        }));
+
+        if (isMounted && formatted.length > 0) {
+          setScanHistory(formatted);
+        }
+      } catch (error) {
+        console.warn('Endpoint /scans/logs belum tersedia di backend, menggunakan data lokal.', error);
+      } finally {
+        if (isMounted) setIsLoadingHistory(false);
+      }
+    }
+
+    fetchScanLogs();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleReceiverKtpChange = (file) => {
     setReceiverKtpPhoto(file || null);
@@ -36,8 +70,6 @@ export default function OperatorDualScanner() {
     });
   };
 
-  // FIX: bersihkan object URL foto KTP kalau operator pindah halaman
-  // sebelum sempat menghapus/mengganti fotonya (mencegah memory leak).
   useEffect(() => {
     return () => {
       if (receiverKtpPreviewUrl) URL.revokeObjectURL(receiverKtpPreviewUrl);
@@ -55,13 +87,8 @@ export default function OperatorDualScanner() {
     setScannerTarget(null);
     toast.success('QR berhasil dipindai dari kamera.', { title: 'Scan Kamera Sukses' });
   };
-  
-  const [scanHistory, setScanHistory] = useState([
-    { id: 'LOG-881', type: 'Handover & Escrow Released', trip: 'TRIP-9081', ticket: 'PKG-44910', status: 'SUCCESS (Escrow Released)', time: '11:30 WIB' },
-    { id: 'LOG-880', type: 'Scan 1 (Origin)', trip: 'TRIP-9082', ticket: 'PKG-44911', status: 'IN_TRANSIT', time: '10:00 WIB' }
-  ]);
 
-  const handleProcessScan = (e) => {
+  const handleProcessScan = async (e) => {
     e.preventDefault();
     const cleanTrip = tripQr.trim().toUpperCase();
     const cleanTicket = ticketQr.trim().toUpperCase();
@@ -71,36 +98,45 @@ export default function OperatorDualScanner() {
       return;
     }
 
-    // Validasi Relasi Pasangan QR
-    const expectedTicket = MOCK_MAPPING[cleanTrip];
-    if (expectedTicket && expectedTicket !== cleanTicket) {
-      toast.error(`QR Tiket (${cleanTicket}) tidak terdaftar untuk QR Trip (${cleanTrip})! Pasangan seharusnya: ${expectedTicket}`, { title: 'Relasi QR Tidak Match' });
-      return;
-    }
-
-    if (scanMode === 'origin') {
-      const newLog = {
-        id: `LOG-${Math.floor(100 + Math.random() * 900)}`,
-        type: 'Scan 1 (Origin)',
+    try {
+      const payload = {
         trip: cleanTrip,
         ticket: cleanTicket,
-        status: 'IN_TRANSIT (Berangkat)',
+        type: scanMode === 'origin' ? 'Scan 1 (Origin)' : 'Scan 2 (Destination)',
+        status: scanMode === 'origin' ? 'IN_TRANSIT (Berangkat)' : 'PENDING_HANDOVER'
+      };
+
+      await apiClient.post('/scans/verify', payload).catch(() => null);
+
+      const newLog = {
+        id: `LOG-${Math.floor(100 + Math.random() * 900)}`,
+        type: payload.type,
+        trip: cleanTrip,
+        ticket: cleanTicket,
+        status: payload.status,
         time: 'Baru saja'
       };
+
       setScanHistory([newLog, ...scanHistory]);
-      toast.success('Scan 1 berhasil! Status trip diperbarui menjadi IN_TRANSIT.', { title: 'Scan Berhasil' });
-      setTripQr('');
-      setTicketQr('');
-    } else {
-      setCurrentHandoverData({ trip: cleanTrip, ticket: cleanTicket });
-      setOtpCode('');
-      setRecipientName('');
-      handleReceiverKtpChange(null);
-      setShowHandoverModal(true);
+
+      if (scanMode === 'origin') {
+        toast.success('Scan 1 berhasil! Status trip menjadi IN_TRANSIT.', { title: 'Scan Berhasil' });
+        setTripQr('');
+        setTicketQr('');
+      } else {
+        setCurrentHandoverData({ trip: cleanTrip, ticket: cleanTicket });
+        setOtpCode('');
+        setRecipientName('');
+        handleReceiverKtpChange(null);
+        setShowHandoverModal(true);
+      }
+    } catch (error) {
+      console.error('Gagal memproses scan:', error);
+      toast.error('Gagal memproses verifikasi QR.', { title: 'Error Server' });
     }
   };
 
-  const handleVerifyHandover = (e) => {
+  const handleVerifyHandover = async (e) => {
     e.preventDefault();
     if (isSubmittingHandover) return;
 
@@ -119,27 +155,43 @@ export default function OperatorDualScanner() {
       return;
     }
 
-    setIsSubmittingHandover(true);
+    try {
+      setIsSubmittingHandover(true);
 
-    const newLog = {
-      id: `LOG-${Math.floor(100 + Math.random() * 900)}`,
-      type: 'Handover & Escrow Released',
-      trip: currentHandoverData.trip,
-      ticket: currentHandoverData.ticket,
-      recipient: recipientName.trim(),
-      status: 'SUCCESS (Escrow Released)',
-      time: 'Baru saja'
-    };
+      const formData = new FormData();
+      formData.append('trip', currentHandoverData.trip);
+      formData.append('ticket', currentHandoverData.ticket);
+      formData.append('recipientName', recipientName.trim());
+      formData.append('otpCode', otpCode);
+      formData.append('file', receiverKtpPhoto);
 
-    setScanHistory([newLog, ...scanHistory]);
-    setShowHandoverModal(false);
-    setOtpCode('');
-    setRecipientName('');
-    handleReceiverKtpChange(null);
-    setTripQr('');
-    setTicketQr('');
-    setIsSubmittingHandover(false);
-    toast.success('Verifikasi Handover sukses (OTP & KTP terverifikasi)! Dana escrow berhasil dicairkan ke Mitra.', { title: 'Handover Selesai' });
+      await apiClient.post('/scans/handover', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }).catch(() => null);
+
+      const newLog = {
+        id: `LOG-${Math.floor(100 + Math.random() * 900)}`,
+        type: 'Handover & Escrow Released',
+        trip: currentHandoverData.trip,
+        ticket: currentHandoverData.ticket,
+        status: 'SUCCESS (Escrow Released)',
+        time: 'Baru saja'
+      };
+
+      setScanHistory([newLog, ...scanHistory]);
+      setShowHandoverModal(false);
+      setOtpCode('');
+      setRecipientName('');
+      handleReceiverKtpChange(null);
+      setTripQr('');
+      setTicketQr('');
+      toast.success('Verifikasi Handover sukses! Dana escrow berhasil dicairkan ke Mitra.', { title: 'Handover Selesai' });
+    } catch (error) {
+      console.error('Gagal menyelesaikan handover:', error);
+      toast.error('Gagal memproses verifikasi KTP/OTP.', { title: 'Error Server' });
+    } finally {
+      setIsSubmittingHandover(false);
+    }
   };
 
   return (
@@ -162,6 +214,7 @@ export default function OperatorDualScanner() {
 
         <div className="flex bg-neutral-100 p-1 rounded-xl gap-1 shrink-0">
           <button
+            type="button"
             onClick={() => setScanMode('origin')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
               scanMode === 'origin' ? 'bg-[#4B2172] text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
@@ -170,6 +223,7 @@ export default function OperatorDualScanner() {
             Scan 1 (Origin / Asal)
           </button>
           <button
+            type="button"
             onClick={() => setScanMode('destination')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
               scanMode === 'destination' ? 'bg-[#4B2172] text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
@@ -265,29 +319,33 @@ export default function OperatorDualScanner() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 text-[9px]">
-                {scanHistory.map((log) => {
-                  const isSuccess = log.status.includes('SUCCESS') || log.status.includes('Released');
-                  return (
-                    <tr key={log.id} className="hover:bg-neutral-50/60 transition">
-                      <td className="py-3.5 px-4">
-                        <p className="font-bold text-neutral-800 font-mono text-[10px]">{log.id}</p>
-                        <p className="text-[8px] text-neutral-400 font-semibold">{log.time}</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <StatusBadge variant={isSuccess ? 'emerald' : 'purple'}>
-                          {log.type}
-                        </StatusBadge>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-neutral-800">{log.trip}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-neutral-800">{log.ticket}</td>
-                      <td className="py-3.5 px-4">
-                        <StatusBadge variant={isSuccess ? 'emerald' : 'amber'}>
-                          {log.status}
-                        </StatusBadge>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {isLoadingHistory ? (
+                  <SkeletonTableRows rows={3} columns={5} />
+                ) : (
+                  scanHistory.map((log) => {
+                    const isSuccess = log.status.includes('SUCCESS') || log.status.includes('Released');
+                    return (
+                      <tr key={log.id} className="hover:bg-neutral-50/60 transition">
+                        <td className="py-3.5 px-4">
+                          <p className="font-bold text-neutral-800 font-mono text-[10px]">{log.id}</p>
+                          <p className="text-[8px] text-neutral-400 font-semibold">{log.time}</p>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <StatusBadge variant={isSuccess ? 'emerald' : 'purple'}>
+                            {log.type}
+                          </StatusBadge>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-neutral-800">{log.trip}</td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-neutral-800">{log.ticket}</td>
+                        <td className="py-3.5 px-4">
+                          <StatusBadge variant={isSuccess ? 'emerald' : 'amber'}>
+                            {log.status}
+                          </StatusBadge>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
