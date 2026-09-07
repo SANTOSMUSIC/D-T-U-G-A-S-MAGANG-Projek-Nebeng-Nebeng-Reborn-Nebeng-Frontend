@@ -1,70 +1,23 @@
 import { createContext, useCallback, useContext, useState } from 'react';
+import {
+  readAuthSession,
+  writeAuthSession,
+  clearAuthSession,
+} from '../utils/authStorage';
 
 const AuthContext = createContext(null);
-const STORAGE_KEY = 'nebeng_auth';
-
-/**
- * FIX (UI/UX -> implementasi nyata): "Ingat Saya" sebelumnya cuma tombol
- * disabled karena sesi memang selalu ditaruh di localStorage tanpa opsi
- * lain, jadi tidak ada bedanya dicentang atau tidak.
- *
- * Sekarang sesi benar-benar dibedakan tempat penyimpanannya:
- * - "Ingat Saya" dicentang  -> localStorage  (sesi bertahan walau tab/
- *   browser ditutup, sampai user logout manual)
- * - "Ingat Saya" tidak dicentang -> sessionStorage (sesi otomatis hilang
- *   begitu tab ditutup — perilaku standar "sesi sementara")
- *
- * readStoredSession mengecek localStorage dulu (sesi "diingat"), baru
- * fallback ke sessionStorage (sesi sementara milik tab yang sedang
- * berjalan), supaya saat halaman di-refresh, user tetap dikenali dari
- * storage mana pun sesinya berasal.
- */
-function readStoredSession() {
-  try {
-    const persistedRaw = localStorage.getItem(STORAGE_KEY);
-    if (persistedRaw) {
-      return { session: JSON.parse(persistedRaw), persisted: true };
-    }
-  } catch {
-    // Data tersimpan korup/format lama — abaikan dan lanjut cek sessionStorage.
-  }
-
-  try {
-    const temporaryRaw = sessionStorage.getItem(STORAGE_KEY);
-    if (temporaryRaw) {
-      return { session: JSON.parse(temporaryRaw), persisted: false };
-    }
-  } catch {
-    // Sama seperti di atas — abaikan dan anggap belum login.
-  }
-
-  return { session: null, persisted: false };
-}
 
 export function AuthProvider({ children }) {
-  const [{ session, persisted }, setAuthState] = useState(readStoredSession);
+  const [{ session, persisted }, setAuthState] = useState(readAuthSession);
 
   const login = useCallback((role, extra = {}, remember = false) => {
     const nextSession = { role, loggedInAt: Date.now(), ...extra };
-
-    // Bersihkan storage yang TIDAK dipakai supaya tidak ada sesi ganda yang
-    // nyasar — mis. user pernah login dengan "Ingat Saya" (localStorage),
-    // logout, lalu login lagi tanpa mencentangnya (harus jadi sessionStorage
-    // murni, bukan localStorage lama yang masih nyangkut).
-    if (remember) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
-      sessionStorage.removeItem(STORAGE_KEY);
-    } else {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
-      localStorage.removeItem(STORAGE_KEY);
-    }
-
+    writeAuthSession(nextSession, remember);
     setAuthState({ session: nextSession, persisted: remember });
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_KEY);
+    clearAuthSession();
     setAuthState({ session: null, persisted: false });
   }, []);
 
@@ -85,8 +38,7 @@ export function AuthProvider({ children }) {
       // Tulis balik ke storage yang sama tempat sesi ini awalnya disimpan,
       // supaya status verifikasi ikut bertahan/hilang sesuai pilihan
       // "Ingat Saya" yang dibuat user saat login.
-      const storage = prev.persisted ? localStorage : sessionStorage;
-      storage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
+      writeAuthSession(nextSession, prev.persisted);
       return { ...prev, session: nextSession };
     });
   }, []);
@@ -101,8 +53,7 @@ export function AuthProvider({ children }) {
         ...prev.session,
         customerProfile: { ...prev.session.customerProfile, ...patch },
       };
-      const storage = prev.persisted ? localStorage : sessionStorage;
-      storage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
+      writeAuthSession(nextSession, prev.persisted);
       return { ...prev, session: nextSession };
     });
   }, []);
@@ -120,8 +71,7 @@ export function AuthProvider({ children }) {
         ...prev.session,
         adminProfile: { ...prev.session.adminProfile, ...patch },
       };
-      const storage = prev.persisted ? localStorage : sessionStorage;
-      storage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
+      writeAuthSession(nextSession, prev.persisted);
       return { ...prev, session: nextSession };
     });
   }, []);
@@ -138,8 +88,7 @@ export function AuthProvider({ children }) {
         ...prev.session,
         mitraProfile: { ...prev.session.mitraProfile, ...patch },
       };
-      const storage = prev.persisted ? localStorage : sessionStorage;
-      storage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
+      writeAuthSession(nextSession, prev.persisted);
       return { ...prev, session: nextSession };
     });
   }, []);
@@ -158,8 +107,7 @@ export function AuthProvider({ children }) {
         ...prev.session,
         superadminProfile: { ...prev.session.superadminProfile, ...patch },
       };
-      const storage = prev.persisted ? localStorage : sessionStorage;
-      storage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
+      writeAuthSession(nextSession, prev.persisted);
       return { ...prev, session: nextSession };
     });
   }, []);

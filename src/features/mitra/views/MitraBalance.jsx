@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, Eye, EyeOff, Pencil, Clock3 } from 'lucide-react';
+import { Wallet, Lock, ArrowUpRight, CheckCircle2, History, Eye, EyeOff, Pencil, Clock3, ChevronDown, Building2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
@@ -7,6 +7,143 @@ import BaseModal from '../../../components/ui/BaseModal';
 import { useMitraData } from '../../../context/MitraDataContext';
 
 const STATUS_LABEL = { 'Aktif': 'Menunggu Keberangkatan', 'In Transit': 'Dalam Perjalanan (Escrow Hold)' };
+
+// Komponen Vektor SVG Logo Bank (Ringan, Tanpa HTTP Request, Anti-Broken)
+function BankLogoIcon({ code, className = "w-8 h-5" }) {
+  switch (code) {
+    case 'BCA':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#00529C"/>
+          <path d="M14 10C20 10 24 26 30 26" stroke="#0088FF" strokeWidth="4" strokeLinecap="round"/>
+          <text x="62" y="25" fill="white" fontSize="18" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">BCA</text>
+        </svg>
+      );
+    case 'MANDIRI':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#0A2540"/>
+          <path d="M12 24C18 12 28 12 34 24" stroke="#F2A900" strokeWidth="3.5" strokeLinecap="round"/>
+          <text x="62" y="24" fill="white" fontSize="13" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">mandırı</text>
+        </svg>
+      );
+    case 'BRI':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#00529C"/>
+          <rect x="10" y="8" width="20" height="20" rx="3" fill="#F37021"/>
+          <text x="20" y="23" fill="white" fontSize="11" fontWeight="900" textAnchor="middle">B</text>
+          <text x="62" y="25" fill="white" fontSize="18" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">BRI</text>
+        </svg>
+      );
+    case 'BNI':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#F37021"/>
+          <text x="50" y="25" fill="#00529C" fontSize="20" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">BNI</text>
+        </svg>
+      );
+    case 'BSI':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#008266"/>
+          <circle cx="20" cy="18" r="6" fill="#FFC700"/>
+          <text x="60" y="25" fill="white" fontSize="18" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">BSI</text>
+        </svg>
+      );
+    case 'CIMB':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#7A0000"/>
+          <polygon points="12,10 24,18 12,26" fill="#ED1C24"/>
+          <text x="62" y="24" fill="white" fontSize="14" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">CIMB</text>
+        </svg>
+      );
+    case 'PERMATA':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#006633"/>
+          <polygon points="18,8 26,18 18,28 10,18" fill="#8DC63F"/>
+          <text x="62" y="23" fill="white" fontSize="11" fontWeight="800" fontFamily="Inter, sans-serif" textAnchor="middle">Permata</text>
+        </svg>
+      );
+    case 'DANAMON':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#E85D04"/>
+          <rect x="10" y="10" width="4" height="16" fill="#FFB703"/>
+          <text x="60" y="23" fill="white" fontSize="11" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">Danamon</text>
+        </svg>
+      );
+    case 'JAGO':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#FF7A00"/>
+          <text x="50" y="25" fill="#381757" fontSize="18" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">jago</text>
+        </svg>
+      );
+    case 'SEABANK':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#FF5722"/>
+          <path d="M10 22C14 16 20 24 24 18" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+          <text x="62" y="23" fill="white" fontSize="11" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">SeaBank</text>
+        </svg>
+      );
+    case 'BTN':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#003399"/>
+          <rect x="8" y="24" width="84" height="4" fill="#E50012"/>
+          <text x="50" y="22" fill="white" fontSize="16" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">BTN</text>
+        </svg>
+      );
+    case 'MEGA':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#231F20"/>
+          <polygon points="12,10 24,10 18,26" fill="#F15A24"/>
+          <polygon points="20,10 32,10 26,26" fill="#FCB040"/>
+          <text x="65" y="24" fill="white" fontSize="14" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">MEGA</text>
+        </svg>
+      );
+    case 'MAYBANK':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#FFC700"/>
+          <text x="50" y="23" fill="#000000" fontSize="12" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">Maybank</text>
+        </svg>
+      );
+    case 'OCBC':
+      return (
+        <svg viewBox="0 0 100 36" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="36" rx="6" fill="#D9232D"/>
+          <circle cx="20" cy="18" r="8" fill="white"/>
+          <text x="62" y="24" fill="white" fontSize="14" fontWeight="900" fontFamily="Inter, sans-serif" textAnchor="middle">OCBC</text>
+        </svg>
+      );
+    default:
+      return <Building2 className="w-5 h-5 text-[#4B2172]" />;
+  }
+}
+
+// Daftar Bank Resmi Indonesia
+const INDONESIAN_BANKS = [
+  { name: 'Bank BCA', code: 'BCA' },
+  { name: 'Bank Mandiri', code: 'MANDIRI' },
+  { name: 'Bank BRI', code: 'BRI' },
+  { name: 'Bank BNI', code: 'BNI' },
+  { name: 'Bank Syariah Indonesia (BSI)', code: 'BSI' },
+  { name: 'Bank CIMB Niaga', code: 'CIMB' },
+  { name: 'Bank Permata', code: 'PERMATA' },
+  { name: 'Bank Danamon', code: 'DANAMON' },
+  { name: 'Bank Jago', code: 'JAGO' },
+  { name: 'SeaBank Indonesia', code: 'SEABANK' },
+  { name: 'Bank BTN', code: 'BTN' },
+  { name: 'Bank Mega', code: 'MEGA' },
+  { name: 'Bank Maybank', code: 'MAYBANK' },
+  { name: 'Bank OCBC NISP', code: 'OCBC' },
+];
 
 export default function MitraBalance() {
   const toast = useToast();
@@ -24,10 +161,14 @@ export default function MitraBalance() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [showAccountPii, setShowAccountPii] = useState(false);
   const [isEditingBank, setIsEditingBank] = useState(false);
+  const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
   const [bankDraft, setBankDraft] = useState(bankInfo);
   const MIN_WITHDRAWAL = 50000;
 
   const escrowTransactions = trips.filter((t) => t.status === 'Aktif' || t.status === 'In Transit');
+
+  const selectedBankObj = INDONESIAN_BANKS.find((b) => b.name === bankInfo.bankName);
+  const selectedDraftBankObj = INDONESIAN_BANKS.find((b) => b.name === bankDraft.bankName);
 
   const maskAccountNumber = (accNum) => {
     if (!accNum || accNum.length < 6) return accNum;
@@ -60,6 +201,7 @@ export default function MitraBalance() {
   const handleStartEditBank = () => {
     setBankDraft(bankInfo);
     setIsEditingBank(true);
+    setIsBankDropdownOpen(false);
   };
 
   const handleSaveBank = (e) => {
@@ -70,6 +212,7 @@ export default function MitraBalance() {
     }
     setBankInfo(bankDraft);
     setIsEditingBank(false);
+    setIsBankDropdownOpen(false);
     toast.success('Rekening bank berhasil diperbarui.', { title: 'Rekening Diperbarui' });
   };
 
@@ -127,74 +270,114 @@ export default function MitraBalance() {
                 </button>
               </div>
             ) : (
-            <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-purple-50 text-[#4B2172] flex items-center justify-center font-bold shrink-0">
-                    <Building2 className="w-4 h-4" />
+              <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="shrink-0 flex items-center justify-center">
+                      <BankLogoIcon code={selectedBankObj?.code} className="w-9 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-neutral-800">
+                        {bankInfo.bankName} - {showAccountPii ? bankInfo.accountNumber : maskAccountNumber(bankInfo.accountNumber)}
+                      </p>
+                      <p className="text-[8px] text-neutral-400 font-medium">{bankInfo.accountHolder}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-neutral-800">
-                      {bankInfo.bankName} - {showAccountPii ? bankInfo.accountNumber : maskAccountNumber(bankInfo.accountNumber)}
-                    </p>
-                    <p className="text-[8px] text-neutral-400 font-medium">{bankInfo.accountHolder}</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAccountPii(!showAccountPii)}
+                      className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
+                      title={showAccountPii ? "Sembunyikan Nomor Rekening" : "Tampilkan Nomor Rekening"}
+                    >
+                      {showAccountPii ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartEditBank}
+                      className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
+                      title="Ubah Rekening Bank"
+                    >
+                      <Pencil size={13} />
+                    </button>
                   </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowAccountPii(!showAccountPii)}
-                    className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
-                    title={showAccountPii ? "Sembunyikan Nomor Rekening" : "Tampilkan Nomor Rekening"}
-                  >
-                    {showAccountPii ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleStartEditBank}
-                    className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
-                    title="Ubah Rekening Bank"
-                  >
-                    <Pencil size={13} />
-                  </button>
                 </div>
               </div>
-            </div>
             )
           ) : (
             <form onSubmit={handleSaveBank} className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2.5 text-[10px]">
-              <div>
+              
+              {/* Custom Bank Selector Dropdown */}
+              <div className="relative">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nama Bank</label>
-                <input
-                  type="text"
-                  value={bankDraft.bankName}
-                  onChange={(e) => setBankDraft((prev) => ({ ...prev, bankName: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                />
+                <button
+                  type="button"
+                  onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
+                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 flex items-center justify-between text-left focus:outline-none focus:border-[#4B2172] cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    {selectedDraftBankObj ? (
+                      <>
+                        <BankLogoIcon code={selectedDraftBankObj.code} className="w-7 h-4 shrink-0" />
+                        <span className="truncate">{selectedDraftBankObj.name}</span>
+                      </>
+                    ) : (
+                      <span className="text-neutral-400 font-normal">-- Pilih Bank Tujuan --</span>
+                    )}
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                </button>
+
+                {isBankDropdownOpen && (
+                  <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg max-h-48 overflow-y-auto divide-y divide-neutral-100">
+                    {INDONESIAN_BANKS.map((bank) => (
+                      <button
+                        key={bank.name}
+                        type="button"
+                        onClick={() => {
+                          setBankDraft((prev) => ({ ...prev, bankName: bank.name }));
+                          setIsBankDropdownOpen(false);
+                        }}
+                        className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-purple-50 transition text-left cursor-pointer"
+                      >
+                        <BankLogoIcon code={bank.code} className="w-8 h-5 shrink-0" />
+                        <span className="text-[10px] font-bold text-neutral-800">{bank.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Rekening</label>
                 <input
                   type="text"
                   inputMode="numeric"
+                  placeholder="Masukkan nomor rekening"
                   value={bankDraft.accountNumber}
                   onChange={(e) => setBankDraft((prev) => ({ ...prev, accountNumber: e.target.value.replace(/\D/g, '') }))}
                   className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
+
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nama Pemilik Rekening</label>
                 <input
                   type="text"
+                  placeholder="Sesuai buku tabungan"
                   value={bankDraft.accountHolder}
                   onChange={(e) => setBankDraft((prev) => ({ ...prev, accountHolder: e.target.value }))}
                   className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
+
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsEditingBank(false)}
+                  onClick={() => {
+                    setIsEditingBank(false);
+                    setIsBankDropdownOpen(false);
+                  }}
                   className="flex-1 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg font-bold transition cursor-pointer"
                 >
                   Batal
