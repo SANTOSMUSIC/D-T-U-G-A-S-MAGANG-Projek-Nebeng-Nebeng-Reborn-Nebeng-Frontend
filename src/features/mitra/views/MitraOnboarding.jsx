@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck, AlertCircle, X, CreditCard } from 'lucide-react';
 import StatusBadge from '../../../components/ui/StatusBadge';
+Fix/bug
 import { mitraService } from '../../../services/mitraService';
 import apiClient from '../../../services/apiClient';
+
+main
 import { useAuth } from '../../../context/AuthContext';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -11,8 +14,12 @@ const SKCK_TYPES = [...IMAGE_TYPES, 'application/pdf'];
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 
 export default function MitraOnboarding() {
+Fix/bug
   const { user } = useAuth();
 
+
+  const { mitraVerificationStatus, updateMitraProfile } = useAuth();
+main
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
     phone: user?.phone || '',
@@ -33,6 +40,7 @@ export default function MitraOnboarding() {
 
   const [faceScanned, setFaceScanned] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+Fix/bug
   const [cameraActive, setCameraActive] = useState(false);
   const [facePreviewUrl, setFacePreviewUrl] = useState(null); 
   
@@ -63,6 +71,14 @@ export default function MitraOnboarding() {
     checkVerificationStatus();
     return () => { isMounted = false; };
   }, []);
+
+  // FIX (bug nyata): dulu `submitted` cuma state lokal — begitu mitra
+  // pindah ke menu lain lalu balik ke Onboarding, status "sudah submit"
+  // hilang seolah belum pernah mengajukan. Sekarang sumber kebenarannya
+  // adalah mitraVerificationStatus dari AuthContext (persisten di
+  // localStorage/sessionStorage seperti field profil mitra lainnya).
+  const submitted = mitraVerificationStatus === 'pending' || mitraVerificationStatus === 'approved';
+main
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -184,6 +200,7 @@ export default function MitraOnboarding() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isFormComplete) return;
+Fix/bug
 
     setIsLoading(true);
     setErrorMessage('');
@@ -232,6 +249,21 @@ export default function MitraOnboarding() {
     } finally {
       setIsLoading(false);
     }
+
+    // Simpan field profil yang relevan sekaligus tandai status jadi
+    // 'pending' (menunggu admin) — persis field VerificationStatus di
+    // schema. Dokumen (SIM/SKCK/STNK) & foto wajah itu sendiri belum
+    // diupload ke backend nyata (belum ada endpoint file upload di
+    // cakupan ini), jadi baru nama & metadata form yang tersimpan.
+    updateMitraProfile({
+      fullName: formData.fullName.trim(),
+      phone: formData.phone.trim(),
+      address: formData.address.trim(),
+      vehicleType: formData.vehicleType,
+      plateNumber: formData.plateNumber.trim(),
+      verificationStatus: 'pending',
+    });
+main
   };
 
   if (isLoading) {
@@ -251,7 +283,15 @@ export default function MitraOnboarding() {
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Mitra Onboarding & Verification</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Lengkapi data diri, rekening bank, kendaraan, dan unggah berkas fisik.</p>
         </div>
+Fix/bug
         {submitted && <StatusBadge variant="amber">Menunggu Verifikasi Admin</StatusBadge>}
+
+        {submitted && (
+          <StatusBadge variant={mitraVerificationStatus === 'approved' ? 'emerald' : 'amber'}>
+            {mitraVerificationStatus === 'approved' ? 'Terverifikasi' : 'Menunggu Verifikasi Admin'}
+          </StatusBadge>
+        )}
+main
       </div>
 
       {!submitted ? (
@@ -275,9 +315,24 @@ export default function MitraOnboarding() {
               </div>
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
+Fix/bug
                 <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]">
                   <option value="motor">Sepeda Motor</option>
                   <option value="mobil">Mobil / Minibus</option>
+
+                <select 
+                  name="vehicleType"
+                  value={formData.vehicleType}
+                  onChange={handleInputChange}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                >
+                  {/* FIX (kesesuaian schema): opsi "Box" dihapus — enum
+                      VehicleType di schema.prisma hanya punya `motor` dan
+                      `mobil`, dan MitraTripManagement.jsx juga cuma
+                      mendukung dua kategori ini saat bikin trip. */}
+                  <option value="Motor">Sepeda Motor</option>
+                  <option value="Mobil">Mobil / Minibus</option>
+main
                 </select>
               </div>
               <div>
@@ -395,8 +450,27 @@ export default function MitraOnboarding() {
           <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7" />
           </div>
+Fix/bug
           <h2 className="text-[18px] font-bold text-neutral-800">Pendaftaran Berhasil Dikirim!</h2>
           <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">Berkas fisik berhasil diunggah ke folder server dan data Anda masuk ke antrean admin.</p>
+
+          <h2 className="text-[18px] font-bold text-neutral-800">
+            {mitraVerificationStatus === 'approved' ? 'Akun Anda Sudah Terverifikasi!' : 'Pendaftaran Berhasil Dikirim!'}
+          </h2>
+          <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">
+            {mitraVerificationStatus === 'approved'
+              ? 'Data dan dokumen Anda sudah disetujui oleh tim verifikasi regional. Anda sekarang bisa membuat trip baru.'
+              : 'Dokumen dan data Face ID Anda sedang ditinjau oleh tim verifikasi regional. Akun Anda akan diaktifkan setelah proses validasi selesai.'}
+          </p>
+          {mitraVerificationStatus !== 'approved' && (
+            <button 
+              onClick={() => updateMitraProfile({ verificationStatus: 'unverified' })}
+              className="mt-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-bold rounded-xl transition cursor-pointer"
+            >
+              Ulangi / Edit Data
+            </button>
+          )}
+main
         </div>
       )}
     </div>

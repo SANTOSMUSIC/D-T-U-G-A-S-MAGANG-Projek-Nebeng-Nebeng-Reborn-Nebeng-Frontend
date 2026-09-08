@@ -176,6 +176,15 @@ export function AuthProvider({ children }) {
     customerProfile: session?.customerProfile ?? null,
     adminProfile: session?.adminProfile ?? null,
     mitraProfile: session?.mitraProfile ?? null,
+    // FIX (bug: status verifikasi mitra hilang saat pindah halaman):
+    // sebelumnya status "submitted" onboarding hanya disimpan di state
+    // lokal MitraOnboarding.jsx, jadi hilang begitu mitra pindah halaman
+    // atau refresh. Sekarang disimpan sebagai mitraProfile.verificationStatus
+    // (lewat updateMitraProfile yang sudah ada), dengan nilai mengikuti
+    // enum VerificationStatus di schema: 'unverified' | 'pending' |
+    // 'approved' | 'rejected'. Persetujuan jadi 'approved' nantinya
+    // dilakukan Admin Regional (di luar cakupan panel Mitra ini).
+    mitraVerificationStatus: session?.mitraProfile?.verificationStatus ?? 'unverified',
     superadminProfile: session?.superadminProfile ?? null,
     login,
     logout,

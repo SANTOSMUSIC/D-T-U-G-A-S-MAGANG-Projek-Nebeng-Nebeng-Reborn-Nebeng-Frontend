@@ -285,9 +285,12 @@ export default function MitraAccountSettings() {
                   onChange={(e) => handleProfileFieldChange('vehicleType', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 >
+                  {/* FIX (kesesuaian schema): opsi "Box" dihapus — enum
+                      VehicleType di schema.prisma hanya punya `motor` dan
+                      `mobil`, dan MitraTripManagement.jsx juga cuma
+                      mendukung dua kategori ini saat bikin trip. */}
                   <option value="Motor">Sepeda Motor</option>
                   <option value="Mobil">Mobil / Minibus</option>
-                  <option value="Box">Mobil Box / Pick Up</option>
                 </select>
               </div>
               <div>

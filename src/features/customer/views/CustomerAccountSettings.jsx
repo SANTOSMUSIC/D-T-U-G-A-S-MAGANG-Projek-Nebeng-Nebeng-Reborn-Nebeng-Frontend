@@ -5,25 +5,10 @@ import { useTickets } from '../../../context/TicketsContext';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
 
-// FIX (struktur halaman, sama pola dengan Mitra): "Pengaturan Akun" adalah
-// tempat untuk MENGUBAH data profil customer. "Profil Saya"
-// (CustomerProfileModal.jsx) sekarang murni ringkasan/read-only yang
-// dipicu dari CustomerSidebar, dan tombol "Pengaturan Akun"-nya
-// mengarah ke halaman ini (/customer/profile/pengaturan).
-//
-// Logout tetap lewat CustomerSidebar (tidak diduplikasi di sini),
-// mengikuti pola MitraAccountSettings yang juga tidak punya tombol
-// logout sendiri.
 
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB, konsisten dengan pola Mitra/Superadmin/Regional/Operator
 
-// FIX: sebelumnya slice(0,4) dan slice(-4) bisa tumpang tindih kalau NIK
-// lebih pendek dari 8 karakter (data uji/tidak lengkap), sehingga digit
-// asli malah terekspos dobel alih-alih tersamarkan — untuk NIK persis 8
-// karakter bahkan tidak ter-mask sama sekali. Sekarang NIK <=8 karakter
-// selalu ditampilkan full-mask, aman untuk data 16-digit asli maupun
-// data pendek/tidak lengkap.
 const maskNik = (nik) => {
   if (!nik) return '-';
   if (nik.length <= 8) return 'x'.repeat(nik.length);
@@ -42,10 +27,6 @@ export default function CustomerAccountSettings() {
     phone: customerProfile?.phone || ''
   });
 
-  // FIX: foto profil ditambahkan mengikuti pola Mitra/Superadmin/Regional/
-  // Operator — disimpan sebagai bagian dari customerProfile (photoDataUrl,
-  // base64) lewat updateCustomerProfile, supaya bertahan sampai user
-  // ganti/refresh. Dibatasi 2MB per foto.
   const [avatarPreview, setAvatarPreview] = useState(customerProfile?.photoDataUrl || null);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
@@ -56,7 +37,8 @@ export default function CustomerAccountSettings() {
 
   const completedTrips = allTickets.filter(t => t.status === 'Selesai').length;
   const activeTrips = allTickets.filter(t => t.status === 'Aktif').length;
-  const rewardPoints = 450; // placeholder until reward wallet is wired to a real balance
+
+  const rewardPoints = customerProfile?.rewardPoints ?? 0;
 
   const startEditing = () => {
     setDraft({
