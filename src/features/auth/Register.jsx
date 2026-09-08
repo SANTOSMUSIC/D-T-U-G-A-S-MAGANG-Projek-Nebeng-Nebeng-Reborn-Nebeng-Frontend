@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { User, Mail, Phone, Lock, ArrowRight, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Mail, Phone, Lock, ArrowRight, ChevronDown, MapPin } from 'lucide-react';
 import AuthInput from '../../components/ui/AuthInput';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useToast } from '../../context/ToastContext';
 import { registerRequest } from '../../services/authService';
+import apiClient from '../../services/apiClient';
 import logoImage from '../../assets/LOGO.png';
 
 export default function Register({ onSwitchToLogin }) {
@@ -11,27 +12,53 @@ export default function Register({ onSwitchToLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [regions, setRegions] = useState([]);
+  const [isLoadingRegions, setIsLoadingRegions] = useState(true);
+  
   const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
     role: 'customer',
+    regionId: '',
     password: '',
     confirmPassword: '',
   });
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    async function fetchRegions() {
+      try {
+        setIsLoadingRegions(true);
+        const response = await apiClient.get('/regions?onlyActive=true');
+        const regionData = response.data?.data || response.data || [];
+        setRegions(regionData);
+        
+        // Set default region pertama jika ada data
+        if (regionData.length > 0) {
+          setForm(prev => ({ ...prev, regionId: String(regionData[0].id) }));
+        }
+      } catch (err) {
+        console.error('Gagal memuat daftar region', err);
+        toast.error('Gagal memuat daftar wilayah operasional. Silakan muat ulang halaman.', {
+          title: 'Kesalahan Sistem',
+        });
+      } finally {
+        setIsLoadingRegions(false);
+      }
+    }
+    fetchRegions();
+  }, [toast]);
+
   const handleChange = (field) => (e) => {
     let value = e.target.value;
     
-    // Filter agar nomor telepon HANYA dapat diisi oleh angka
     if (field === 'phone') {
       value = value.replace(/\D/g, '').slice(0, 15);
     }
 
     setForm((prev) => ({ ...prev, [field]: value }));
 
-    // Bersihkan error pada field yang sedang diubah oleh pengguna
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -42,33 +69,13 @@ export default function Register({ onSwitchToLogin }) {
     const trimmedName = form.name.trim();
     const trimmedEmail = form.email.trim();
 
-    if (!trimmedName) {
-      nextErrors.name = 'Nama wajib diisi';
-    }
-
-    if (!trimmedEmail) {
-      nextErrors.email = 'Email wajib diisi';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      nextErrors.email = 'Format email tidak valid';
-    }
-
-    if (!form.phone) {
-      nextErrors.phone = 'Nomor telepon wajib diisi';
-    } else if (form.phone.length < 8 || form.phone.length > 15) {
-      nextErrors.phone = 'Nomor telepon harus terdiri dari 8 hingga 15 digit angka';
-    }
-
-    if (!form.password) {
-      nextErrors.password = 'Password wajib diisi';
-    } else if (form.password.length < 6) {
-      nextErrors.password = 'Password minimal 6 karakter';
-    }
-
-    if (!form.confirmPassword) {
-      nextErrors.confirmPassword = 'Konfirmasi password wajib diisi';
-    } else if (form.confirmPassword !== form.password) {
-      nextErrors.confirmPassword = 'Konfirmasi password tidak cocok';
-    }
+    if (!trimmedName) nextErrors.name = 'Nama wajib diisi';
+    if (!trimmedEmail) nextErrors.email = 'Email wajib diisi';
+    if (!form.phone) nextErrors.phone = 'Nomor telepon wajib diisi';
+    if (!form.regionId) nextErrors.regionId = 'Wilayah / Region wajib dipilih';
+    if (!form.password) nextErrors.password = 'Password wajib diisi';
+    if (form.password && form.password.length < 6) nextErrors.password = 'Password minimal 6 karakter';
+    if (form.confirmPassword !== form.password) nextErrors.confirmPassword = 'Konfirmasi password tidak cocok';
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -81,12 +88,12 @@ export default function Register({ onSwitchToLogin }) {
 
     setIsSubmitting(true);
 
-    // Siapkan payload yang sudah dibersihkan (trimmed) tanpa confirmPassword
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone,
       role: form.role,
+      regionId: String(form.regionId),
       password: form.password,
     };
 
@@ -97,10 +104,9 @@ export default function Register({ onSwitchToLogin }) {
       });
       onSwitchToLogin();
     } catch (err) {
-      // Ambil pesan error spesifik dari respon API jika tersedia
       const errorMessage = err?.response?.data?.message || 'Pendaftaran gagal. Silakan coba lagi.';
       toast.error(errorMessage, { title: 'Terjadi Kesalahan' });
-      setIsSubmitting(false); // Matikan state submitting jika gagal
+      setIsSubmitting(false);
     }
   };
 
@@ -112,22 +118,11 @@ export default function Register({ onSwitchToLogin }) {
     >
       <div className="mb-8 w-full flex flex-col items-center text-center">
         <div className="w-full flex items-center justify-center gap-2.5 mb-7">
-          <img
-            src={logoImage}
-            alt="Logo Nebeng"
-            className="h-8 w-8 object-contain shrink-0"
-          />
-          <span className="font-bold text-neutral-800 text-base tracking-wide leading-none">
-            Nebeng
-          </span>
+          <img src={logoImage} alt="Logo Nebeng" className="h-8 w-8 object-contain shrink-0" />
+          <span className="font-bold text-neutral-800 text-base tracking-wide leading-none">Nebeng</span>
         </div>
-
-        <h2 className="text-2xl font-bold text-neutral-800 mb-1.5">
-          Buat akun baru
-        </h2>
-        <p className="text-neutral-500 text-sm">
-          Lengkapi data diri Anda untuk memulai perjalanan.
-        </p>
+        <h2 className="text-2xl font-bold text-neutral-800 mb-1.5">Buat akun baru</h2>
+        <p className="text-neutral-500 text-sm">Lengkapi data diri Anda untuk memulai perjalanan.</p>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -135,7 +130,6 @@ export default function Register({ onSwitchToLogin }) {
           label="Nama pengguna"
           icon={User}
           placeholder="Masukkan nama lengkapmu"
-          autoComplete="name"
           value={form.name}
           onChange={handleChange('name')}
           error={errors.name}
@@ -146,7 +140,6 @@ export default function Register({ onSwitchToLogin }) {
           icon={Mail}
           type="email"
           placeholder="nama@email.com"
-          autoComplete="email"
           value={form.email}
           onChange={handleChange('email')}
           error={errors.email}
@@ -156,9 +149,7 @@ export default function Register({ onSwitchToLogin }) {
           label="Nomor telepon"
           icon={Phone}
           type="tel"
-          inputMode="numeric"
           placeholder="08xxxxxxxxxx"
-          autoComplete="tel"
           value={form.phone}
           onChange={handleChange('phone')}
           error={errors.phone}
@@ -182,12 +173,41 @@ export default function Register({ onSwitchToLogin }) {
           </div>
         </div>
 
+        {/* Pilihan Wilayah / Region dengan Status Loading & Validasi Kosong */}
+        <div className="w-full">
+          <label htmlFor="register-region" className="block text-sm font-medium text-neutral-600 mb-2">
+            Pilih Wilayah Operasional (Region)
+          </label>
+          <div className="relative">
+            <select
+              id="register-region"
+              value={form.regionId}
+              onChange={handleChange('regionId')}
+              disabled={isLoadingRegions || regions.length === 0}
+              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] text-[15px] transition font-normal cursor-pointer disabled:bg-neutral-100 disabled:cursor-not-allowed"
+            >
+              {isLoadingRegions ? (
+                <option value="">Memuat wilayah...</option>
+              ) : regions.length === 0 ? (
+                <option value="">Tidak ada wilayah aktif</option>
+              ) : (
+                regions.map((reg) => (
+                  <option key={reg.id} value={reg.id}>
+                    {reg.name} ({reg.code})
+                  </option>
+                ))
+              )}
+            </select>
+            <MapPin className="pointer-events-none absolute inset-y-0 right-4 my-auto w-[18px] h-[18px] text-zinc-500" />
+          </div>
+          {errors.regionId && <p className="text-xs text-rose-500 mt-1 pl-4">{errors.regionId}</p>}
+        </div>
+
         <AuthInput
           label="Password"
           icon={Lock}
           type="password"
-          placeholder="Buat kata sandi"
-          autoComplete="new-password"
+          placeholder="Buat kata sandi (min. 6 karakter)"
           value={form.password}
           onChange={handleChange('password')}
           showPassword={showPassword}
@@ -200,7 +220,6 @@ export default function Register({ onSwitchToLogin }) {
           icon={Lock}
           type="password"
           placeholder="Ulangi kata sandimu"
-          autoComplete="new-password"
           value={form.confirmPassword}
           onChange={handleChange('confirmPassword')}
           showPassword={showConfirmPassword}
@@ -210,8 +229,7 @@ export default function Register({ onSwitchToLogin }) {
 
         <button
           type="submit"
-          disabled={isSubmitting}
-          aria-busy={isSubmitting}
+          disabled={isSubmitting || isLoadingRegions || regions.length === 0}
           className="w-full py-3.5 px-4 bg-[#4B2172] hover:bg-[#371654] disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold rounded-full shadow-sm flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2 cursor-pointer"
         >
           {isSubmitting ? (

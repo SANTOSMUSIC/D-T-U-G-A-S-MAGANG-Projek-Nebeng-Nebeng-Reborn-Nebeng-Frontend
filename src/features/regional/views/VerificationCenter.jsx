@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Search, Clock, Eye, EyeOff, History } from 'lucide-react';
+import { ShieldCheck, Search, Clock, Eye, EyeOff, CreditCard, Truck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -33,6 +33,19 @@ export default function VerificationCenterPage() {
     'Skor Liveness Scan Face ID di bawah ambang batas minimum'
   ];
 
+  // Helper untuk membersihkan dan menormalkan URL file dari database/backend
+  const getFullFileUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('blob:')) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    const baseURL = apiClient.defaults.baseURL 
+      ? apiClient.defaults.baseURL.replace('/api', '') 
+      : 'http://localhost:3000';
+    return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -43,24 +56,54 @@ export default function VerificationCenterPage() {
         
         const responseData = await regionalService.getVerifications(undefined, currentRegionId);
 
-        const formatted = responseData.map(item => ({
-          id: String(item.id),
-          userId: String(item.userId || item.user?.id),
-          name: item.user?.name || 'Pengguna Tanpa Nama',
-          phone: item.user?.phone || '-',
-          role: item.user?.role ? item.user.role.toUpperCase() : 'MITRA',
-          regionId: item.user?.regionId ? String(item.user.regionId) : null,
-          submissionDate: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Baru saja',
-          status: item.status === 'approved' ? 'Disetujui' : item.status === 'rejected' ? 'Ditolak' : 'Menunggu Review',
-          rejectionReason: item.rejectionReason || '',
-          type: item.type,
-          files: item.files || [],
-          docs: {
-            ktp: item.files?.[0]?.filePath || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
-            faceId: item.user?.profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-            livenessScore: '98.5%'
+        // Di dalam file VerificationCenter.jsx, perbarui bagian pemetaan data (format response) menjadi seperti ini:
+        const formatted = responseData.map(item => {
+          const profile = item.user?.profile || {};
+          const vehicle = item.user?.vehicles?.[0] || {};
+          
+          // Ambil semua file dari database
+          const rawFiles = item.files || [];
+          
+          // Jika faceImageUrl ada di profil, masukkan ke daftar file jika belum ada
+          let allFiles = rawFiles.map(f => ({ ...f, filePath: getFullFileUrl(f.filePath) }));
+          
+          if (profile.faceImageUrl && !allFiles.some(f => f.filePath === getFullFileUrl(profile.faceImageUrl))) {
+            allFiles.unshift({
+              id: 'face-id',
+              fileType: 'image/jpeg',
+              filePath: getFullFileUrl(profile.faceImageUrl),
+              isFaceId: true
+            });
           }
-        }));
+
+          return {
+            id: String(item.id),
+            userId: String(item.userId || item.user?.id),
+            name: item.user?.name || 'Pengguna Tanpa Nama',
+            phone: item.user?.phone || '-',
+            role: item.user?.role ? item.user.role.toUpperCase() : 'MITRA',
+            regionId: item.user?.regionId ? String(item.user.regionId) : null,
+            submissionDate: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Baru saja',
+            status: item.status === 'approved' ? 'Disetujui' : item.status === 'rejected' ? 'Ditolak' : 'Menunggu Review',
+            rejectionReason: item.rejectionReason || '',
+            type: item.type,
+            files: allFiles,
+            identity: {
+              ktpNumber: profile.ktpNumber || '-',
+              fullNameKtp: profile.fullNameKtp || item.user?.name || '-',
+              addressKtp: profile.addressKtp || '-',
+              faceImageUrl: getFullFileUrl(profile.faceImageUrl),
+              bankName: profile.bankName || '-',
+              bankAccountNumber: profile.bankAccountNumber || '-',
+              bankAccountHolder: profile.bankAccountHolder || '-',
+            },
+            vehicle: {
+              type: vehicle.type || '-',
+              model: vehicle.model || '-',
+              plateNumber: vehicle.plateNumber || '-',
+            }
+          };
+        });
 
         if (isMounted) {
           setVerificationList(formatted);
@@ -93,10 +136,8 @@ export default function VerificationCenterPage() {
 
     try {
       await regionalService.reviewVerification(id, 'approved');
-
       setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
 
-      // Menggunakan panjang array log sebagai indeks unik pengganti Math.random / Date.now
       const logIndex = verificationAuditLogs.length + 1;
       const newLog = {
         id: `LOG-VER-${logIndex}`,
@@ -109,7 +150,7 @@ export default function VerificationCenterPage() {
       setVerificationAuditLogs(prevLogs => [newLog, ...prevLogs]);
 
       setIsDetailModalOpen(false);
-      toast.success(`Verifikasi ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
+      toast.success(`Verifikasi ID ${id} berhasil disetujui dan akun mitra diaktifkan.`, { title: 'Disetujui' });
     } catch (error) {
       console.error('Gagal menyetujui verifikasi:', error);
       toast.error(error.response?.data?.message || 'Gagal menyetujui dokumen di server.', { title: 'Error' });
@@ -190,7 +231,7 @@ export default function VerificationCenterPage() {
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Verification Center & Face ID</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas pengguna wilayah Anda langsung dari database.</p>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas, rekening, dan kendaraan mitra wilayah Anda.</p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-[#4B2172]/10 rounded-full shrink-0">
@@ -278,38 +319,53 @@ export default function VerificationCenterPage() {
         </div>
       </div>
 
-      {verificationAuditLogs.length > 0 && (
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-3">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-[#4B2172]" />
-            <h3 className="text-[12px] font-bold text-neutral-800">Catatan Audit Log Verifikasi Sesi Ini</h3>
-          </div>
-          <div className="space-y-2">
-            {verificationAuditLogs.map((log) => (
-              <div key={log.id} className="p-2.5 bg-neutral-50 border border-neutral-100 rounded-xl text-[9px] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-neutral-800 font-mono">{log.id}</span>
-                  <span className={`px-2 py-0.5 font-bold rounded-full ${log.decision === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {log.decision}
-                  </span>
-                  <span className="text-neutral-600">ID: <strong>{log.verId}</strong> ({log.name}) {log.reason && `• Alasan: "${log.reason}"`}</span>
-                </div>
-                <span className="text-[8px] text-neutral-400">{log.timestamp} • {log.admin}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <BaseModal
         isOpen={Boolean(isDetailModalOpen && selectedVerification)}
         onClose={() => setIsDetailModalOpen(false)}
         title={`Review Berkas: ${selectedVerification?.name}`}
         subtitle={`ID Verifikasi: ${selectedVerification?.id} • Tipe: ${selectedVerification?.type}`}
-        maxWidth="max-w-xl"
+        maxWidth="max-w-2xl"
       >
         {selectedVerification && (
           <div className="space-y-4">
+            {/* Informasi Identitas Pengguna */}
+            <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
+              <span className="text-[9px] font-bold text-neutral-500 uppercase">Informasi Identitas Pengguna</span>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div><strong>NIK:</strong> {selectedVerification.identity.ktpNumber}</div>
+                <div><strong>Nama KTP:</strong> {selectedVerification.identity.fullNameKtp}</div>
+                <div className="col-span-2"><strong>Alamat KTP:</strong> {selectedVerification.identity.addressKtp}</div>
+              </div>
+            </div>
+
+            {/* Informasi Rekening Bank (Hanya Ditampilkan Jika Role Mitra) */}
+            {selectedVerification.role === 'mitra' && (
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
+                <span className="text-[9px] font-bold text-neutral-500 uppercase flex items-center gap-1">
+                  <CreditCard className="w-3 h-3 text-[#4B2172]" /> Informasi Rekening Bank (Pencairan)
+                </span>
+                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                  <div><strong>Bank:</strong> {selectedVerification.identity.bankName}</div>
+                  <div><strong>No. Rekening:</strong> {selectedVerification.identity.bankAccountNumber}</div>
+                  <div><strong>Pemilik:</strong> {selectedVerification.identity.bankAccountHolder}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Informasi Kendaraan Terdaftar (Hanya Ditampilkan Jika Role Mitra) */}
+            {selectedVerification.role === 'mitra' && (
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
+                <span className="text-[9px] font-bold text-neutral-500 uppercase flex items-center gap-1">
+                  <Truck className="w-3 h-3 text-[#4B2172]" /> Informasi Kendaraan Terdaftar
+                </span>
+                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                  <div><strong>Jenis:</strong> {selectedVerification.vehicle.type}</div>
+                  <div><strong>Model:</strong> {selectedVerification.vehicle.model}</div>
+                  <div><strong>Plat Nomor:</strong> {selectedVerification.vehicle.plateNumber}</div>
+                </div>
+              </div>
+            )}
+
             {selectedVerification.status === 'Ditolak' && selectedVerification.rejectionReason && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[10px] text-rose-800 font-medium">
                 <strong>Catatan Alasan Penolakan:</strong> {selectedVerification.rejectionReason}
@@ -317,24 +373,41 @@ export default function VerificationCenterPage() {
             )}
 
             <div className="space-y-2">
-              <span className="text-[9px] font-bold text-neutral-500 uppercase">Berkas Lampiran Pengguna</span>
-              <div className="grid grid-cols-2 gap-3">
-                {selectedVerification.files.length > 0 ? (
-                  selectedVerification.files.map((file, idx) => (
+            <span className="text-[9px] font-bold text-neutral-500 uppercase">Berkas Lampiran & Face ID</span>
+            <div className="grid grid-cols-3 gap-3">
+              {selectedVerification.files.length > 0 ? (
+                selectedVerification.files.map((file, idx) => {
+                  const validFileUrl = file.filePath;
+                  return (
                     <div key={idx} className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200 space-y-1">
-                      <span className="text-[8px] font-bold text-neutral-400 uppercase">{file.fileType || 'Dokumen'}</span>
+                      <span className="text-[8px] font-bold text-[#4B2172] uppercase">
+                        {file.isFaceId ? 'Face ID Scan' : (file.fileType || `Dokumen ${idx + 1}`)}
+                      </span>
                       <div className="h-32 bg-white rounded-lg overflow-hidden border border-neutral-100 flex items-center justify-center">
-                        <a href={file.filePath} target="_blank" rel="noopener noreferrer" className="w-full h-full block">
-                          <img src={file.filePath} alt="Lampiran" className="w-full h-full object-cover hover:scale-105 transition" />
-                        </a>
+                        {validFileUrl ? (
+                          <a href={validFileUrl} target="_blank" rel="noopener noreferrer" className="w-full h-full block">
+                            <img 
+                              src={validFileUrl} 
+                              alt="Lampiran" 
+                              className="w-full h-full object-cover hover:scale-105 transition" 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.5'><rect width='18' height='18' x='3' y='3' rx='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>";
+                              }} 
+                            />
+                          </a>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[9px] text-neutral-400">File tidak valid</div>
+                        )}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-[10px] text-neutral-500 italic">Tidak ada berkas file terlampir.</p>
-                )}
-              </div>
+                  );
+                })
+              ) : (
+                <p className="text-[10px] text-neutral-500 italic">Tidak ada berkas file terlampir.</p>
+              )}
             </div>
+          </div>
 
             {!isDecided(selectedVerification) && (
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100">
@@ -342,7 +415,7 @@ export default function VerificationCenterPage() {
                   Tolak Berkas
                 </button>
                 <button onClick={() => handleApprove(selectedVerification.id)} className="px-4 py-2 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-full cursor-pointer transition shadow-sm">
-                  Setujui Berkas
+                  Setujui Berkas & Aktifkan Mitra
                 </button>
               </div>
             )}

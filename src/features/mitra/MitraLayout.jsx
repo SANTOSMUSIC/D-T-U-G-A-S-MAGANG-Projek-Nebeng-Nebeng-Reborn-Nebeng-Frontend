@@ -30,21 +30,25 @@ export default function MitraLayout() {
     navigate('/login', { replace: true });
   };
 
+  const handleMenuSelect = (name) => {
+    const isApproved = mitraProfile?.statusVerification === 'approved';
+    if (!isApproved && name !== 'Dashboard Mitra' && name !== 'Onboarding & Verifikasi' && name !== 'Profil & Pengaturan') {
+      alert('Akun Anda belum disetujui oleh Admin Regional. Selesaikan verifikasi terlebih dahulu.');
+      navigate('/mitra/onboarding');
+      return;
+    }
+    navigate(`/mitra/${MITRA_MENU_PATH[name]}`);
+  };
+
   return (
-    // MitraDataProvider menyatukan data saldo, escrow, dan trip untuk semua
-    // halaman di bawahnya (Dashboard, Trip Management, QR, Saldo) sehingga
-    // angkanya selalu konsisten, tidak lagi punya state dummy sendiri-sendiri.
     <MitraDataProvider>
       <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
         <MitraSidebar
           activeMenu={activeMenu}
-          onMenuSelect={(name) => navigate(`/mitra/${MITRA_MENU_PATH[name]}`)}
+          onMenuSelect={handleMenuSelect}
           onLogout={handleLogout}
         />
 
-        {/* Profil Saya dibuka sebagai modal langsung di dalam MitraTopbar
-            (tidak berpindah halaman). Pengaturan Akun tetap berpindah ke
-            halaman penuh lewat route /mitra/profile/pengaturan. */}
         <div className="flex-1 lg:ml-64 min-h-screen w-full flex flex-col">
           <MitraTopbar
             profile={mitraProfile}

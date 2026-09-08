@@ -260,6 +260,7 @@ export default function PricingPolicyManagement() {
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Dasar / Buka Pintu (Rp)</label>
                   <input 
                     type="number"
+                    min={0}
                     value={transportPricing.motorBaseFare}
                     onChange={handleFareChange('motorBaseFare')}
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -269,6 +270,7 @@ export default function PricingPolicyManagement() {
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Per KM (Rp)</label>
                   <input 
                     type="number"
+                    min={0}
                     value={transportPricing.motorPerKm}
                     onChange={handleFareChange('motorPerKm')}
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -286,6 +288,7 @@ export default function PricingPolicyManagement() {
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Dasar / Buka Pintu (Rp)</label>
                   <input 
                     type="number"
+                    min={0}
                     value={transportPricing.carBaseFare}
                     onChange={handleFareChange('carBaseFare')}
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -295,6 +298,7 @@ export default function PricingPolicyManagement() {
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Per KM (Rp)</label>
                   <input 
                     type="number"
+                    min={0}
                     value={transportPricing.carPerKm}
                     onChange={handleFareChange('carPerKm')}
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -340,6 +344,7 @@ export default function PricingPolicyManagement() {
                         <Scale size={11} className="text-neutral-400" />
                         <input 
                           type="number"
+                          min={0}
                           value={item.maxWeightKg}
                           onChange={(e) => handleMatrixChange(index, 'maxWeightKg', e.target.value)}
                           className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 w-20 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -351,6 +356,7 @@ export default function PricingPolicyManagement() {
                     <td className="py-2.5 px-4">
                       <input 
                         type="number"
+                        min={0}
                         value={item.baseRate}
                         onChange={(e) => handleMatrixChange(index, 'baseRate', e.target.value)}
                         className="bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 w-28 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -380,6 +386,7 @@ export default function PricingPolicyManagement() {
               <label className="block text-[9px] font-bold uppercase text-neutral-500">Komisi Transportasi (%)</label>
               <input 
                 type="number"
+                min={0}
                 value={platformFee.rideFeePercent}
                 onChange={handleFeeChange('rideFeePercent')}
                 className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
@@ -389,6 +396,7 @@ export default function PricingPolicyManagement() {
               <label className="block text-[9px] font-bold uppercase text-neutral-500">Komisi Pengiriman Paket (%)</label>
               <input 
                 type="number"
+                min={0}
                 value={platformFee.parcelFeePercent}
                 onChange={handleFeeChange('parcelFeePercent')}
                 className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"

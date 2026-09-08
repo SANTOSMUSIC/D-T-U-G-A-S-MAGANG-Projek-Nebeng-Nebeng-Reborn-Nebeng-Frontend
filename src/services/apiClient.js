@@ -28,7 +28,7 @@ const updateStoredToken = (newToken) => {
     let raw = storage.getItem(AUTH_STORAGE_KEY);
     if (raw) {
       let parsed = JSON.parse(raw);
-      if (typeof parsed === 'object') {
+      if (typeof parsed === 'object' && parsed !== null) {
         parsed.token = newToken;
         parsed.accessToken = newToken;
       } else {
@@ -41,8 +41,13 @@ const updateStoredToken = (newToken) => {
   }
 };
 
-// Request Interceptor: Menyisipkan token ke header
+// Request Interceptor: Menyisipkan token & mencegah duplikasi prefix '/api'
 apiClient.interceptors.request.use((config) => {
+  // Jika URL mengandung '/api/api/', bersihkan agar tidak duplikasi
+  if (config.url && config.url.startsWith('/api/')) {
+    config.url = config.url.replace('/api/', '/');
+  }
+
   const parsed = getStoredAuth();
   if (parsed) {
     const token = 

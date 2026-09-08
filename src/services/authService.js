@@ -12,10 +12,27 @@ export async function loginRequest({ email, password }) {
 
   const responseData = response.data;
 
-  const userObj = responseData?.data || responseData?.user || responseData;
+  // Mendukung berbagai struktur respons nested dari backend NestJS
+  const userObj = responseData?.data?.user || responseData?.user || responseData?.data || responseData;
   const role = userObj?.role || responseData?.role || 'customer';
-  const accessToken = responseData?.accessToken || responseData?.token || userObj?.token;
-  const refreshToken = responseData?.refreshToken || responseData?.refresh_token;
+  
+  // Memastikan pencarian token mencakup standar umum REST API
+  const accessToken = 
+    responseData?.accessToken || 
+    responseData?.token || 
+    responseData?.data?.accessToken || 
+    responseData?.data?.token || 
+    userObj?.token;
+
+  const refreshToken = 
+    responseData?.refreshToken || 
+    responseData?.refresh_token || 
+    responseData?.data?.refreshToken || 
+    userObj?.refreshToken;
+
+  if (!accessToken) {
+    throw new Error('Token otentikasi tidak ditemukan dari server');
+  }
 
   return {
     role: role.toLowerCase(),
@@ -31,12 +48,14 @@ export async function registerRequest(payload) {
     throw new Error('Data pendaftaran tidak lengkap');
   }
 
+  // Hanya mengirim properti yang diizinkan oleh RegisterDto backend
   const backendPayload = {
     name: payload.name.trim(),
     email: payload.email.trim(),
     phone: payload.phone,
     password: payload.password,
     role: payload.role ? payload.role.toLowerCase() : 'customer',
+    regionId: payload.regionId ? String(payload.regionId) : undefined,
   };
 
   const response = await apiClient.post('/auth/register', backendPayload);
