@@ -333,7 +333,7 @@ export default function MitraOnboarding() {
                     <Upload className="w-6 h-6 text-[#4B2172] mb-1" />
                   )}
                   <p className="text-[10px] font-bold text-neutral-800 mb-0.5 uppercase">Foto {field}</p>
-                  <p className="text-[8px] text-neutral-400 mb-2 truncate max-w-[180px]">{rawFiles[field] ? rawFiles[field].name : 'Format JPG/PNG (Maks 5MB)'}</p>
+                  <p className="text-[8px] text-neutral-400 mb-2 truncate max-w-45">{rawFiles[field] ? rawFiles[field].name : 'Format JPG/PNG (Maks 5MB)'}</p>
                   <label className="px-3 py-1 bg-purple-50 text-[#4B2172] rounded-lg text-[8px] font-bold cursor-pointer hover:bg-purple-100 transition">
                     {rawFiles[field] ? 'Ganti Berkas' : 'Pilih Berkas'}
                     <input type="file" accept={field === 'skck' ? "image/*,application/pdf" : "image/*"} onChange={(e) => handleFileChange(e, field)} className="hidden" />
@@ -348,7 +348,7 @@ export default function MitraOnboarding() {
             <h2 className="text-[14px] font-bold text-neutral-800 flex items-center justify-center gap-1.5">
               <Camera className="w-4 h-4 text-[#4B2172]" /> 3. Pendaftaran Data Face ID Scan
             </h2>
-            <div className="max-w-xs mx-auto p-3 bg-neutral-900 rounded-2xl text-white flex flex-col items-center justify-center relative shadow-inner min-h-[180px]">
+            <div className="max-w-xs mx-auto p-3 bg-neutral-900 rounded-2xl text-white flex flex-col items-center justify-center relative shadow-inner min-h-45">
               <canvas ref={canvasRef} className="hidden" />
               <div className={`relative w-full h-40 flex flex-col items-center justify-center ${cameraActive ? 'flex' : 'hidden'}`}>
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-32 object-cover rounded-xl border border-purple-500/50 bg-black" />

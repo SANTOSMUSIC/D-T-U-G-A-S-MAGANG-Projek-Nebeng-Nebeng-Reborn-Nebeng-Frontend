@@ -180,7 +180,7 @@ export default function Login({ onSwitchToRegister, onLogin }) {
         aria-disabled="true"
         className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 bg-white border border-neutral-200 rounded-full text-neutral-400 text-sm font-semibold cursor-not-allowed"
       >
-        <svg className="w-[18px] h-[18px] opacity-60" viewBox="0 0 48 48" aria-hidden="true">
+        <svg className="w-4.5 h-4.5 opacity-60" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/>
           <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 16.1 3 9.3 7.5 6.3 14.7z"/>
           <path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.4 26.7 37 24 37c-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.2 40.4 16 45 24 45z"/>

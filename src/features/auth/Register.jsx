@@ -169,7 +169,7 @@ export default function Register({ onSwitchToLogin }) {
               <option value="customer">Customer</option>
               <option value="mitra">Mitra (Driver)</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute inset-y-0 right-4 my-auto w-[18px] h-[18px] text-zinc-500" />
+            <ChevronDown className="pointer-events-none absolute inset-y-0 right-4 my-auto w-4.5 h-4.5 text-zinc-500" />
           </div>
         </div>
 
@@ -198,7 +198,7 @@ export default function Register({ onSwitchToLogin }) {
                 ))
               )}
             </select>
-            <MapPin className="pointer-events-none absolute inset-y-0 right-4 my-auto w-[18px] h-[18px] text-zinc-500" />
+            <MapPin className="pointer-events-none absolute inset-y-0 right-4 my-auto w-4.5 h-4.5 text-zinc-500" />
           </div>
           {errors.regionId && <p className="text-xs text-rose-500 mt-1 pl-4">{errors.regionId}</p>}
         </div>
