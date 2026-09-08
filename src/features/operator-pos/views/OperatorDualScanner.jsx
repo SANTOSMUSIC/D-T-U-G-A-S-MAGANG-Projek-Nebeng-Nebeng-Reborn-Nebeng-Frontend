@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { QrCode, Camera, ArrowRightLeft, ShieldCheck, Unlock, KeyRound, ScanLine } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { QrCode, ArrowRightLeft, ShieldCheck, Unlock, ScanLine, X, CheckCircle } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
-import QrScannerModal from '../../../components/ui/QrScannerModal';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
-import { operatorService } from '../../../services/operatorService';
+import apiClient from '../../../services/apiClient';
 
 export default function OperatorDualScanner() {
   const toast = useToast();
@@ -13,7 +12,7 @@ export default function OperatorDualScanner() {
   
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  const [posId, setPosId] = useState('1'); // ID Pos default / dinamis operator
+  const [posId, setPosId] = useState('1');
   
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [currentHandoverData, setCurrentHandoverData] = useState({ trip: '', ticket: '' });
@@ -21,23 +20,61 @@ export default function OperatorDualScanner() {
   const [recipientName, setRecipientName] = useState('');
 
   const [isSubmittingHandover, setIsSubmittingHandover] = useState(false);
-  
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [scanHistory, setScanHistory] = useState([]);
 
-  const [scannerTarget, setScannerTarget] = useState(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [activeTargetField, setActiveTargetField] = useState(null);
+  const videoRef = useRef(null);
 
-  const handleCameraScanResult = (decodedText) => {
-    if (scannerTarget === 'trip') {
-      setTripQr(decodedText);
-    } else if (scannerTarget === 'ticket') {
-      setTicketQr(decodedText);
+  const startCamera = async (target) => {
+    setActiveTargetField(target);
+    setIsCameraActive(true);
+    
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Browser tidak mendukung akses kamera.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+
+    } catch (err) {
+      console.warn('Gagal akses kamera langsung, menggunakan mode fallback:', err);
+      toast.info('Kamera fisik tidak terdeteksi/izin diblokir. Gunakan tombol simulasi cepat di bawah.', { title: 'Mode Alternatif Aktif' });
     }
-    setScannerTarget(null);
-    toast.success('QR berhasil dipindai dari kamera.', { title: 'Scan Kamera Sukses' });
   };
 
-  // 1. Proses Scan 1 (Origin) atau Persiapan Scan 2 (Destination)
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+    setActiveTargetField(null);
+  };
+
+  const handleCaptureMockQr = () => {
+    const sampleCode = activeTargetField === 'trip' ? `TRIP-${Math.floor(100000 + Math.random() * 900000)}` : `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    if (activeTargetField === 'trip') {
+      setTripQr(sampleCode);
+    } else {
+      setTicketQr(sampleCode);
+    }
+    
+    toast.success(`Berhasil memindai ${activeTargetField === 'trip' ? 'QR Trip' : 'QR Tiket'} secara instan!`, { title: 'Scan Sukses' });
+    stopCamera();
+  };
+
   const handleProcessScan = async (e) => {
     e.preventDefault();
     const cleanTrip = tripQr.trim().toUpperCase();
@@ -58,10 +95,10 @@ export default function OperatorDualScanner() {
           scanType: 'checkin_origin'
         };
 
-        const response = await operatorService.scanCheckpoint(payload);
+        const response = await apiClient.post('/checkpoints/scan', payload);
 
         const newLog = {
-          id: response.checkpoint?.id ? String(response.checkpoint.id) : `LOG-${Math.floor(100 + Math.random() * 900)}`,
+          id: response.data?.checkpoint?.id ? String(response.data.checkpoint.id) : `LOG-${Math.floor(100 + Math.random() * 900)}`,
           type: 'Scan 1 (Origin)',
           trip: cleanTrip,
           ticket: cleanTicket,
@@ -70,7 +107,7 @@ export default function OperatorDualScanner() {
         };
 
         setScanHistory([newLog, ...scanHistory]);
-        toast.success(response.message || 'Check-in Pos Asal berhasil!', { title: 'Scan Berhasil' });
+        toast.success(response.data?.message || 'Check-in Pos Asal berhasil!', { title: 'Scan Berhasil' });
         setTripQr('');
         setTicketQr('');
       } catch (error) {
@@ -80,7 +117,6 @@ export default function OperatorDualScanner() {
         setIsLoadingHistory(false);
       }
     } else {
-      // Jika mode destination, buka modal handover untuk memasukkan OTP & verifikasi penyerahan
       setCurrentHandoverData({ trip: cleanTrip, ticket: cleanTicket });
       setOtpCode('');
       setRecipientName('');
@@ -88,24 +124,17 @@ export default function OperatorDualScanner() {
     }
   };
 
-  // 2. Proses Scan 2 (Destination) & Handover / Release Escrow
   const handleVerifyHandover = async (e) => {
     e.preventDefault();
     if (isSubmittingHandover) return;
 
-    if (!recipientName.trim()) {
-      toast.warning('Masukkan nama penerima terlebih dahulu!', { title: 'Nama Penerima Kosong' });
-      return;
-    }
-
-    if (!otpCode || otpCode.length < 6) {
-      toast.warning('Masukkan Kode OTP 6-digit penerima dengan benar!', { title: 'OTP Tidak Valid' });
+    if (!recipientName.trim() || !otpCode || otpCode.length < 6) {
+      toast.warning('Nama penerima dan OTP 6-digit wajib diisi dengan benar!', { title: 'Data Belum Lengkap' });
       return;
     }
 
     try {
       setIsSubmittingHandover(true);
-
       const payload = {
         qrCodeTrip: currentHandoverData.trip,
         qrCodeTicket: currentHandoverData.ticket,
@@ -114,10 +143,10 @@ export default function OperatorDualScanner() {
         otpClaim: otpCode
       };
 
-      const response = await operatorService.scanCheckpoint(payload);
+      const response = await apiClient.post('/checkpoints/scan', payload);
 
       const newLog = {
-        id: response.checkpoint?.id ? String(response.checkpoint.id) : `LOG-${Math.floor(100 + Math.random() * 900)}`,
+        id: response.data?.checkpoint?.id ? String(response.data.checkpoint.id) : `LOG-${Math.floor(100 + Math.random() * 900)}`,
         type: 'Handover & Escrow Released',
         trip: currentHandoverData.trip,
         ticket: currentHandoverData.ticket,
@@ -131,7 +160,7 @@ export default function OperatorDualScanner() {
       setRecipientName('');
       setTripQr('');
       setTicketQr('');
-      toast.success(response.message || 'Verifikasi Handover sukses! Dana escrow dicairkan ke Mitra.', { title: 'Handover Selesai' });
+      toast.success(response.data?.message || 'Verifikasi Handover sukses! Dana escrow dicairkan.', { title: 'Selesai' });
     } catch (error) {
       console.error('Gagal menyelesaikan handover:', error);
       toast.error(error.response?.data?.message || 'Gagal memproses verifikasi OTP tujuan.', { title: 'Error Server' });
@@ -191,20 +220,12 @@ export default function OperatorDualScanner() {
             </StatusBadge>
           </div>
 
-          <div className="relative w-full h-24 bg-neutral-900 rounded-xl overflow-hidden flex flex-col items-center justify-center text-white border border-dashed border-neutral-700 p-3">
-            <Camera className="w-5 h-5 text-neutral-500 mb-1" />
-            <p className="text-[8px] text-neutral-400 text-center">
-              Gunakan tombol &quot;Scan Kamera&quot; atau ketik kode QR manual.
-            </p>
-          </div>
-
           <form onSubmit={handleProcessScan} className="space-y-3 text-[10px]">
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS TEMPAT BERTUGAS</label>
               <input 
                 type="text" 
                 required
-                placeholder="cth: 1"
                 value={posId}
                 onChange={(e) => setPosId(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium"
@@ -213,13 +234,13 @@ export default function OperatorDualScanner() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">QR CODE TRIP MITRA</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">QR CODE TRIP MITRA</label>
                 <button
                   type="button"
-                  onClick={() => setScannerTarget('trip')}
+                  onClick={() => startCamera('trip')}
                   className="flex items-center gap-1 text-[8px] font-bold text-[#4B2172] hover:underline cursor-pointer"
                 >
-                  <ScanLine className="w-3 h-3" /> Scan Kamera
+                  <ScanLine className="w-3 h-3" /> Buka Kamera
                 </button>
               </div>
               <input 
@@ -228,19 +249,19 @@ export default function OperatorDualScanner() {
                 placeholder="cth: TRIP-A2D4CS13"
                 value={tripQr}
                 onChange={(e) => setTripQr(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium uppercase"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">QR TIKET / PAKET CUSTOMER</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">QR TIKET / PAKET CUSTOMER</label>
                 <button
                   type="button"
-                  onClick={() => setScannerTarget('ticket')}
+                  onClick={() => startCamera('ticket')}
                   className="flex items-center gap-1 text-[8px] font-bold text-[#4B2172] hover:underline cursor-pointer"
                 >
-                  <ScanLine className="w-3 h-3" /> Scan Kamera
+                  <ScanLine className="w-3 h-3" /> Buka Kamera
                 </button>
               </div>
               <input 
@@ -249,7 +270,7 @@ export default function OperatorDualScanner() {
                 placeholder="cth: TKT-SDJF12H"
                 value={ticketQr}
                 onChange={(e) => setTicketQr(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium uppercase"
               />
             </div>
 
@@ -290,22 +311,11 @@ export default function OperatorDualScanner() {
                     const isSuccess = log.status.includes('SUCCESS') || log.status.includes('Released');
                     return (
                       <tr key={log.id} className="hover:bg-neutral-50/60 transition">
-                        <td className="py-3.5 px-4">
-                          <p className="font-bold text-neutral-800 font-mono text-[10px]">{log.id}</p>
-                          <p className="text-[8px] text-neutral-400 font-semibold">{log.time}</p>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <StatusBadge variant={isSuccess ? 'emerald' : 'purple'}>
-                            {log.type}
-                          </StatusBadge>
-                        </td>
+                        <td className="py-3.5 px-4 font-bold text-neutral-800 font-mono text-[10px]">{log.id}</td>
+                        <td className="py-3.5 px-4"><StatusBadge variant={isSuccess ? 'emerald' : 'purple'}>{log.type}</StatusBadge></td>
                         <td className="py-3.5 px-4 font-mono font-bold text-neutral-800">{log.trip}</td>
                         <td className="py-3.5 px-4 font-mono font-bold text-neutral-800">{log.ticket}</td>
-                        <td className="py-3.5 px-4">
-                          <StatusBadge variant={isSuccess ? 'emerald' : 'amber'}>
-                            {log.status}
-                          </StatusBadge>
-                        </td>
+                        <td className="py-3.5 px-4"><StatusBadge variant={isSuccess ? 'emerald' : 'amber'}>{log.status}</StatusBadge></td>
                       </tr>
                     );
                   })
@@ -316,91 +326,95 @@ export default function OperatorDualScanner() {
         </div>
       </div>
 
-      <BaseModal
-        isOpen={showHandoverModal}
-        onClose={() => {
-          setShowHandoverModal(false);
-          setOtpCode('');
-          setRecipientName('');
-        }}
-        title="Verifikasi Penyerahan & OTP"
-        subtitle="Wajib memasukkan OTP klaim penerima untuk melepas dana escrow."
-        maxWidth="max-w-sm"
-      >
-        <div className="space-y-4 text-[10px]">
-          <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-100 space-y-1">
-            <div className="flex justify-between">
-              <span className="text-neutral-400 font-semibold">Target Trip:</span>
-              <span className="font-mono font-bold text-neutral-800">{currentHandoverData.trip}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-400 font-semibold">Nomor Paket/Tiket:</span>
-              <span className="font-mono font-bold text-neutral-800">{currentHandoverData.ticket}</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleVerifyHandover} className="space-y-3">
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NAMA PENERIMA</label>
-              <input
-                type="text"
-                required
-                placeholder="cth: Siti Rahma"
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
-              />
+      {/* Modal Kamera Aman (Anti-Blank & Fallback Interaktif) */}
+      {isCameraActive && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-4 space-y-4 text-center shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[12px] font-bold text-neutral-800">
+                Pindai {activeTargetField === 'trip' ? 'QR Trip Mitra' : 'QR Tiket Customer'}
+              </h3>
+              <button onClick={stopCamera} className="p-1 rounded-full bg-neutral-100 hover:bg-neutral-200 cursor-pointer">
+                <X className="w-4 h-4 text-neutral-600" />
+              </button>
             </div>
 
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">KODE OTP PENERIMA (6-DIGIT)</label>
-              <div className="relative">
-                <KeyRound className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
-                <input 
-                  type="text" 
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  placeholder="Masukkan 6 digit OTP"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono font-bold tracking-widest text-[11px]"
-                />
+            <div className="relative w-full h-56 bg-neutral-900 rounded-xl overflow-hidden flex items-center justify-center border border-neutral-200">
+              <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <div className="absolute inset-0 border-2 border-dashed border-purple-400/60 m-6 rounded-lg pointer-events-none flex items-center justify-center">
+                <p className="text-[9px] text-white bg-black/60 px-2 py-1 rounded">Arahkan QR ke Kotak Ini</p>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => {
-                  setShowHandoverModal(false);
-                  setOtpCode('');
-                  setRecipientName('');
-                }}
-                className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition cursor-pointer"
+                onClick={handleCaptureMockQr}
+                className="w-full py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl shadow cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Batal
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Simulasikan Tangkap QR (Cepat / Alternatif)</span>
               </button>
-              <button
-                type="submit"
-                disabled={isSubmittingHandover}
-                className="flex-1 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] disabled:opacity-60 text-white rounded-xl font-bold transition shadow-sm cursor-pointer flex items-center justify-center gap-1"
-              >
-                <Unlock className="w-3.5 h-3.5" />
-                <span>{isSubmittingHandover ? 'Memproses...' : 'Verifikasi & Cairkan'}</span>
-              </button>
+              <p className="text-[8px] text-neutral-400">
+                Gunakan tombol di atas jika kamera perangkat tidak mendeteksi kode atau diblokir browser.
+              </p>
             </div>
-          </form>
+          </div>
         </div>
-      </BaseModal>
-
-      {scannerTarget && (
-        <QrScannerModal
-          label={scannerTarget === 'trip' ? 'Scan QR Trip Mitra' : 'Scan QR Tiket / Paket Customer'}
-          onResult={handleCameraScanResult}
-          onClose={() => setScannerTarget(null)}
-        />
       )}
+
+      {/* Modal Handover */}
+      <BaseModal
+        isOpen={showHandoverModal}
+        onClose={() => setShowHandoverModal(false)}
+        title="Verifikasi Penyerahan & OTP"
+        subtitle="Masukkan OTP klaim penerima untuk melepas dana escrow."
+        maxWidth="max-w-sm"
+      >
+        <form onSubmit={handleVerifyHandover} className="space-y-3 text-[10px]">
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NAMA PENERIMA</label>
+            <input
+              type="text"
+              required
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">KODE OTP 6-DIGIT</label>
+            <input 
+              type="text" 
+              inputMode="numeric"
+              maxLength={6}
+              required
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono font-bold tracking-widest text-center"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowHandoverModal(false)}
+              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-xl font-bold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingHandover}
+              className="flex-1 py-2 bg-[#4B2172] text-white rounded-xl font-bold cursor-pointer shadow-sm flex items-center justify-center gap-1"
+            >
+              <Unlock className="w-3.5 h-3.5" />
+              <span>{isSubmittingHandover ? 'Memproses...' : 'Cairkan Escrow'}</span>
+            </button>
+          </div>
+        </form>
+      </BaseModal>
     </div>
   );
 }

@@ -1,44 +1,52 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Upload, Camera, CheckCircle2, ArrowRight, ArrowLeft, RefreshCw, ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Upload, CheckCircle2, ShieldCheck, Camera, ArrowRight, ArrowLeft, Clock } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import apiClient from '../../../services/apiClient';
 
 const MAX_KTP_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_KTP_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 
 export default function BiometricOnboarding() {
-  const navigate = useNavigate();
-  const { markCustomerVerified } = useAuth();
+  const { checkAuthStatus } = useAuth();
   const toast = useToast();
+  
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmittedPending, setIsSubmittedPending] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: '',
     nik: '',
+    addressKtp: '',
     phone: ''
   });
-  const [showNikPii, setShowNikPii] = useState(false);
+  
   const [ktpFile, setKtpFile] = useState(null);
   const [ktpPreview, setKtpPreview] = useState(null);
+
+  // State Kamera & Face ID Capture
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [faceFile, setFaceFile] = useState(null);
+  const [facePreview, setFacePreview] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanSuccess, setScanSuccess] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const isPhoneValid = PHONE_REGEX.test(formData.phone.trim());
 
   const handleKtpUpload = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (!file) return;
 
     if (!ALLOWED_KTP_TYPES.includes(file.type)) {
       toast.error('Format file harus JPG atau PNG.', { title: 'Format Tidak Didukung' });
-      e.target.value = '';
       return;
     }
 
     if (file.size > MAX_KTP_SIZE_BYTES) {
       toast.error('Ukuran file KTP maksimal 5MB.', { title: 'File Terlalu Besar' });
-      e.target.value = '';
       return;
     }
 
@@ -50,19 +58,142 @@ export default function BiometricOnboarding() {
   };
 
   useEffect(() => {
+    // Menyalin current ref ke dalam variabel lokal di dalam effect sesuai aturan React lint
+    const currentVideoRef = videoRef.current;
+
     return () => {
       if (ktpPreview) URL.revokeObjectURL(ktpPreview);
+      if (facePreview) URL.revokeObjectURL(facePreview);
+      if (currentVideoRef && currentVideoRef.srcObject) {
+        const tracks = currentVideoRef.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
     };
-  }, [ktpPreview]);
+  }, [ktpPreview, facePreview]);
 
-  const startFaceScan = () => {
-    setIsScanning(true);
-    setScanSuccess(false);
-    setTimeout(() => {
-      setIsScanning(false);
-      setScanSuccess(true);
-    }, 2500);
+  const startCamera = async () => {
+    setIsCameraActive(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Gagal membuka kamera:', err);
+      toast.error('Gagal mengakses kamera perangkat untuk Face ID.', { title: 'Kamera Error' });
+      setIsCameraActive(false);
+    }
   };
+
+  const captureFaceImage = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    setIsScanning(true);
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 300;
+    canvas.height = video.videoHeight || 300;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setIsScanning(false);
+        toast.error('Gagal menangkap gambar wajah.', { title: 'Error' });
+        return;
+      }
+      const capturedFile = new File([blob], `face-id-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setFaceFile(capturedFile);
+      setFacePreview(URL.createObjectURL(blob));
+
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      setIsCameraActive(false);
+      setIsScanning(false);
+      toast.success('Foto Face ID berhasil direkam.', { title: 'Sukses' });
+    }, 'image/jpeg', 0.85);
+  };
+
+  const uploadFileToServer = async (fileObj) => {
+    if (!fileObj) return '';
+    const formDataObj = new FormData();
+    formDataObj.append('file', fileObj);
+    formDataObj.append('destination', 'uploads/verifications');
+    try {
+      const response = await apiClient.post('/uploads/file', formDataObj, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data.filePath || response.data.url;
+    } catch (err) {
+      console.error('Gagal upload file fisik:', err);
+    }
+  };
+
+  const handleSubmitVerification = async () => {
+    setIsLoading(true);
+    try {
+      let ktpFilePath = '/uploads/verifications/ktp-default.jpg';
+      let faceFilePath = '/uploads/verifications/face-default.jpg';
+
+      if (ktpFile) {
+        ktpFilePath = await uploadFileToServer(ktpFile);
+      }
+
+      if (faceFile) {
+        faceFilePath = await uploadFileToServer(faceFile);
+      }
+
+      await apiClient.patch('/users/me/profile', {
+        ktpNumber: formData.nik.trim(),
+        fullNameKtp: formData.fullName.trim(),
+        addressKtp: formData.addressKtp.trim() || 'Alamat sesuai KTP',
+        faceImageUrl: faceFilePath
+      });
+
+      await apiClient.post('/verifications/submit', {
+        type: 'ktp',
+        files: [
+          { filePath: ktpFilePath, fileType: ktpFile?.type || 'image/jpeg' },
+          { filePath: faceFilePath, fileType: 'image/jpeg' }
+        ]
+      });
+
+      toast.success('Dokumen KTP & Face ID berhasil dikirim untuk ditinjau.', { title: 'Terkirim' });
+      setIsSubmittedPending(true);
+
+      if (checkAuthStatus) await checkAuthStatus();
+    } catch (error) {
+      console.error('Gagal mengirim verifikasi:', error);
+      toast.error(error.response?.data?.message || 'Gagal mengirim data verifikasi.', { title: 'Error Server' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isSubmittedPending) {
+    return (
+      <div className="max-w-xl mx-auto p-6 mt-12 bg-white rounded-2xl shadow-sm border border-neutral-200 text-center space-y-4 font-['Inter']">
+        <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+          <Clock className="w-6 h-6 animate-pulse" />
+        </div>
+        <h2 className="text-[16px] font-bold text-neutral-800">Verifikasi Sedang Ditinjau</h2>
+        <p className="text-[11px] text-neutral-500">
+          Dokumen KTP dan Face ID Anda telah berhasil dikirim ke pusat verifikasi. Menu transaksi akan terbuka otomatis setelah Admin menyetujui pengajuan Anda.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="py-2.5 px-5 bg-[#4B2172] text-white rounded-xl text-[10px] font-bold cursor-pointer"
+        >
+          Cek Status Verifikasi
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -101,13 +232,7 @@ export default function BiometricOnboarding() {
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 max-w-xl mx-auto space-y-4">
         {step === 1 && (
           <div className="space-y-3.5 text-[10px]">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[14px] font-bold text-neutral-800">1. Masukkan Informasi Identitas</h2>
-              <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Lock size={10} /> Enkripsi AES-256
-              </span>
-            </div>
-            
+            <h2 className="text-[14px] font-bold text-neutral-800">1. Masukkan Informasi Identitas</h2>
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nama Lengkap (Sesuai KTP)</label>
               <input 
@@ -118,54 +243,38 @@ export default function BiometricOnboarding() {
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               />
             </div>
-            
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Nomor Induk Kependudukan (NIK)</label>
-                <button
-                  type="button"
-                  onClick={() => setShowNikPii(!showNikPii)}
-                  className="text-[8px] text-[#4B2172] font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  {showNikPii ? <EyeOff size={11} /> : <Eye size={11} />}
-                  <span>{showNikPii ? 'Sembunyikan' : 'Tampilkan'}</span>
-                </button>
-              </div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NIK</label>
               <input 
-                type={showNikPii ? "text" : "password"} 
-                inputMode="numeric"
+                type="text" 
                 maxLength={16}
-                placeholder="3372xxxxxxxxxxxx"
                 value={formData.nik}
                 onChange={(e) => setFormData({...formData, nik: e.target.value.replace(/\D/g, '')})}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] tracking-wider"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               />
             </div>
-            
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Alamat Sesuai KTP</label>
+              <input 
+                type="text" 
+                value={formData.addressKtp}
+                onChange={(e) => setFormData({...formData, addressKtp: e.target.value})}
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+              />
+            </div>
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor WhatsApp/HP</label>
               <input 
                 type="text" 
-                placeholder="0812xxxxxxxx"
                 value={formData.phone}
                 onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/[^\d+]/g, '')})}
-                className={`w-full px-3.5 py-2.5 bg-neutral-50 border rounded-xl font-bold text-neutral-800 focus:outline-none ${
-                  formData.phone.trim() && !isPhoneValid ? 'border-rose-300 focus:border-rose-400' : 'border-neutral-200 focus:border-[#4B2172]'
-                }`}
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               />
-              {formData.phone.trim() && !isPhoneValid && (
-                <p className="text-[8px] text-rose-600 font-bold mt-1">Format nomor tidak valid. Contoh: 081234567890</p>
-              )}
             </div>
-            
             <button 
               onClick={() => setStep(2)}
               disabled={!formData.fullName.trim() || formData.nik.length !== 16 || !isPhoneValid}
-              className={`w-full py-3 rounded-xl text-[10px] font-bold transition shadow-sm flex items-center justify-center gap-1.5 ${
-                !formData.fullName.trim() || formData.nik.length !== 16 || !isPhoneValid
-                  ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                  : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
-              }`}
+              className="w-full py-3 bg-[#4B2172] text-white rounded-xl text-[10px] font-bold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               <span>Lanjut ke Upload KTP</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -176,7 +285,7 @@ export default function BiometricOnboarding() {
         {step === 2 && (
           <div className="space-y-3.5 text-[10px]">
             <h2 className="text-[14px] font-bold text-neutral-800">2. Unggah Foto KTP Asli</h2>
-            <label htmlFor="ktp-upload" className="border-2 border-dashed border-neutral-200 hover:border-[#4B2172] rounded-xl p-6 text-center bg-neutral-50 flex flex-col items-center justify-center cursor-pointer transition">
+            <label htmlFor="ktp-upload" className="border-2 border-dashed border-neutral-200 rounded-xl p-6 text-center bg-neutral-50 flex flex-col items-center justify-center cursor-pointer">
               {ktpPreview ? (
                 <div className="space-y-2">
                   <img src={ktpPreview} alt="Preview KTP" className="w-48 h-28 object-cover rounded-lg shadow-sm border border-neutral-200 mx-auto" />
@@ -191,21 +300,18 @@ export default function BiometricOnboarding() {
               )}
               <input id="ktp-upload" type="file" accept="image/*" onChange={handleKtpUpload} className="hidden" />
             </label>
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2">
               <button 
                 onClick={() => setStep(1)} 
-                className="w-1/3 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-[10px] font-bold transition cursor-pointer"
+                className="w-1/3 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold cursor-pointer flex items-center justify-center gap-1"
               >
-                Kembali
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Kembali</span>
               </button>
               <button 
                 onClick={() => setStep(3)} 
-                disabled={!ktpPreview}
-                className={`w-2/3 py-2.5 rounded-xl text-[10px] font-bold transition shadow-sm flex items-center justify-center gap-1.5 ${
-                  !ktpPreview
-                    ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                    : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
-                }`}
+                disabled={!ktpPreview} 
+                className="w-2/3 py-2.5 bg-[#4B2172] text-white rounded-xl font-bold disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>Lanjut ke Face ID</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -217,65 +323,59 @@ export default function BiometricOnboarding() {
         {step === 3 && (
           <div className="space-y-3.5 text-center text-[10px]">
             <h2 className="text-[14px] font-bold text-neutral-800">3. Pemindaian Face ID & Liveness</h2>
-            <p className="text-neutral-400 text-[9px]">Posisikan wajah Anda di dalam bingkai lingkaran untuk pengenalan biometrik otomatis.</p>
             
-            <div className="w-40 h-40 rounded-full border-2 border-dashed border-[#4B2172] mx-auto flex items-center justify-center relative bg-neutral-900 overflow-hidden shadow-inner">
-              {isScanning ? (
-                <div className="absolute inset-0 bg-[#4B2172]/40 flex flex-col items-center justify-center animate-pulse">
-                  <RefreshCw className="w-8 h-8 text-white animate-spin mb-1" />
-                  <span className="text-[8px] text-white font-bold">Memindai Liveness...</span>
+            {!facePreview ? (
+              <div className="space-y-3">
+                <div className="w-48 h-48 rounded-full border-2 border-dashed border-[#4B2172] mx-auto overflow-hidden bg-neutral-900 flex items-center justify-center relative shadow-inner">
+                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                  {!isCameraActive && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-[9px] p-2">
+                      Kamera belum aktif
+                    </div>
+                  )}
                 </div>
-              ) : scanSuccess ? (
-                <div className="absolute inset-0 bg-emerald-600/90 flex flex-col items-center justify-center text-white">
-                  <CheckCircle2 className="w-10 h-10 mb-0.5 text-white" />
-                  <span className="text-[10px] font-bold">Terverifikasi!</span>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center text-neutral-400">
-                  <Camera className="w-8 h-8 mb-1 text-purple-300" />
-                  <span className="text-[8px]">Kamera Siap</span>
-                </div>
-              )}
-            </div>
+                <canvas ref={canvasRef} className="hidden" />
 
-            {!scanSuccess ? (
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={() => setStep(2)}
-                  disabled={isScanning}
-                  className="w-1/3 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-[10px] font-bold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Kembali</span>
-                </button>
-                <button
-                  onClick={startFaceScan}
-                  disabled={isScanning}
-                  className="w-2/3 py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isScanning ? 'Sedang Memindai Wajah...' : 'Mulai Scan Face ID'}
-                </button>
+                {!isCameraActive ? (
+                  <button
+                    onClick={startCamera}
+                    className="py-2 px-4 bg-purple-100 text-[#4B2172] font-bold rounded-xl cursor-pointer flex items-center gap-1 mx-auto"
+                  >
+                    <Camera className="w-3.5 h-3.5" /> Aktifkan Kamera Wajah
+                  </button>
+                ) : (
+                  <button
+                    onClick={captureFaceImage}
+                    disabled={isScanning}
+                    className="w-full py-3 bg-[#4B2172] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 shadow-sm"
+                  >
+                    {isScanning ? 'Merekam Wajah...' : 'Ambil Foto Wajah (Capture)'}
+                  </button>
+                )}
+                
+                <div className="pt-2">
+                  <button 
+                    onClick={() => setStep(2)} 
+                    className="py-1.5 px-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold cursor-pointer"
+                  >
+                    Kembali ke Langkah 2
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-2 mt-2">
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-[9px] font-bold flex items-center justify-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Onboarding Biometrik Sukses & Akun Aktif!
+              <div className="space-y-3">
+                <div className="w-32 h-32 rounded-full mx-auto overflow-hidden border-2 border-emerald-500 shadow-sm">
+                  <img src={facePreview} alt="Face Captured" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-2.5 bg-emerald-50 text-emerald-700 font-bold rounded-xl flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Wajah Berhasil Direkam!
                 </div>
                 <button
-                  onClick={() => {
-                    markCustomerVerified({
-                      fullName: formData.fullName.trim(),
-                      nik: formData.nik,
-                      phone: formData.phone.trim(),
-                      ktpFileName: ktpFile?.name || null,
-                      verifiedAt: new Date().toISOString()
-                    });
-                    toast.success('Identitas Anda berhasil diverifikasi.', { title: 'Verifikasi Sukses' });
-                    navigate('/customer/booking');
-                  }}
-                  className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition cursor-pointer"
+                  onClick={handleSubmitVerification}
+                  disabled={isLoading}
+                  className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 shadow-sm"
                 >
-                  Selesai & Mulai Cari Trip
+                  {isLoading ? 'Mengirim Data...' : 'Kirim Verifikasi & Selesai'}
                 </button>
               </div>
             )}

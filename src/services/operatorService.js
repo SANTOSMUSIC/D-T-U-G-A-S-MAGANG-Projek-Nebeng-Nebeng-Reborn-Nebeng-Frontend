@@ -10,7 +10,7 @@ export const operatorService = {
   getPayments: async () => {
     const response = await apiClient.get('/payments/operator-summary');
     return Array.isArray(response.data) ? response.data : (response.data?.data || []);
-  },
+  }, 
 
   // Melakukan scan QR Checkpoint di Pos Asal atau Pos Tujuan (Mendukung Sealing & Validasi)[cite: 31, 32, 33]
   scanCheckpoint: async (payload) => {

@@ -17,13 +17,75 @@ export default function OperatorInspection() {
   const [itemPhoto, setItemPhoto] = useState(null);
   const [itemPhotoPreviewUrl, setItemPhotoPreviewUrl] = useState(null);
   const [latestScanResult, setLatestScanResult] = useState(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
-  const handlePhotoFileChange = (file) => {
-    setItemPhoto(file || null);
-    setItemPhotoPreviewUrl((prevUrl) => {
-      if (prevUrl) URL.revokeObjectURL(prevUrl);
-      return file ? URL.createObjectURL(file) : null;
+  // Fungsi utilitas untuk kompresi gambar agar ramah jaringan pos yang lambat
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          }, 'image/jpeg', 0.7); // Kualitas kompresi 70%
+        };
+      };
     });
+  };
+
+  const handlePhotoFileChange = async (file) => {
+    if (!file) {
+      setItemPhoto(null);
+      setItemPhotoPreviewUrl(null);
+      return;
+    }
+
+    try {
+      setIsCompressing(true);
+      toast.info('Mengompresi ukuran foto agar cepat terkirim...', { title: 'Optimalisasi' });
+      const optimizedFile = await compressImage(file);
+      
+      setItemPhoto(optimizedFile);
+      setItemPhotoPreviewUrl((prevUrl) => {
+        if (prevUrl) URL.revokeObjectURL(prevUrl);
+        return URL.createObjectURL(optimizedFile);
+      });
+    } catch {
+      setItemPhoto(file);
+      setItemPhotoPreviewUrl(URL.createObjectURL(file));
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleScanAndSeal = async (e) => {
@@ -36,13 +98,12 @@ export default function OperatorInspection() {
     try {
       setIsLoading(true);
 
-      // Memanggil API Checkpoint ke Backend untuk Check-in Asal & Pemasangan Segel
       const payload = {
-        qrCodeTrip: formData.qrCodeTrip,
-        qrCodeTicket: formData.qrCodeTicket,
-        posId: formData.posId,
+        qrCodeTrip: formData.qrCodeTrip.trim().toUpperCase(),
+        qrCodeTicket: formData.qrCodeTicket.trim().toUpperCase(),
+        posId: formData.posId.trim(),
         scanType: 'checkin_origin',
-        securitySealQr: formData.securitySealQr || `SEAL-${Math.floor(100000 + Math.random() * 900000)}`
+        securitySealQr: formData.securitySealQr.trim() || `SEAL-${Math.floor(100000 + Math.random() * 900000)}`
       };
 
       const response = await operatorService.scanCheckpoint(payload);
@@ -99,7 +160,7 @@ export default function OperatorInspection() {
                 placeholder="cth: TRIP-A2D4CS13"
                 value={formData.qrCodeTrip}
                 onChange={(e) => setFormData({...formData, qrCodeTrip: e.target.value})}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] uppercase font-mono"
               />
             </div>
 
@@ -113,7 +174,7 @@ export default function OperatorInspection() {
                 placeholder="cth: TKT-SDJF12H"
                 value={formData.qrCodeTicket}
                 onChange={(e) => setFormData({...formData, qrCodeTicket: e.target.value})}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] uppercase font-mono"
               />
             </div>
 
@@ -124,10 +185,10 @@ export default function OperatorInspection() {
               <input 
                 type="text" 
                 required
-                placeholder="cth: 10"
+                placeholder="cth: 1"
                 value={formData.posId}
                 onChange={(e) => setFormData({...formData, posId: e.target.value})}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] font-mono"
               />
             </div>
 
@@ -139,7 +200,9 @@ export default function OperatorInspection() {
                 <div className="flex items-center gap-2.5 p-2 rounded-xl border border-neutral-200 bg-neutral-50">
                   <img src={itemPhotoPreviewUrl} alt="Pratinjau Barang" className="w-12 h-12 object-cover rounded-lg border border-neutral-200 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-bold text-emerald-600">Foto Ter-upload</p>
+                    <p className="text-[9px] font-bold text-emerald-600">
+                      {isCompressing ? 'Mengompresi Foto...' : 'Foto Siap Dikirim'}
+                    </p>
                     <p className="text-[8px] text-neutral-400 truncate">{itemPhoto?.name}</p>
                   </div>
                   <button type="button" onClick={() => handlePhotoFileChange(null)} className="w-6 h-6 rounded-full bg-neutral-800 text-white flex items-center justify-center shrink-0 cursor-pointer">
@@ -150,7 +213,7 @@ export default function OperatorInspection() {
                 <label className="border-2 border-dashed border-neutral-200 rounded-xl p-3.5 text-center hover:bg-neutral-50 transition cursor-pointer flex flex-col items-center justify-center">
                   <Camera className="w-5 h-5 text-[#4B2172] mb-1" />
                   <p className="font-bold text-neutral-700 text-[10px]">Klik untuk Unggah Foto</p>
-                  <p className="text-[8px] text-neutral-400">PNG, JPG (Maks. 5MB)</p>
+                  <p className="text-[8px] text-neutral-400">Otomatis terkompresi (Cepat & Ringan)</p>
                   <input 
                     type="file" 
                     accept="image/*"
@@ -171,7 +234,7 @@ export default function OperatorInspection() {
                   placeholder="Opsional / Auto"
                   value={formData.securitySealQr}
                   onChange={(e) => setFormData({...formData, securitySealQr: e.target.value})}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] font-mono uppercase"
                 />
                 <button 
                   type="button" 
@@ -185,7 +248,7 @@ export default function OperatorInspection() {
 
             <button 
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isCompressing}
               className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer mt-1 disabled:opacity-50"
             >
               {isLoading ? 'Memproses ke Server...' : 'Kunci & Check-in Asal'}

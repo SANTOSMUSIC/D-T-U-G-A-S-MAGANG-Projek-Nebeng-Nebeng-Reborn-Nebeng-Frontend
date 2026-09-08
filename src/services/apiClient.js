@@ -11,37 +11,6 @@ const apiClient = axios.create({
   },
 });
 
-superadmin/FEBE
-// Interceptor untuk menyisipkan token secara aman dari sessionStorage / localStorage
-apiClient.interceptors.request.use((config) => {
-  try {
-    // Cek sessionStorage terlebih dahulu (sesuai perilaku login tanpa "Ingat Saya")
-    let raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
-    
-    // Jika tidak ada di sessionStorage, cek localStorage (jika "Ingat Saya" dicentang)
-    if (!raw) {
-      raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    }
-
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      
-      // Ekstraksi token dari berbagai variasi struktur objek
-      const token = 
-        parsed.token || 
-        parsed.accessToken || 
-        parsed.access_token || 
-        parsed.data?.token || 
-        parsed.data?.accessToken ||
-        (typeof parsed === 'string' ? parsed : null);
-
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-  } catch (err) {
-    console.error('Gagal memparsing token auth:', err);
-=======
 // Helper untuk mengambil auth state saat ini
 const getStoredAuth = () => {
   try {
@@ -59,7 +28,7 @@ const updateStoredToken = (newToken) => {
     let raw = storage.getItem(AUTH_STORAGE_KEY);
     if (raw) {
       let parsed = JSON.parse(raw);
-      if (typeof parsed === 'object') {
+      if (typeof parsed === 'object' && parsed !== null) {
         parsed.token = newToken;
         parsed.accessToken = newToken;
       } else {
@@ -72,8 +41,13 @@ const updateStoredToken = (newToken) => {
   }
 };
 
-// Request Interceptor: Menyisipkan token ke header
+// Request Interceptor: Menyisipkan token & mencegah duplikasi prefix '/api'
 apiClient.interceptors.request.use((config) => {
+  // Jika URL mengandung '/api/api/', bersihkan agar tidak duplikasi
+  if (config.url && config.url.startsWith('/api/')) {
+    config.url = config.url.replace('/api/', '/');
+  }
+
   const parsed = getStoredAuth();
   if (parsed) {
     const token = 
@@ -87,13 +61,9 @@ apiClient.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-main
   }
-
   return config;
 });
-
-superadmin/FEBE
 
 // Response Interceptor: Menangani 401 & Auto-Refresh Token
 let isRefreshing = false;
@@ -171,5 +141,4 @@ apiClient.interceptors.response.use(
   }
 );
 
-main
 export default apiClient;

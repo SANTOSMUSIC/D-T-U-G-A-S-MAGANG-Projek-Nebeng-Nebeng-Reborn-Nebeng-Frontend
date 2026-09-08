@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ShieldCheck, UserCheck } from 'lucide-react';
+import { ShieldCheck, UserCheck, AlertTriangle, Unlock } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
-import { operatorService } from '../../../services/operatorService';
+import BaseModal from '../../../components/ui/BaseModal';
+import apiClient from '../../../services/apiClient';
 
 export default function OperatorHandover() {
   const toast = useToast();
@@ -15,6 +16,12 @@ export default function OperatorHandover() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [handoverHistory, setHandoverHistory] = useState([]);
+
+  const [showForceModal, setShowForceModal] = useState(false);
+  const [forceTicket, setForceTicket] = useState('');
+  const [forcePosId, setForcePosId] = useState('1');
+  const [forceOtp, setForceOtp] = useState('');
+  const [isForcing, setIsForcing] = useState(false);
 
   const handleHandoverSubmit = async (e) => {
     e.preventDefault();
@@ -41,10 +48,10 @@ export default function OperatorHandover() {
         otpClaim: cleanOtp
       };
 
-      const res = await operatorService.scanCheckpoint(payload);
+      const res = await apiClient.post('/checkpoints/scan', payload);
 
       const newLog = {
-        id: String(res.checkpoint?.id || `HO-${Math.floor(900 + Math.random() * 90)}`),
+        id: String(res.data?.checkpoint?.id || `HO-${Math.floor(900 + Math.random() * 90)}`),
         recipient: recipientName.trim(),
         ticket: ticketQr.trim().toUpperCase(),
         otp: cleanOtp,
@@ -57,12 +64,41 @@ export default function OperatorHandover() {
       setTripQr('');
       setTicketQr('');
       setOtpCode('');
-      toast.success(res.message || 'Verifikasi Handover sukses! Dana escrow dicairkan ke Mitra.', { title: 'Handover Selesai' });
+      toast.success(res.data?.message || 'Verifikasi Handover sukses! Dana escrow dicairkan ke Mitra.', { title: 'Handover Selesai' });
     } catch (error) {
       console.error('Gagal mengirim data handover:', error);
       toast.error(error.response?.data?.message || 'Gagal memproses verifikasi ke server.', { title: 'Error Server' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForceReleaseSubmit = async (e) => {
+    e.preventDefault();
+    if (!forceTicket.trim() || !forcePosId.trim()) {
+      toast.warning('Nomor Tiket dan ID Pos wajib diisi untuk force release!', { title: 'Data Kurang' });
+      return;
+    }
+
+    try {
+      setIsForcing(true);
+      const payload = {
+        qrCodeTicket: forceTicket.trim().toUpperCase(),
+        posId: String(forcePosId),
+        ...(forceOtp ? { otpClaim: forceOtp.trim() } : {})
+      };
+
+      const res = await apiClient.post('/checkpoints/manual-force-release', payload);
+      toast.success(res.data?.message || 'Intervensi darurat berhasil! Escrow dicairkan secara manual.', { title: 'Force Release Berhasil' });
+      
+      setShowForceModal(false);
+      setForceTicket('');
+      setForceOtp('');
+    } catch (error) {
+      console.error('Gagal force release:', error);
+      toast.error(error.response?.data?.message || 'Gagal melakukan intervensi darurat.', { title: 'Gagal' });
+    } finally {
+      setIsForcing(false);
     }
   };
 
@@ -83,6 +119,16 @@ export default function OperatorHandover() {
             Validasi kode OTP 6-digit penerima untuk mencairkan dana escrow paket di pos tujuan melalui backend.
           </p>
         </div>
+
+        {/* Tombol Intervensi Darurat */}
+        <button
+          type="button"
+          onClick={() => setShowForceModal(true)}
+          className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+        >
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>Bantuan Darurat (Force Release HP Rusak)</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -121,7 +167,7 @@ export default function OperatorHandover() {
                 placeholder="cth: TRIP-A2D4CS13"
                 value={tripQr}
                 onChange={(e) => setTripQr(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono font-medium text-[10px]"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono font-medium text-[10px] uppercase"
               />
             </div>
 
@@ -133,7 +179,7 @@ export default function OperatorHandover() {
                 placeholder="cth: TKT-SDJF12H"
                 value={ticketQr}
                 onChange={(e) => setTicketQr(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono font-medium text-[10px]"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono font-medium text-[10px] uppercase"
               />
             </div>
 
@@ -208,6 +254,73 @@ export default function OperatorHandover() {
           </div>
         </div>
       </div>
+
+      {/* Modal Intervensi Darurat Force Release */}
+      <BaseModal
+        isOpen={showForceModal}
+        onClose={() => setShowForceModal(false)}
+        title="Intervensi Darurat (Force Release)"
+        subtitle="Gunakan fitur ini hanya jika perangkat penerima bermasalah (HP mati/rusak)."
+        maxWidth="max-w-sm"
+      >
+        <form onSubmit={handleForceReleaseSubmit} className="space-y-3 text-[10px]">
+          <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-amber-800 text-[9px]">
+            <strong>Perhatian:</strong> Tindakan ini akan memaksa pencairan dana escrow dan menyelesaikan pesanan berdasarkan verifikasi manual KTP di pos.
+          </div>
+
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS BERTUGAS</label>
+            <input
+              type="text"
+              required
+              value={forcePosId}
+              onChange={(e) => setForcePosId(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 font-mono text-[10px]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NOMOR TIKET / RESI PAKET</label>
+            <input
+              type="text"
+              required
+              placeholder="cth: TKT-SDJF12H"
+              value={forceTicket}
+              onChange={(e) => setForceTicket(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 font-mono text-[10px] uppercase"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">KODE OTP MANUAL (JIKA ADA)</label>
+            <input
+              type="text"
+              placeholder="Opsional jika verifikasi manual KTP"
+              value={forceOtp}
+              onChange={(e) => setForceOtp(e.target.value.replace(/\D/g, ''))}
+              className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 font-mono text-[10px]"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowForceModal(false)}
+              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-xl font-bold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isForcing}
+              className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+            >
+              <Unlock className="w-3.5 h-3.5" />
+              <span>{isForcing ? 'Memproses...' : 'Eksekusi Force Release'}</span>
+            </button>
+          </div>
+        </form>
+      </BaseModal>
     </div>
   );
 }

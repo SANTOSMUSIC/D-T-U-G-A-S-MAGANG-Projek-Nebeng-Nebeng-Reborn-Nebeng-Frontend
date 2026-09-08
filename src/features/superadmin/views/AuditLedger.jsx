@@ -53,12 +53,7 @@ export default function AuditFinancialReport() {
             setPaginationMeta(res.pagination);
           }
           
-          // Memetakan transaksi murni dari backend database NestJS
           const rawTransactions = res.recentTransactions || res.transactions || [];
-superadmin/FEBE
-
-          // Di dalam map recentTransactions pada AuditLedger.jsx
-main
           const mappedLedger = rawTransactions.map((tx) => ({
             id: `ESC-${String(tx.id).padStart(4, '0')}`,
             orderId: tx.orderId ? `ORD-${String(tx.orderId)}` : 'SYS-TX',
@@ -66,14 +61,9 @@ main
             amount: `Rp ${Number(tx.amount || 0).toLocaleString('id-ID')}`,
             type: tx.type === 'escrow_hold' ? 'Escrow Held' : 'Escrow Release',
             status: tx.type === 'escrow_hold' ? 'Held' : 'Released',
-superadmin/FEBE
-            time: new Date(tx.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
-
-            // PERBAIKAN: Langsung format string dari ISO date backend atau simpan mentah agar aman
             time: tx.createdAt 
               ? new Date(tx.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) 
               : 'Waktu tidak tersedia',
-main
             note: tx.description || 'Pencatatan ledger otomatis dari database'
           }));
 

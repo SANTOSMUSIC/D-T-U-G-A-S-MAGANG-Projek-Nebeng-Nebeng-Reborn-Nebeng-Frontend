@@ -43,7 +43,6 @@ export default function AdminWilayahManagement() {
     status: 'active'
   });
 
-  // Memuat data admin & wilayah secara aman tanpa warning linter
   useEffect(() => {
     let isMounted = true;
 
@@ -109,7 +108,6 @@ export default function AdminWilayahManagement() {
     setIsEditing(true);
     setCurrentId(admin.id);
     
-    // Mencari ID region secara fleksibel (dari property langsung atau objek relasi)
     const matchedRegionId = admin.regionId 
       ? String(admin.regionId) 
       : (admin.region?.id ? String(admin.region.id) : '');
@@ -126,7 +124,6 @@ export default function AdminWilayahManagement() {
     setIsModalOpen(true);
   };
 
-  // Cari nama wilayah berdasarkan objek relasi atau pencocokan ID dengan list availableRegions
   const getRegionName = (admin) => {
     if (admin.regionId) {
       const matched = availableRegions.find(r => String(r.id) === String(admin.regionId));
@@ -134,7 +131,6 @@ export default function AdminWilayahManagement() {
         return matched.name;
       }
     }
-
     return 'Belum Ditugaskan';
   };
 
@@ -174,7 +170,6 @@ export default function AdminWilayahManagement() {
       }
       setIsModalOpen(false);
 
-      // Refresh data tabel
       const usersRes = await getAllUsers();
       const regionalAdmins = Array.isArray(usersRes) ? usersRes.filter(u => u.role === 'regional') : [];
       setAdmins(regionalAdmins);
@@ -187,11 +182,10 @@ export default function AdminWilayahManagement() {
   const handleConfirmToggleStatus = async () => {
     if (!adminToToggle) return;
     try {
-      const newStatus = adminToToggle.status === 'active' ? 'inactive' : 'active';
+      const newStatus = adminToToggle.status === 'active' ? 'suspended' : 'active';
       await updateUserStatus(adminToToggle.id, newStatus);
       setAdminToToggle(null);
 
-      // Refresh data tabel
       const usersRes = await getAllUsers();
       const regionalAdmins = Array.isArray(usersRes) ? usersRes.filter(u => u.role === 'regional') : [];
       setAdmins(regionalAdmins);
@@ -262,7 +256,7 @@ export default function AdminWilayahManagement() {
                       <h3 className="font-bold text-neutral-800 text-[11px]">{admin.name}</h3>
                     </div>
                     <StatusBadge variant={isActive ? 'emerald' : 'rose'}>
-                      {isActive ? 'Aktif' : 'Nonaktif'}
+                      {isActive ? 'Aktif' : 'Disuspend'}
                     </StatusBadge>
                   </div>
 
@@ -320,7 +314,7 @@ export default function AdminWilayahManagement() {
                       <td className="py-3.5 px-5 font-bold text-neutral-800">{regionName}</td>
                       <td className="py-3.5 px-5">
                         <StatusBadge variant={isActive ? 'emerald' : 'rose'}>
-                          {isActive ? 'Aktif' : 'Nonaktif'}
+                          {isActive ? 'Aktif' : 'Disuspend'}
                         </StatusBadge>
                       </td>
                       <td className="py-3.5 px-5">
@@ -421,7 +415,7 @@ export default function AdminWilayahManagement() {
             <AlertTriangle size={20} />
           </div>
           <p className="text-neutral-600">
-            Apakah Anda yakin ingin {adminToToggle?.status === 'active' ? 'menonaktifkan' : 'mengaktifkan'} akun admin <strong>{adminToToggle?.name}</strong>?
+            Apakah Anda yakin ingin {adminToToggle?.status === 'active' ? 'menonaktifkan (suspend)' : 'mengaktifkan'} akun admin <strong>{adminToToggle?.name}</strong>?
           </p>
           <div className="flex gap-2 pt-2">
             <button onClick={() => setAdminToToggle(null)} className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer">Batal</button>
