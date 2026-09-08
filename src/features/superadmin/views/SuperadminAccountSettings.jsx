@@ -14,6 +14,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
+import { changeMyPassword, getMyProfile, updateMyProfile, uploadMyAvatar } from '../../../services/userService';
 import apiClient from '../../../services/apiClient';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,7 +72,7 @@ export default function SuperadminAccountSettings() {
       try {
         const res = await apiClient.get('/auth/me');
         if (isMounted && res?.data) {
-          const dbUser = res.data;
+          const dbUser = await getMyProfile();
           
           const freshName = dbUser.name || '';
           const freshEmail = dbUser.email || '';
@@ -151,7 +152,7 @@ export default function SuperadminAccountSettings() {
       setIsSubmitting(true);
       
       // 1. Perbarui nama dan email dasar via PATCH /users/me
-      await apiClient.patch('/users/me', {
+      await updateMyProfile({
         name: profileDraft.name.trim(),
         email: profileDraft.email.trim(),
       });
@@ -163,9 +164,7 @@ export default function SuperadminAccountSettings() {
         const formData = new FormData();
         formData.append('file', avatarFile);
 
-        const uploadRes = await apiClient.post('/users/me/avatar', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const uploadRes = await uploadMyAvatar(formData);
 
         const relativePath = uploadRes?.data?.avatar;
         if (relativePath) {
@@ -211,7 +210,7 @@ export default function SuperadminAccountSettings() {
 
     try {
       setIsSubmitting(true);
-      await apiClient.patch('/auth/change-password', {
+      await changeMyPassword({
         currentPassword: passwordForm.current,
         newPassword: passwordForm.next,
       });

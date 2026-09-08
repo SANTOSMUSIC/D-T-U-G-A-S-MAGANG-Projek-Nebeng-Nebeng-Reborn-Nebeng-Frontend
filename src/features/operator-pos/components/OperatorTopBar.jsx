@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, User, Settings } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import OperatorProfileModal from './OperatorProfileModal';
+import apiClient from '../../../services/apiClient';
 
 function getInitials(name) {
   if (!name) return 'OP';
@@ -12,35 +13,59 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/**
- * Topbar khusus area Operator Pos.
- *
- * FIX: "Profil Saya" sekarang membuka modal ringkasan (OperatorProfileModal)
- * langsung di tempat — TIDAK lagi berpindah halaman — mengikuti pola yang
- * sama dengan Mitra. "Pengaturan Akun" berpindah ke halaman penuh lewat
- * onSettingsClick (dioper dari OperatorLayout), tempat semua perubahan data
- * (profil, kata sandi, notifikasi) benar-benar dilakukan.
- *
- * PENTING: modal WAJIB dirender lewat createPortal(..., document.body),
- * bukan langsung di dalam <header> ini. Header memakai `backdrop-blur-xl`
- * (backdrop-filter), dan backdrop-filter/filter pada elemen induk membuat
- * "containing block" baru untuk children `position: fixed` — akibatnya
- * modal fixed-nya jadi terkurung di dalam kotak header yang pendek
- * (bukan viewport penuh), sehingga tampak ter-crop di atas dan tombol di
- * dalamnya salah posisi/tidak bisa diklik. Ini sebabnya modal-modal lama
- * di file ini pun sudah pakai createPortal — pola yang sama dipertahankan.
- */
 export default function OperatorTopbar({ onSettingsClick }) {
-  const { adminProfile } = useAuth();
+  const { adminProfile, updateAdminProfile } = useAuth();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const dropdownRef = useRef(null);
 
-  const hasCustomName = Boolean(adminProfile?.fullName);
-  const displayName = hasCustomName ? adminProfile.fullName : 'Operator Pos';
+  // Sinkronisasi data user real-time dari backend saat komponen dimuat
+  useEffect(() => {
+    let isMounted = true;
+    async function syncOperatorTopbar() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          const dbUser = res.data;
+          const freshName = dbUser.name || dbUser.fullName || 'Operator Pos';
+          const freshEmail = dbUser.email || '';
+          const freshPhone = dbUser.phone || '';
+          const rawAvatar = dbUser.avatar || dbUser.photoDataUrl || '';
+
+          let formattedAvatar = rawAvatar;
+          if (rawAvatar && !rawAvatar.startsWith('http') && !rawAvatar.startsWith('data:')) {
+            const baseURL = apiClient.defaults.baseURL 
+              ? apiClient.defaults.baseURL.replace('/api', '') 
+              : 'http://localhost:3000';
+            formattedAvatar = `${baseURL}${rawAvatar}`;
+          }
+
+          if (updateAdminProfile) {
+            updateAdminProfile({
+              fullName: freshName,
+              name: freshName,
+              email: freshEmail,
+              phone: freshPhone,
+              photoDataUrl: formattedAvatar,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Gagal menyinkronkan profil topbar operator:', err);
+      }
+    }
+
+    syncOperatorTopbar();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const hasCustomName = Boolean(adminProfile?.fullName || adminProfile?.name);
+  const displayName = hasCustomName ? (adminProfile.fullName || adminProfile.name) : 'Operator Pos';
   const roleLine = hasCustomName ? 'Operator Pos' : 'Online';
-  const initials = getInitials(adminProfile?.fullName);
+  const initials = getInitials(displayName);
   const photoDataUrl = adminProfile?.photoDataUrl || '';
 
   useEffect(() => {
@@ -62,7 +87,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
           className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-white/70 transition cursor-pointer"
         >
           <span className="relative shrink-0">
-            <span className="w-8 h-8 rounded-full bg-[#4B2172] text-white text-[11px] font-bold flex items-center justify-center overflow-hidden">
+            <span className="w-8 h-8 rounded-full bg-[#4B2172] text-white text-[11px] font-bold flex items-center justify-center overflow-hidden border border-purple-200">
               {photoDataUrl ? <img src={photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" /> : initials}
             </span>
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#f8f9fa]" />
@@ -77,7 +102,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
         {isDropdownOpen && (
           <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-lg border border-neutral-100 py-2 z-30">
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-neutral-100">
-              <span className="w-9 h-9 rounded-full bg-[#4B2172] text-white text-[11px] font-bold flex items-center justify-center shrink-0 overflow-hidden">
+              <span className="w-9 h-9 rounded-full bg-[#4B2172] text-white text-[11px] font-bold flex items-center justify-center shrink-0 overflow-hidden border border-purple-200">
                 {photoDataUrl ? <img src={photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" /> : initials}
               </span>
               <div className="min-w-0">

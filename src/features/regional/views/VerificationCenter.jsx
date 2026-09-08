@@ -1,58 +1,27 @@
-import { useState } from 'react';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
-import { ShieldCheck, Search, Clock, Eye, EyeOff, History, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShieldCheck, Search, Clock, Eye, EyeOff, History } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { useAuth } from '../../../context/AuthContext';
+import apiClient from '../../../services/apiClient';
+import { regionalService } from '../../../services/regionalService';
 
 export default function VerificationCenterPage() {
   const toast = useToast();
-  const [verificationList, setVerificationList] = useState([
-    { 
-      id: 'VER-001', 
-      name: 'Ahmad Fauzi', 
-      phone: '081234567890', 
-      role: 'Driver / Mitra', 
-      submissionDate: '19 Agu 2026, 08:30', 
-      status: 'Menunggu Review',
-      rejectionReason: '',
-      docs: {
-        ktp: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
-        sim: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
-        skck: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
-        stnk: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
-        faceId: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-        livenessScore: '98.5%'
-      }
-    },
-    { 
-      id: 'VER-002', 
-      name: 'Siti Aminah', 
-      phone: '085698765432', 
-      role: 'Penumpang / Rider', 
-      submissionDate: '19 Agu 2026, 09:15', 
-      status: 'Menunggu Review',
-      rejectionReason: '',
-      docs: {
-        ktp: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
-        sim: null,
-        skck: null,
-        stnk: null,
-        faceId: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400',
-        livenessScore: '96.2%'
-      }
-    }
-  ]);
+  const { user } = useAuth();
+  
+  const [verificationList, setVerificationList] = useState([]);
+  const [isLoadingVerification, setIsLoadingVerification] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedVerification, setSelectedVerification] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState('Foto KTP buram / tidak terbaca');
 
-  // Keamanan PII & Audit Log State
   const [unmaskedPhones, setUnmaskedPhones] = useState({});
   const [verificationAuditLogs, setVerificationAuditLogs] = useState([]);
 
@@ -64,6 +33,89 @@ export default function VerificationCenterPage() {
     'Skor Liveness Scan Face ID di bawah ambang batas minimum'
   ];
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadVerificationData = async () => {
+      try {
+        if (isMounted) setIsLoadingVerification(true);
+        const currentRegionId = user?.regionId ? String(user.regionId) : null;
+        
+        const responseData = await regionalService.getVerifications(undefined, currentRegionId);
+
+        const formatted = responseData.map(item => ({
+          id: String(item.id),
+          userId: String(item.userId || item.user?.id),
+          name: item.user?.name || 'Pengguna Tanpa Nama',
+          phone: item.user?.phone || '-',
+          role: item.user?.role ? item.user.role.toUpperCase() : 'MITRA',
+          regionId: item.user?.regionId ? String(item.user.regionId) : null,
+          submissionDate: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Baru saja',
+          status: item.status === 'approved' ? 'Disetujui' : item.status === 'rejected' ? 'Ditolak' : 'Menunggu Review',
+          rejectionReason: item.rejectionReason || '',
+          type: item.type,
+          files: item.files || [],
+          docs: {
+            ktp: item.files?.[0]?.filePath || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400',
+            faceId: item.user?.profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+            livenessScore: '98.5%'
+          }
+        }));
+
+        if (isMounted) {
+          setVerificationList(formatted);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Gagal mengambil data verifikasi:', error);
+          toast.error('Gagal mengambil antrean verifikasi dari server.', { title: 'Koneksi Gagal' });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingVerification(false);
+        }
+      }
+    };
+
+    loadVerificationData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.regionId, toast]);
+
+  const handleApprove = async (id) => {
+    const target = verificationList.find(item => item.id === id);
+    if (isDecided(target)) {
+      toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
+      return;
+    }
+
+    try {
+      await regionalService.reviewVerification(id, 'approved');
+
+      setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
+
+      // Menggunakan panjang array log sebagai indeks unik pengganti Math.random / Date.now
+      const logIndex = verificationAuditLogs.length + 1;
+      const newLog = {
+        id: `LOG-VER-${logIndex}`,
+        verId: id,
+        name: target.name,
+        decision: 'APPROVED',
+        admin: user?.name || 'Admin Regional',
+        timestamp: new Date().toLocaleString('id-ID')
+      };
+      setVerificationAuditLogs(prevLogs => [newLog, ...prevLogs]);
+
+      setIsDetailModalOpen(false);
+      toast.success(`Verifikasi ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
+    } catch (error) {
+      console.error('Gagal menyetujui verifikasi:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyetujui dokumen di server.', { title: 'Error' });
+    }
+  };
+
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
     return `${phone.slice(0, 4)}****${phone.slice(-3)}`;
@@ -73,67 +125,46 @@ export default function VerificationCenterPage() {
     setUnmaskedPhones(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleOpenDetail = (user) => {
-    setSelectedUser(user);
+  const handleOpenDetail = (item) => {
+    setSelectedVerification(item);
     setIsDetailModalOpen(true);
   };
 
-  const isDecided = (user) => !!user && user.status !== 'Menunggu Review';
+  const isDecided = (item) => !!item && item.status !== 'Menunggu Review';
 
-  const handleApprove = (id) => {
-    const target = verificationList.find(item => item.id === id);
-    if (isDecided(target)) {
+  const handleOpenRejectModal = (item) => {
+    if (isDecided(item)) {
       toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
       return;
     }
-
-    setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
-
-    // Recording Audit Log
-    const newLog = {
-      id: `LOG-VER-${Date.now().toString().slice(-4)}`,
-      verId: id,
-      name: target.name,
-      decision: 'APPROVED',
-      admin: 'Admin Regional Surakarta',
-      timestamp: new Date().toLocaleString('id-ID')
-    };
-    setVerificationAuditLogs([newLog, ...verificationAuditLogs]);
-
-    setIsDetailModalOpen(false);
-    toast.success(`Verifikasi untuk ID ${id} berhasil disetujui.`, { title: 'Disetujui' });
-  };
-
-  const handleOpenRejectModal = (user) => {
-    if (isDecided(user)) {
-      toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
-      return;
-    }
-    setSelectedUser(user);
+    setSelectedVerification(item);
     setIsRejectModalOpen(true);
   };
 
-  const handleConfirmReject = (e) => {
+  const handleConfirmReject = async (e) => {
     e.preventDefault();
-    if (!selectedUser || isDecided(selectedUser)) return;
+    if (!selectedVerification || isDecided(selectedVerification)) return;
 
-    setVerificationList(prev => prev.map(item => item.id === selectedUser.id ? { ...item, status: 'Ditolak', rejectionReason: selectedReason } : item));
+    if (!selectedReason) {
+      toast.warning('Alasan penolakan wajib dipilih.', { title: 'Peringatan' });
+      return;
+    }
 
-    // Recording Audit Log
-    const newLog = {
-      id: `LOG-VER-${Date.now().toString().slice(-4)}`,
-      verId: selectedUser.id,
-      name: selectedUser.name,
-      decision: 'REJECTED',
-      reason: selectedReason,
-      admin: 'Admin Regional Surakarta',
-      timestamp: new Date().toLocaleString('id-ID')
-    };
-    setVerificationAuditLogs([newLog, ...verificationAuditLogs]);
+    try {
+      await apiClient.patch(`/verifications/${selectedVerification.id}/review`, {
+        status: 'rejected',
+        rejectionReason: selectedReason
+      });
 
-    setIsRejectModalOpen(false);
-    setIsDetailModalOpen(false);
-    toast.error(`Verifikasi ID ${selectedUser.id} ditolak: "${selectedReason}"`, { title: 'Ditolak' });
+      setVerificationList(prev => prev.map(item => item.id === selectedVerification.id ? { ...item, status: 'Ditolak', rejectionReason: selectedReason } : item));
+
+      setIsRejectModalOpen(false);
+      setIsDetailModalOpen(false);
+      toast.error(`Verifikasi ID ${selectedVerification.id} ditolak.`, { title: 'Ditolak' });
+    } catch (error) {
+      console.error('Gagal menolak verifikasi:', error);
+      toast.error(error.response?.data?.message || 'Gagal menolak dokumen di server.', { title: 'Error' });
+    }
   };
 
   const filteredData = verificationList.filter(item => 
@@ -141,8 +172,6 @@ export default function VerificationCenterPage() {
     item.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const isLoadingVerification = useSimulatedLoading([searchQuery], 700);
 
   const getStatusVariant = (status) => {
     if (status === 'Menunggu Review') return 'amber';
@@ -161,7 +190,7 @@ export default function VerificationCenterPage() {
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Verification Center & Face ID</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas pengguna lokal (KTP, SIM, SKCK, STNK) dan Face ID dengan proteksi PII.</p>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas pengguna wilayah Anda langsung dari database.</p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-[#4B2172]/10 rounded-full shrink-0">
@@ -193,7 +222,7 @@ export default function VerificationCenterPage() {
                 <th className="py-3 px-5">ID & Nama Pengguna</th>
                 <th className="py-3 px-5">Kontak (PII Protected)</th>
                 <th className="py-3 px-5">Peran Akun</th>
-                <th className="py-3 px-5">Face ID Score</th>
+                <th className="py-3 px-5">Tipe Dokumen</th>
                 <th className="py-3 px-5">Status Review</th>
                 <th className="py-3 px-5 text-center">Aksi</th>
               </tr>
@@ -208,7 +237,7 @@ export default function VerificationCenterPage() {
                     <tr key={item.id} className="hover:bg-gray-50/50 transition">
                       <td className="py-3.5 px-5">
                         <div className="font-bold text-neutral-800 text-[10px]">{item.name}</div>
-                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">{item.id}</div>
+                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {item.id}</div>
                       </td>
                       <td className="py-3.5 px-5 font-mono text-neutral-700">
                         <div className="flex items-center gap-1.5">
@@ -223,7 +252,7 @@ export default function VerificationCenterPage() {
                         </div>
                       </td>
                       <td className="py-3.5 px-5 font-semibold text-neutral-700">{item.role}</td>
-                      <td className="py-3.5 px-5 font-bold text-blue-600">{item.docs.livenessScore}</td>
+                      <td className="py-3.5 px-5 font-bold uppercase text-[#4B2172]">{item.type}</td>
                       <td className="py-3.5 px-5">
                         <StatusBadge variant={getStatusVariant(item.status)}>
                           {item.status}
@@ -240,7 +269,7 @@ export default function VerificationCenterPage() {
               ) : (
                 <tr>
                   <td colSpan="6">
-                    <EmptyState icon={ShieldCheck} title="Antrean Kosong" description="Tidak ada berkas verifikasi." />
+                    <EmptyState icon={ShieldCheck} title="Antrean Kosong" description="Tidak ada antrean verifikasi di wilayah ini." />
                   </td>
                 </tr>
               )}
@@ -273,47 +302,46 @@ export default function VerificationCenterPage() {
       )}
 
       <BaseModal
-        isOpen={Boolean(isDetailModalOpen && selectedUser)}
+        isOpen={Boolean(isDetailModalOpen && selectedVerification)}
         onClose={() => setIsDetailModalOpen(false)}
-        title={`Review Berkas: ${selectedUser?.name}`}
-        subtitle={`${selectedUser?.id} • ${selectedUser?.role}`}
-        maxWidth="max-w-2xl"
+        title={`Review Berkas: ${selectedVerification?.name}`}
+        subtitle={`ID Verifikasi: ${selectedVerification?.id} • Tipe: ${selectedVerification?.type}`}
+        maxWidth="max-w-xl"
       >
-        {selectedUser && (
+        {selectedVerification && (
           <div className="space-y-4">
-            {selectedUser.status === 'Ditolak' && selectedUser.rejectionReason && (
+            {selectedVerification.status === 'Ditolak' && selectedVerification.rejectionReason && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[10px] text-rose-800 font-medium">
-                <strong>Catatan Alasan Penolakan:</strong> {selectedUser.rejectionReason}
+                <strong>Catatan Alasan Penolakan:</strong> {selectedVerification.rejectionReason}
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
-                <span className="text-[8px] font-bold text-neutral-400 uppercase">Face ID ({selectedUser.docs.livenessScore})</span>
-                <div className="h-28 bg-white rounded-lg overflow-hidden mt-1">
-                  <img src={selectedUser.docs.faceId} alt="Face ID" className="w-full h-full object-cover" />
-                </div>
-              </div>
-              <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
-                <span className="text-[8px] font-bold text-neutral-400 uppercase">KTP</span>
-                <div className="h-28 bg-white rounded-lg overflow-hidden mt-1">
-                  <img src={selectedUser.docs.ktp} alt="KTP" className="w-full h-full object-cover" />
-                </div>
-              </div>
-              <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
-                <span className="text-[8px] font-bold text-neutral-400 uppercase">SIM</span>
-                <div className="h-28 bg-white rounded-lg overflow-hidden mt-1 flex items-center justify-center text-[9px] text-neutral-400">
-                  {selectedUser.docs.sim ? <img src={selectedUser.docs.sim} alt="SIM" className="w-full h-full object-cover" /> : 'Tidak ada'}
-                </div>
+            <div className="space-y-2">
+              <span className="text-[9px] font-bold text-neutral-500 uppercase">Berkas Lampiran Pengguna</span>
+              <div className="grid grid-cols-2 gap-3">
+                {selectedVerification.files.length > 0 ? (
+                  selectedVerification.files.map((file, idx) => (
+                    <div key={idx} className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200 space-y-1">
+                      <span className="text-[8px] font-bold text-neutral-400 uppercase">{file.fileType || 'Dokumen'}</span>
+                      <div className="h-32 bg-white rounded-lg overflow-hidden border border-neutral-100 flex items-center justify-center">
+                        <a href={file.filePath} target="_blank" rel="noopener noreferrer" className="w-full h-full block">
+                          <img src={file.filePath} alt="Lampiran" className="w-full h-full object-cover hover:scale-105 transition" />
+                        </a>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-neutral-500 italic">Tidak ada berkas file terlampir.</p>
+                )}
               </div>
             </div>
 
-            {!isDecided(selectedUser) && (
+            {!isDecided(selectedVerification) && (
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100">
-                <button onClick={() => handleOpenRejectModal(selectedUser)} className="px-4 py-2 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-full cursor-pointer transition">
+                <button onClick={() => handleOpenRejectModal(selectedVerification)} className="px-4 py-2 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-full cursor-pointer transition">
                   Tolak Berkas
                 </button>
-                <button onClick={() => handleApprove(selectedUser.id)} className="px-4 py-2 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-full cursor-pointer transition shadow-sm">
+                <button onClick={() => handleApprove(selectedVerification.id)} className="px-4 py-2 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-full cursor-pointer transition shadow-sm">
                   Setujui Berkas
                 </button>
               </div>
@@ -323,7 +351,7 @@ export default function VerificationCenterPage() {
       </BaseModal>
 
       <BaseModal
-        isOpen={Boolean(isRejectModalOpen && selectedUser)}
+        isOpen={Boolean(isRejectModalOpen && selectedVerification)}
         onClose={() => setIsRejectModalOpen(false)}
         title="Alasan Penolakan Berkas"
         subtitle="Pilih alasan spesifik untuk tercatat dalam audit log"

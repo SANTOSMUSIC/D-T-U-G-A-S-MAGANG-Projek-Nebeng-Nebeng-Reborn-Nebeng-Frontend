@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Settings,
   User,
@@ -14,18 +14,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
+import apiClient from '../../../services/apiClient';
 
-// FIX (struktur halaman, konsisten dengan pola Mitra): "Pengaturan Akun"
-// adalah satu-satunya tempat untuk MENGUBAH data — profil, foto profil,
-// kata sandi, 2FA, preferensi notifikasi, sampai nonaktifasi akun.
-// "Profil Saya" (OperatorProfileModal, dibuka dari OperatorTopbar) tetap
-// murni ringkasan/read-only dan tombol "Pengaturan Akun"-nya mengarah ke
-// halaman ini.
-//
-// Operator Pos tidak punya field kendaraan/alamat seperti Mitra, jadi
-// bagian "Edit Profil" di sini hanya nama, telepon, email.
-
-const DEFAULT_PROFILE = { fullName: '', email: '', phone: '' };
 const DEFAULT_NOTIF_PREFS = { emailNotif: true, pushNotif: true };
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,35 +25,73 @@ export default function OperatorAccountSettings() {
   const toast = useToast();
   const { adminProfile, updateAdminProfile } = useAuth();
 
-  const savedProfile = { ...DEFAULT_PROFILE, ...adminProfile };
-  const [profileDraft, setProfileDraft] = useState(savedProfile);
+  const [profileDraft, setProfileDraft] = useState({
+    fullName: adminProfile?.fullName || adminProfile?.name || '',
+    email: adminProfile?.email || '',
+    phone: adminProfile?.phone || '',
+  });
 
-  // Foto profil disimpan sebagai bagian dari adminProfile (photoDataUrl,
-  // base64) lewat updateAdminProfile — persis seperti pola di Mitra —
-  // supaya bertahan sampai user ganti/refresh. Dibatasi 2MB per foto.
-  const [avatarPreview, setAvatarPreview] = useState(savedProfile.photoDataUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState(adminProfile?.photoDataUrl || '');
+  const [avatarFile, setAvatarFile] = useState(null);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
 
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [showPassword, setShowPassword] = useState({ current: false, next: false, confirm: false });
 
-  // FIX: sebelumnya notifPrefs & is2FAEnabled hanya di state lokal dan
-  // hilang setiap kali halaman di-refresh (berbeda dari nama/email/foto
-  // yang sudah dipersist lewat updateAdminProfile). Sekarang keduanya ikut
-  // disimpan lewat updateAdminProfile supaya konsisten dan bertahan
-  // sampai user mengubahnya lagi.
   const [notifPrefs, setNotifPrefs] = useState({ ...DEFAULT_NOTIF_PREFS, ...adminProfile?.notifPrefs });
-
   const [is2FAEnabled, setIs2FAEnabled] = useState(Boolean(adminProfile?.is2FAEnabled));
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ambil data profil terbaru dari database saat halaman dipasang
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchOperatorProfile() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          const dbUser = res.data;
+          const freshName = dbUser.name || dbUser.fullName || '';
+          const freshEmail = dbUser.email || '';
+          const freshPhone = dbUser.phone || '';
+          const rawAvatar = dbUser.avatar || dbUser.photoDataUrl || '';
+
+          setProfileDraft({
+            fullName: freshName,
+            email: freshEmail,
+            phone: freshPhone,
+          });
+
+          if (rawAvatar) {
+            const baseURL = apiClient.defaults.baseURL 
+              ? apiClient.defaults.baseURL.replace('/api', '') 
+              : 'http://localhost:3000';
+            const fullAvatarUrl = rawAvatar.startsWith('http') || rawAvatar.startsWith('data:') ? rawAvatar : `${baseURL}${rawAvatar}`;
+            setAvatarPreview(fullAvatarUrl);
+            
+            if (updateAdminProfile) {
+              updateAdminProfile({ fullName: freshName, name: freshName, email: freshEmail, phone: freshPhone, photoDataUrl: fullAvatarUrl });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil profil operator dari database:', err);
+      }
+    }
+
+    fetchOperatorProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleProfileFieldChange = (field, value) => {
     setProfileDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!profileDraft.fullName.trim()) {
       toast.warning('Nama lengkap wajib diisi.', { title: 'Data Tidak Lengkap' });
@@ -78,12 +106,61 @@ export default function OperatorAccountSettings() {
       return;
     }
 
-    // Kirim hanya field form (bukan seluruh profileDraft) supaya
-    // photoDataUrl yang sudah tersimpan lewat handleAvatarChange tidak
-    // ikut ketimpa nilai lama.
-    const { fullName, email, phone } = profileDraft;
-    updateAdminProfile({ fullName, email, phone });
-    toast.success('Profil berhasil diperbarui.', { title: 'Profil Diperbarui' });
+    try {
+      setIsSubmitting(true);
+
+      // Simpan perubahan data profil ke database server
+      await apiClient.patch('/users/me', {
+        name: profileDraft.fullName.trim(),
+        email: profileDraft.email.trim(),
+        phone: profileDraft.phone.trim(),
+      }).catch(() => {
+        return apiClient.patch('/auth/profile', {
+          name: profileDraft.fullName.trim(),
+          email: profileDraft.email.trim(),
+          phone: profileDraft.phone.trim(),
+        });
+      });
+
+      let finalAvatarUrl = avatarPreview;
+
+      // Jika ada file avatar baru yang dipilih, unggah ke server
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+
+        const uploadRes = await apiClient.post('/users/me/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const relativePath = uploadRes?.data?.avatar;
+        if (relativePath) {
+          const baseURL = apiClient.defaults.baseURL 
+            ? apiClient.defaults.baseURL.replace('/api', '') 
+            : 'http://localhost:3000';
+          finalAvatarUrl = relativePath.startsWith('http') ? relativePath : `${baseURL}${relativePath}`;
+          setAvatarPreview(finalAvatarUrl);
+          setAvatarFile(null);
+        }
+      }
+
+      if (updateAdminProfile) {
+        updateAdminProfile({
+          fullName: profileDraft.fullName.trim(),
+          name: profileDraft.fullName.trim(),
+          email: profileDraft.email.trim(),
+          phone: profileDraft.phone.trim(),
+          photoDataUrl: finalAvatarUrl,
+        });
+      }
+
+      toast.success('Profil berhasil diperbarui ke database.', { title: 'Profil Diperbarui' });
+    } catch (error) {
+      console.error('Gagal menyimpan profil operator:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan perubahan ke server.', { title: 'Error' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAvatarChange = (e) => {
@@ -102,19 +179,13 @@ export default function OperatorAccountSettings() {
     }
 
     setAvatarError('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result);
-      updateAdminProfile({ photoDataUrl: reader.result });
-      toast.success('Foto profil berhasil diperbarui.', { title: 'Foto Diperbarui' });
-    };
-    reader.onerror = () => {
-      setAvatarError('Gagal membaca file foto. Coba lagi.');
-    };
-    reader.readAsDataURL(file);
+    setAvatarFile(file);
+
+    const localPreviewUrl = URL.createObjectURL(file);
+    setAvatarPreview(localPreviewUrl);
   };
 
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
       toast.warning('Semua field kata sandi wajib diisi.', { title: 'Data Tidak Lengkap' });
@@ -129,8 +200,21 @@ export default function OperatorAccountSettings() {
       return;
     }
 
-    setPasswordForm({ current: '', next: '', confirm: '' });
-    toast.success('Kata sandi berhasil diperbarui.', { title: 'Kata Sandi Diperbarui' });
+    try {
+      setIsSubmitting(true);
+      await apiClient.patch('/auth/change-password', {
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
+      });
+
+      setPasswordForm({ current: '', next: '', confirm: '' });
+      toast.success('Kata sandi berhasil diperbarui di database.', { title: 'Kata Sandi Diperbarui' });
+    } catch (error) {
+      console.error('Gagal mengubah password:', error);
+      toast.error(error.response?.data?.message || 'Gagal mengubah kata sandi.', { title: 'Error' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleToggle2FA = (nextValue) => {
@@ -139,28 +223,28 @@ export default function OperatorAccountSettings() {
       return;
     }
     setIs2FAEnabled(false);
-    updateAdminProfile({ is2FAEnabled: false });
-    toast.warning('Autentikasi Dua Faktor dinonaktifkan. Akun Anda kini hanya dilindungi kata sandi.', { title: '2FA Nonaktif' });
+    if (updateAdminProfile) updateAdminProfile({ is2FAEnabled: false });
+    toast.warning('Autentikasi Dua Faktor dinonaktifkan.', { title: '2FA Nonaktif' });
   };
 
   const handleConfirm2FA = () => {
     setIs2FAEnabled(true);
-    updateAdminProfile({ is2FAEnabled: true });
+    if (updateAdminProfile) updateAdminProfile({ is2FAEnabled: true });
     setShow2FAModal(false);
-    toast.success('Autentikasi Dua Faktor berhasil diaktifkan untuk akun ini.', { title: '2FA Aktif' });
+    toast.success('Autentikasi Dua Faktor berhasil diaktifkan.', { title: '2FA Aktif' });
   };
 
   const handleToggleNotif = (key) => {
     setNotifPrefs((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      updateAdminProfile({ notifPrefs: next });
+      if (updateAdminProfile) updateAdminProfile({ notifPrefs: next });
       return next;
     });
   };
 
   const handleDeactivateAccount = () => {
     setShowDeactivateModal(false);
-    toast.error('Permintaan nonaktifasi akun telah dikirim ke tim Admin Regional untuk ditinjau.', { title: 'Permintaan Terkirim' });
+    toast.error('Permintaan nonaktifasi akun telah dikirim ke Admin Regional.', { title: 'Permintaan Terkirim' });
   };
 
   return (
@@ -179,7 +263,6 @@ export default function OperatorAccountSettings() {
       </div>
 
       <div className="space-y-5">
-        {/* Edit Profil */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil
@@ -191,7 +274,7 @@ export default function OperatorAccountSettings() {
                 <img src={avatarPreview} alt="Foto Profil" className="w-16 h-16 rounded-full object-cover border-4 border-purple-50 shadow-sm" />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-[#4B2172] text-white flex items-center justify-center text-[20px] font-extrabold shadow-sm">
-                  {savedProfile.fullName.trim().charAt(0).toUpperCase() || 'O'}
+                  {(profileDraft.fullName || 'O').trim().charAt(0).toUpperCase()}
                 </div>
               )}
               <button
@@ -226,6 +309,7 @@ export default function OperatorAccountSettings() {
                   value={profileDraft.fullName}
                   onChange={(e) => handleProfileFieldChange('fullName', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  required
                 />
               </div>
               <div>
@@ -235,32 +319,33 @@ export default function OperatorAccountSettings() {
                   placeholder="0812xxxxxxxx"
                   value={profileDraft.phone}
                   onChange={(e) => handleProfileFieldChange('phone', e.target.value.replace(/[^\d+]/g, ''))}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 font-mono focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Email</label>
                 <input
                   type="email"
-                  placeholder="nama@nebeng.com"
+                  placeholder="nama@email.com"
                   value={profileDraft.email}
                   onChange={(e) => handleProfileFieldChange('email', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  required
                 />
               </div>
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                Simpan Perubahan
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Keamanan Akun */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <KeyRound className="w-4 h-4 text-[#4B2172]" /> Keamanan Akun
@@ -322,9 +407,10 @@ export default function OperatorAccountSettings() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                Perbarui Kata Sandi
+                {isSubmitting ? 'Memproses...' : 'Perbarui Kata Sandi'}
               </button>
             </div>
           </form>
@@ -343,7 +429,6 @@ export default function OperatorAccountSettings() {
           </div>
         </div>
 
-        {/* Preferensi Notifikasi */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <Bell className="w-4 h-4 text-[#4B2172]" /> Preferensi Notifikasi
@@ -366,7 +451,6 @@ export default function OperatorAccountSettings() {
           </div>
         </div>
 
-        {/* Zona Berbahaya */}
         <div className="bg-white rounded-2xl shadow-sm border border-rose-200 p-5 sm:p-6 space-y-3">
           <h3 className="text-[14px] font-bold text-rose-600 flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4" /> Zona Berbahaya
@@ -375,7 +459,7 @@ export default function OperatorAccountSettings() {
             <div>
               <p className="text-[10px] font-bold text-neutral-800">Nonaktifkan Akun Operator</p>
               <p className="text-[8px] text-neutral-400 max-w-md">
-                Akun Anda akan disembunyikan dari sistem operasional pos dan tidak dapat digunakan sampai diaktifkan kembali oleh Admin Regional.
+                Akun Anda akan disembunyikan dari sistem operasional pos sampai diaktifkan kembali oleh Admin Regional.
               </p>
             </div>
             <button
@@ -397,9 +481,7 @@ export default function OperatorAccountSettings() {
         maxWidth="max-w-sm"
       >
         <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">
-            Kode OTP akan dikirim ke nomor telepon terdaftar ({savedProfile.phone || 'nomor belum diatur'}) setiap kali login dari perangkat baru.
-          </p>
+          <p className="text-neutral-600">Kode OTP akan dikirim ke nomor telepon terdaftar Anda saat login dari perangkat baru.</p>
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setShow2FAModal(false)}
@@ -425,7 +507,7 @@ export default function OperatorAccountSettings() {
         maxWidth="max-w-sm"
       >
         <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">Tugas operasional yang sedang berjalan tetap harus diselesaikan terlebih dahulu. Pengajuan akan ditinjau oleh Admin Regional dalam 1x24 jam.</p>
+          <p className="text-neutral-600">Pengajuan nonaktifasi akun akan dikirim dan ditinjau oleh Admin Regional.</p>
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setShowDeactivateModal(false)}

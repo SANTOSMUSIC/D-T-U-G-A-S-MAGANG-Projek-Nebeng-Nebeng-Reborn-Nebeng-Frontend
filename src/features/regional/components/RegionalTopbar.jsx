@@ -1,32 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, User, Settings } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
+import apiClient from '../../../services/apiClient';
 
-/**
- * RegionalTopbar
- * Hanya berisi identitas admin yang sedang login (avatar + nama + role)
- * dengan dropdown berisi "Profil Saya" dan "Pengaturan Akun". Search bar,
- * ikon notifikasi/peringatan, dan tombol keluar sengaja TIDAK ada di sini
- * — logout tetap satu-satunya lewat tombol "Log Out" di sidebar, supaya
- * tidak ada dua modal konfirmasi keluar yang saling tumpang tindih.
- *
- * FIX (samakan pola dengan Mitra): "Profil Saya" sekarang dibuka sebagai
- * modal ringkasan yang dikelola langsung di sini (mengikuti pola
- * MitraTopbar -> MitraProfileModal), bukan lagi lifted state di
- * RegionalLayout. "Pengaturan Akun" TIDAK lagi membuka modal — sekarang
- * berpindah ke halaman penuh lewat onSettingsClick (dioper dari
- * RegionalLayout ke /regional/profile/pengaturan), persis seperti pola
- * Mitra (/mitra/profile/pengaturan).
- */
-export default function RegionalTopbar({ user, onSettingsClick }) {
+export default function RegionalTopbar({ user: initialUser, onSettingsClick }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [fetchedUser, setFetchedUser] = useState(null);
   const dropdownRef = useRef(null);
 
-  const displayName = user?.name?.trim() || 'Admin Regional';
+  // Hanya melakukan fetch asinkron jika initialUser belum lengkap (Tanpa setState sinkron di else)
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchLatestProfile() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          setFetchedUser(res.data);
+        }
+      } catch (err) {
+        console.error('Gagal memuat profil terkini topbar:', err);
+      }
+    }
+
+    if (!initialUser?.name || initialUser.name === 'Admin Regional') {
+      fetchLatestProfile();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialUser]);
+
+  // Menggabungkan data secara langsung (Derived State) tanpa memicu setState beruntun
+  const currentUser = fetchedUser || initialUser || {};
+
+  const displayName = currentUser?.name?.trim() || 'Admin Regional';
   const firstName = displayName.split(' ')[0];
-  const displayRole = user?.role?.trim() || 'Admin Regional';
-  const photoDataUrl = user?.photoDataUrl || '';
+  const displayRole = currentUser?.role?.trim() || 'Admin Regional';
+  
+  let rawAvatar = currentUser?.avatar || currentUser?.photoDataUrl || '';
+  let formattedAvatar = rawAvatar;
+  
+  if (rawAvatar && !rawAvatar.startsWith('http') && !rawAvatar.startsWith('data:')) {
+    const baseURL = 'http://localhost:3000';
+    formattedAvatar = `${baseURL}${rawAvatar}`;
+  }
+  const photoDataUrl = formattedAvatar;
 
   const initials = displayName
     .split(' ')
@@ -48,13 +69,13 @@ export default function RegionalTopbar({ user, onSettingsClick }) {
   }, [isDropdownOpen]);
 
   return (
-    <div className="sticky top-0 z-10 bg-[#f8f9fa]/80 backdrop-blur-sm pl-20 pr-4 sm:pr-6 lg:px-8 pt-4 pb-3 font-['Inter'] flex justify-end">
+    <div className="sticky top-0 z-10 bg-[#f8f9fa]/85 backdrop-blur-sm pl-20 pr-4 sm:pr-6 lg:px-8 pt-4 pb-3 font-['Inter'] flex justify-end">
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsDropdownOpen((v) => !v)}
           className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full bg-white border border-neutral-100 shadow-sm hover:shadow transition cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden">
+          <div className="w-8 h-8 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden border border-purple-200">
             {photoDataUrl ? (
               <img src={photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" />
             ) : (
@@ -71,7 +92,7 @@ export default function RegionalTopbar({ user, onSettingsClick }) {
         {isDropdownOpen && (
           <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-neutral-100 overflow-hidden z-20">
             <div className="p-4 flex items-center gap-3 border-b border-neutral-100">
-              <div className="w-10 h-10 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[11px] shrink-0 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold text-[11px] shrink-0 overflow-hidden border border-purple-200">
                 {photoDataUrl ? (
                   <img src={photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" />
                 ) : (
@@ -80,7 +101,7 @@ export default function RegionalTopbar({ user, onSettingsClick }) {
               </div>
               <div className="min-w-0">
                 <p className="text-[12px] font-bold text-neutral-800 truncate">{displayName}</p>
-                <p className="text-[10px] text-neutral-400 truncate">{user?.email || '-'}</p>
+                <p className="text-[10px] text-neutral-400 truncate">{currentUser?.email || '-'}</p>
               </div>
             </div>
 
@@ -107,7 +128,7 @@ export default function RegionalTopbar({ user, onSettingsClick }) {
       <UserProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
-        user={user}
+        user={currentUser}
         onSettingsClick={onSettingsClick}
       />
     </div>
