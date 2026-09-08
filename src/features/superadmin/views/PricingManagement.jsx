@@ -9,7 +9,11 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+superadmin/FEBE
+import apiClient from '../../../services/apiClient';
+import { updateCompletePricingPolicy } from '../../../services/pricingService';
 import { updateCompletePricingPolicy, getPricingPolicy } from '../../../services/pricingService';
+main
 
 export default function PricingPolicyManagement() {
   const [transportPricing, setTransportPricing] = useState({
@@ -46,7 +50,14 @@ export default function PricingPolicyManagement() {
   useEffect(() => {
     async function fetchPricingData() {
       try {
+superadmin/FEBE
+        const response = await apiClient.get('/admin/settings/pricing-policy');
+        const data = response.data;
+        
+        console.log("Data dari backend:", data);
+
         const data = await getPricingPolicy();
+main
 
         if (Array.isArray(data) && data.length > 0) {
           const motorData = data.find(item => item.serviceType === 'motor');
@@ -264,6 +275,7 @@ export default function PricingPolicyManagement() {
                     onChange={handleFareChange('motorBaseFare')}
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
                   />
+superadmin/FEBE
                 </div>
                 <div>
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Per KM (Rp)</label>
@@ -274,6 +286,18 @@ export default function PricingPolicyManagement() {
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
                   />
                 </div>
+
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Per KM (Rp)</label>
+                  <input 
+                    type="number"
+                    value={transportPricing.motorPerKm}
+                    onChange={handleFareChange('motorPerKm')}
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
+                  />
+                </div>
+main
               </div>
             </div>
 

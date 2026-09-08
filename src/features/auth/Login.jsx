@@ -57,10 +57,19 @@ export default function Login({ onSwitchToRegister, onLogin }) {
     const cleanEmail = email.trim();
 
     try {
+superadmin/FEBE
+      // 1. Ambil role dan token dari authService
+      const { role, token } = await loginRequest({ email: cleanEmail, password });
+
+      // 2. Simpan ke AuthContext (pastikan token disertakan dalam objek session)
+      login(role, { token, email: cleanEmail }, rememberMe);
+
       const { role, token, refreshToken, user } = await loginRequest({ email: cleanEmail, password });
 
       login(role, { token, refreshToken, email: cleanEmail, user }, rememberMe);
+main
 
+      // 3. Lanjutkan navigasi
       if (onLogin) onLogin(role);
     } catch (err) {
       const errorMessage = err?.response?.data?.message || 'Email atau kata sandi salah. Silakan coba lagi.';

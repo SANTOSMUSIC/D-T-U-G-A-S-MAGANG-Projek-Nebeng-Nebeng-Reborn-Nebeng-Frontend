@@ -11,6 +11,16 @@ export async function loginRequest({ email, password }) {
   });
 
   const responseData = response.data;
+superadmin/FEBE
+  const userObj = responseData?.data || responseData?.user || responseData;
+
+  const role = userObj?.role || responseData?.role || 'customer';
+  const token = responseData?.accessToken || responseData?.token || userObj?.token;
+
+  return {
+    role: role.toLowerCase(), // Langsung menggunakan role dari backend ('admin', 'regional', dll)
+    token: token,             // Token JWT asli dari backend
+
 
   const userObj = responseData?.data || responseData?.user || responseData;
   const role = userObj?.role || responseData?.role || 'customer';
@@ -21,6 +31,7 @@ export async function loginRequest({ email, password }) {
     role: role.toLowerCase(),
     token: accessToken,
     refreshToken: refreshToken,
+ main
     email: userObj?.email || email,
     name: userObj?.name,
   };

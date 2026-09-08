@@ -11,6 +11,37 @@ const apiClient = axios.create({
   },
 });
 
+superadmin/FEBE
+// Interceptor untuk menyisipkan token secara aman dari sessionStorage / localStorage
+apiClient.interceptors.request.use((config) => {
+  try {
+    // Cek sessionStorage terlebih dahulu (sesuai perilaku login tanpa "Ingat Saya")
+    let raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
+    
+    // Jika tidak ada di sessionStorage, cek localStorage (jika "Ingat Saya" dicentang)
+    if (!raw) {
+      raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    }
+
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      
+      // Ekstraksi token dari berbagai variasi struktur objek
+      const token = 
+        parsed.token || 
+        parsed.accessToken || 
+        parsed.access_token || 
+        parsed.data?.token || 
+        parsed.data?.accessToken ||
+        (typeof parsed === 'string' ? parsed : null);
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memparsing token auth:', err);
+=======
 // Helper untuk mengambil auth state saat ini
 const getStoredAuth = () => {
   try {
@@ -56,9 +87,13 @@ apiClient.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+main
   }
+
   return config;
 });
+
+superadmin/FEBE
 
 // Response Interceptor: Menangani 401 & Auto-Refresh Token
 let isRefreshing = false;
@@ -136,4 +171,5 @@ apiClient.interceptors.response.use(
   }
 );
 
+main
 export default apiClient;
