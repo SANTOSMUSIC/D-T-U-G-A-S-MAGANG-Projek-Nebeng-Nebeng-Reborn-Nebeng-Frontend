@@ -2,48 +2,34 @@ import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, CheckCheck, Search, Phone, ArrowLeft } from 'lucide-react';
 
 export default function MitraChat() {
-  const [selectedChat, setSelectedChat] = useState(1);
+  const [selectedChat, setSelectedChat] = useState(null);
   const [messageText, setMessageText] = useState('');
   const [chatSearchTerm, setChatSearchTerm] = useState('');
   const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef(null);
   
-  const [chats, setChats] = useState([
-    {
-      id: 1,
-      customerName: 'Budi Santoso',
-      tripCode: 'TRIP-701',
-      route: 'Solo → Yogyakarta',
-      lastMessage: 'Halo Kak, posisi armada di mana ya? Paket saya titip di depan ya.',
-      time: '07:45 WIB',
-      unread: 2,
-      messages: [
-        { sender: 'customer', text: 'Halo Kak, selamat pagi.', time: '07:30 WIB' },
-        { sender: 'customer', text: 'Halo Kak, posisi armada di mana ya? Paket saya titip di depan ya.', time: '07:45 WIB' }
-      ]
-    },
-    {
-      id: 2,
-      customerName: 'Siti Rahma',
-      tripCode: 'TRIP-702',
-      route: 'Solo → Semarang',
-      lastMessage: 'Baik Kak, saya tunggu di titik jemput pos ya.',
-      time: 'Kemarin',
-      unread: 0,
-      messages: [
-        { sender: 'mitra', text: 'Halo Kak Siti, untuk trip Solo-Semarang besok siap ya?', time: '16:00 WIB' },
-        { sender: 'customer', text: 'Baik Kak, saya tunggu di titik jemput pos ya.', time: '16:05 WIB' }
-      ]
-    }
-  ]);
+  // FIX (hapus dummy data): dulu ada 2 percakapan contoh (Budi Santoso/
+  // TRIP-701, Siti Rahma/TRIP-702) yang di-hardcode dan tidak pernah
+  // terhubung ke trip nyata. Schema sudah punya model Conversation
+  // (tripId, customerId, mitraId) dan Message (conversationId, senderId,
+  // messageText) untuk ini — jadi data awal dikosongkan, siap diisi dari
+  // percakapan asli (mis. GET /api/conversations milik mitra yang login).
+  const [chats, setChats] = useState([]);
 
-  const activeChat = chats.find(c => c.id === selectedChat) || chats[0];
+  // FIX (bug nyata): sebelumnya `chats.find(...) || chats[0]` masih bisa
+  // menghasilkan `undefined` kalau `chats` kosong (tidak ada percakapan
+  // sama sekali), lalu `activeChat.messages`/`activeChat.customerName` di
+  // bawah akan melempar error "Cannot read properties of undefined".
+  // Sekarang activeChat boleh null, dan bagian render panel obrolan
+  // menampilkan EmptyState alih-alih memaksa akses field yang tidak ada.
+  const activeChat = chats.find(c => c.id === selectedChat) ?? null;
 
   // Auto-scroll ke pesan terbaru setiap kali pesan baru masuk/terkirim
   // atau saat pindah percakapan.
   useEffect(() => {
+    if (!activeChat) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeChat.messages.length, selectedChat]);
+  }, [activeChat?.messages.length, selectedChat]);
 
   const filteredChats = chats.filter((chat) => {
     const term = chatSearchTerm.toLowerCase();
@@ -161,6 +147,15 @@ export default function MitraChat() {
 
         {/* Panel Obrolan */}
         <div className={`col-span-2 flex flex-col bg-white ${!showMobileChat ? 'hidden lg:flex' : 'flex'}`}>
+          {!activeChat ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-center">
+              <div>
+                <p className="text-[11px] font-bold text-neutral-500">Belum ada percakapan dipilih</p>
+                <p className="text-[9px] text-neutral-400 mt-1">Pilih pelanggan di daftar sebelah kiri untuk mulai chat.</p>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="p-3.5 border-b border-neutral-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-2.5">
               <button
@@ -219,6 +214,8 @@ export default function MitraChat() {
               <Send className="w-3.5 h-3.5" />
             </button>
           </form>
+          </>
+          )}
         </div>
       </div>
     </div>

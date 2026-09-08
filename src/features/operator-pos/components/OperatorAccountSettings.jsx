@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Settings,
   User,
@@ -8,91 +8,96 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  MonitorSmartphone,
   Camera,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
+import apiClient from '../../../services/apiClient';
 
-// FIX (struktur halaman): "Pengaturan Akun" adalah satu-satunya tempat
-// untuk MENGUBAH data — profil & kendaraan, foto profil, kata sandi, 2FA,
-// sesi login, preferensi notifikasi, sampai nonaktifasi akun. "Profil
-// Saya" (MitraProfile.jsx) sekarang murni ringkasan/read-only dan
-// tombol "Edit Profil"-nya mengarah ke halaman ini.
-
-const DEFAULT_PROFILE = {
-  fullName: '',
-  email: '',
-  phone: '',
-  address: '',
-  vehicleType: 'Motor',
-  plateNumber: '',
-};
-
-const DEFAULT_NOTIF_PREFS = {
-  tripUpdates: true,
-  walletActivity: true,
-  customerChat: true,
-  promoNews: false,
-};
-
+const DEFAULT_NOTIF_PREFS = { emailNotif: true, pushNotif: true };
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 
-export default function MitraAccountSettings() {
+export default function OperatorAccountSettings() {
   const toast = useToast();
-  const { mitraProfile, updateMitraProfile, sessionPersisted } = useAuth();
+  const { adminProfile, updateAdminProfile } = useAuth();
 
-  // Sumber kebenaran data profil ada di AuthContext (mitraProfile), sama
-  // seperti pola customerProfile/adminProfile di halaman lain — supaya
-  // data tidak hilang setelah refresh dan konsisten dengan storage sesi
-  // ("Ingat Saya").
-  const savedProfile = { ...DEFAULT_PROFILE, ...mitraProfile };
-  const [profileDraft, setProfileDraft] = useState(savedProfile);
+  const [profileDraft, setProfileDraft] = useState({
+    fullName: adminProfile?.fullName || adminProfile?.name || '',
+    email: adminProfile?.email || '',
+    phone: adminProfile?.phone || '',
+  });
 
-  // FIX: foto profil sebelumnya cuma preview di state lokal dan hilang
-  // saat refresh. Sekarang disimpan sebagai bagian dari mitraProfile
-  // (photoDataUrl, base64) lewat updateMitraProfile — persis seperti
-  // field profil lain — supaya bertahan sampai user ganti/refresh.
-  // Dibatasi 2MB per foto (MAX_PHOTO_SIZE) supaya storage sesi tidak
-  // membengkak terlalu besar.
-  const [avatarPreview, setAvatarPreview] = useState(savedProfile.photoDataUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState(adminProfile?.photoDataUrl || '');
+  const [avatarFile, setAvatarFile] = useState(null);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
 
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [showPassword, setShowPassword] = useState({ current: false, next: false, confirm: false });
 
-  // FIX: sebelumnya notifPrefs & is2FAEnabled hanya di state lokal dan
-  // hilang setiap kali halaman di-refresh (berbeda dari field profil lain
-  // yang sudah dipersist lewat mitraProfile). Sekarang keduanya ikut
-  // disimpan lewat updateMitraProfile supaya konsisten dan bertahan
-  // sampai user mengubahnya lagi.
-  const [notifPrefs, setNotifPrefs] = useState({ ...DEFAULT_NOTIF_PREFS, ...mitraProfile?.notifPrefs });
-  const [is2FAEnabled, setIs2FAEnabled] = useState(Boolean(mitraProfile?.is2FAEnabled));
+  const [notifPrefs, setNotifPrefs] = useState({ ...DEFAULT_NOTIF_PREFS, ...adminProfile?.notifPrefs });
+  const [is2FAEnabled, setIs2FAEnabled] = useState(Boolean(adminProfile?.is2FAEnabled));
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-  const [showLogoutSessionsModal, setShowLogoutSessionsModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ambil data profil terbaru dari database saat halaman dipasang
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchOperatorProfile() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res?.data) {
+          const dbUser = res.data;
+          const freshName = dbUser.name || dbUser.fullName || '';
+          const freshEmail = dbUser.email || '';
+          const freshPhone = dbUser.phone || '';
+          const rawAvatar = dbUser.avatar || dbUser.photoDataUrl || '';
+
+          setProfileDraft({
+            fullName: freshName,
+            email: freshEmail,
+            phone: freshPhone,
+          });
+
+          if (rawAvatar) {
+            const baseURL = apiClient.defaults.baseURL 
+              ? apiClient.defaults.baseURL.replace('/api', '') 
+              : 'http://localhost:3000';
+            const fullAvatarUrl = rawAvatar.startsWith('http') || rawAvatar.startsWith('data:') ? rawAvatar : `${baseURL}${rawAvatar}`;
+            setAvatarPreview(fullAvatarUrl);
+            
+            if (updateAdminProfile) {
+              updateAdminProfile({ fullName: freshName, name: freshName, email: freshEmail, phone: freshPhone, photoDataUrl: fullAvatarUrl });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil profil operator dari database:', err);
+      }
+    }
+
+    fetchOperatorProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleProfileFieldChange = (field, value) => {
     setProfileDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (
-      !profileDraft.fullName.trim() ||
-      !profileDraft.phone.trim() ||
-      !profileDraft.address.trim() ||
-      !profileDraft.plateNumber.trim()
-    ) {
-      toast.warning('Nama lengkap, nomor telepon, alamat, dan nomor plat wajib diisi.', { title: 'Data Tidak Lengkap' });
+    if (!profileDraft.fullName.trim()) {
+      toast.warning('Nama lengkap wajib diisi.', { title: 'Data Tidak Lengkap' });
       return;
     }
-    if (!PHONE_REGEX.test(profileDraft.phone.trim())) {
+    if (profileDraft.phone.trim() !== '' && !PHONE_REGEX.test(profileDraft.phone.trim())) {
       toast.warning('Format nomor telepon tidak valid.', { title: 'Nomor Tidak Valid' });
       return;
     }
@@ -101,12 +106,61 @@ export default function MitraAccountSettings() {
       return;
     }
 
-    // Kirim hanya field form (bukan seluruh profileDraft) supaya
-    // photoDataUrl yang sudah tersimpan lewat handleAvatarChange tidak
-    // ikut ketimpa nilai lama.
-    const { fullName, email, phone, address, vehicleType, plateNumber } = profileDraft;
-    updateMitraProfile({ fullName, email, phone, address, vehicleType, plateNumber });
-    toast.success('Profil berhasil diperbarui.', { title: 'Profil Diperbarui' });
+    try {
+      setIsSubmitting(true);
+
+      // Simpan perubahan data profil ke database server
+      await apiClient.patch('/users/me', {
+        name: profileDraft.fullName.trim(),
+        email: profileDraft.email.trim(),
+        phone: profileDraft.phone.trim(),
+      }).catch(() => {
+        return apiClient.patch('/auth/profile', {
+          name: profileDraft.fullName.trim(),
+          email: profileDraft.email.trim(),
+          phone: profileDraft.phone.trim(),
+        });
+      });
+
+      let finalAvatarUrl = avatarPreview;
+
+      // Jika ada file avatar baru yang dipilih, unggah ke server
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+
+        const uploadRes = await apiClient.post('/users/me/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const relativePath = uploadRes?.data?.avatar;
+        if (relativePath) {
+          const baseURL = apiClient.defaults.baseURL 
+            ? apiClient.defaults.baseURL.replace('/api', '') 
+            : 'http://localhost:3000';
+          finalAvatarUrl = relativePath.startsWith('http') ? relativePath : `${baseURL}${relativePath}`;
+          setAvatarPreview(finalAvatarUrl);
+          setAvatarFile(null);
+        }
+      }
+
+      if (updateAdminProfile) {
+        updateAdminProfile({
+          fullName: profileDraft.fullName.trim(),
+          name: profileDraft.fullName.trim(),
+          email: profileDraft.email.trim(),
+          phone: profileDraft.phone.trim(),
+          photoDataUrl: finalAvatarUrl,
+        });
+      }
+
+      toast.success('Profil berhasil diperbarui ke database.', { title: 'Profil Diperbarui' });
+    } catch (error) {
+      console.error('Gagal menyimpan profil operator:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan perubahan ke server.', { title: 'Error' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAvatarChange = (e) => {
@@ -125,19 +179,13 @@ export default function MitraAccountSettings() {
     }
 
     setAvatarError('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result);
-      updateMitraProfile({ photoDataUrl: reader.result });
-      toast.success('Foto profil berhasil diperbarui.', { title: 'Foto Diperbarui' });
-    };
-    reader.onerror = () => {
-      setAvatarError('Gagal membaca file foto. Coba lagi.');
-    };
-    reader.readAsDataURL(file);
+    setAvatarFile(file);
+
+    const localPreviewUrl = URL.createObjectURL(file);
+    setAvatarPreview(localPreviewUrl);
   };
 
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
       toast.warning('Semua field kata sandi wajib diisi.', { title: 'Data Tidak Lengkap' });
@@ -152,8 +200,21 @@ export default function MitraAccountSettings() {
       return;
     }
 
-    setPasswordForm({ current: '', next: '', confirm: '' });
-    toast.success('Kata sandi berhasil diperbarui.', { title: 'Kata Sandi Diperbarui' });
+    try {
+      setIsSubmitting(true);
+      await apiClient.patch('/auth/change-password', {
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
+      });
+
+      setPasswordForm({ current: '', next: '', confirm: '' });
+      toast.success('Kata sandi berhasil diperbarui di database.', { title: 'Kata Sandi Diperbarui' });
+    } catch (error) {
+      console.error('Gagal mengubah password:', error);
+      toast.error(error.response?.data?.message || 'Gagal mengubah kata sandi.', { title: 'Error' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleToggle2FA = (nextValue) => {
@@ -162,57 +223,49 @@ export default function MitraAccountSettings() {
       return;
     }
     setIs2FAEnabled(false);
-    updateMitraProfile({ is2FAEnabled: false });
-    toast.warning('Autentikasi Dua Faktor dinonaktifkan. Akun Anda kini hanya dilindungi kata sandi.', { title: '2FA Nonaktif' });
+    if (updateAdminProfile) updateAdminProfile({ is2FAEnabled: false });
+    toast.warning('Autentikasi Dua Faktor dinonaktifkan.', { title: '2FA Nonaktif' });
   };
 
   const handleConfirm2FA = () => {
     setIs2FAEnabled(true);
-    updateMitraProfile({ is2FAEnabled: true });
+    if (updateAdminProfile) updateAdminProfile({ is2FAEnabled: true });
     setShow2FAModal(false);
-    toast.success('Autentikasi Dua Faktor berhasil diaktifkan untuk akun ini.', { title: '2FA Aktif' });
+    toast.success('Autentikasi Dua Faktor berhasil diaktifkan.', { title: '2FA Aktif' });
   };
 
   const handleToggleNotif = (key) => {
     setNotifPrefs((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      updateMitraProfile({ notifPrefs: next });
+      if (updateAdminProfile) updateAdminProfile({ notifPrefs: next });
       return next;
     });
   };
 
-  const handleLogoutOtherSessions = () => {
-    setShowLogoutSessionsModal(false);
-    toast.success('Semua sesi lain berhasil dikeluarkan dari akun Anda.', { title: 'Sesi Dikeluarkan' });
-  };
-
   const handleDeactivateAccount = () => {
     setShowDeactivateModal(false);
-    toast.error('Permintaan nonaktifasi akun telah dikirim ke tim Admin Regional untuk ditinjau.', { title: 'Permintaan Terkirim' });
+    toast.error('Permintaan nonaktifasi akun telah dikirim ke Admin Regional.', { title: 'Permintaan Terkirim' });
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
-              <Settings className="w-3 h-3" /> AKUN & KEAMANAN
-            </span>
-          </div>
-          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Pengaturan Akun</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Ubah data profil & kendaraan, keamanan login, preferensi notifikasi, dan sesi aktif akun mitra Anda.
-          </p>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
+          <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
+            <Settings className="w-3 h-3" /> AKUN & KEAMANAN
+          </span>
         </div>
+        <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Pengaturan Akun</h1>
+        <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
+          Ubah data profil, foto profil, keamanan login, dan preferensi notifikasi akun operator Anda.
+        </p>
       </div>
 
       <div className="space-y-5">
-        {/* Edit Profil & Kendaraan */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
-            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil & Kendaraan
+            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil
           </h3>
 
           <div className="flex items-center gap-4">
@@ -221,7 +274,7 @@ export default function MitraAccountSettings() {
                 <img src={avatarPreview} alt="Foto Profil" className="w-16 h-16 rounded-full object-cover border-4 border-purple-50 shadow-sm" />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-[#4B2172] text-white flex items-center justify-center text-[20px] font-extrabold shadow-sm">
-                  {savedProfile.fullName.trim().charAt(0).toUpperCase() || 'M'}
+                  {(profileDraft.fullName || 'O').trim().charAt(0).toUpperCase()}
                 </div>
               )}
               <button
@@ -256,6 +309,7 @@ export default function MitraAccountSettings() {
                   value={profileDraft.fullName}
                   onChange={(e) => handleProfileFieldChange('fullName', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  required
                 />
               </div>
               <div>
@@ -265,10 +319,10 @@ export default function MitraAccountSettings() {
                   placeholder="0812xxxxxxxx"
                   value={profileDraft.phone}
                   onChange={(e) => handleProfileFieldChange('phone', e.target.value.replace(/[^\d+]/g, ''))}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 font-mono focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Email</label>
                 <input
                   type="email"
@@ -276,54 +330,22 @@ export default function MitraAccountSettings() {
                   value={profileDraft.email}
                   onChange={(e) => handleProfileFieldChange('email', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  required
                 />
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
-                <select
-                  value={profileDraft.vehicleType}
-                  onChange={(e) => handleProfileFieldChange('vehicleType', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                >
-                  {/* FIX (kesesuaian schema): opsi "Box" dihapus — enum
-                      VehicleType di schema.prisma hanya punya `motor` dan
-                      `mobil`, dan MitraTripManagement.jsx juga cuma
-                      mendukung dua kategori ini saat bikin trip. */}
-                  <option value="Motor">Sepeda Motor</option>
-                  <option value="Mobil">Mobil / Minibus</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Plat</label>
-                <input
-                  type="text"
-                  value={profileDraft.plateNumber}
-                  onChange={(e) => handleProfileFieldChange('plateNumber', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Alamat Domisili</label>
-                <textarea
-                  rows="2"
-                  value={profileDraft.address}
-                  onChange={(e) => handleProfileFieldChange('address', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] resize-none"
-                ></textarea>
               </div>
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                Simpan Perubahan
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Keamanan Akun */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <KeyRound className="w-4 h-4 text-[#4B2172]" /> Keamanan Akun
@@ -385,9 +407,10 @@ export default function MitraAccountSettings() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                Perbarui Kata Sandi
+                {isSubmitting ? 'Memproses...' : 'Perbarui Kata Sandi'}
               </button>
             </div>
           </form>
@@ -404,64 +427,39 @@ export default function MitraAccountSettings() {
             </div>
             <ToggleSwitch checked={is2FAEnabled} onChange={handleToggle2FA} />
           </div>
-
-          <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <div className="p-2 bg-neutral-100 text-neutral-600 rounded-xl shrink-0">
-                <MonitorSmartphone className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-800">Sesi Login Saat Ini</p>
-                <p className="text-[8px] text-neutral-400">
-                  {sessionPersisted
-                    ? 'Sesi diingat di perangkat ini ("Ingat Saya" aktif).'
-                    : 'Sesi sementara — akan berakhir saat tab ditutup.'}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowLogoutSessionsModal(true)}
-              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[9px] font-bold transition cursor-pointer shrink-0"
-            >
-              Keluar dari Perangkat Lain
-            </button>
-          </div>
         </div>
 
-        {/* Preferensi Notifikasi */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <Bell className="w-4 h-4 text-[#4B2172]" /> Preferensi Notifikasi
           </h3>
           <div className="space-y-2.5">
-            {[
-              { key: 'tripUpdates', label: 'Update Status Trip', desc: 'Notifikasi saat trip dimulai, in transit, atau selesai.' },
-              { key: 'walletActivity', label: 'Aktivitas Dompet & Escrow', desc: 'Notifikasi saat dana escrow cair atau penarikan diproses.' },
-              { key: 'customerChat', label: 'Pesan Pelanggan', desc: 'Notifikasi saat ada pesan baru dari pelanggan.' },
-              { key: 'promoNews', label: 'Promo & Info Program Mitra', desc: 'Info promo, insentif, dan pengumuman dari Nebeng.' },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center justify-between gap-3 p-3 bg-neutral-50/70 border border-neutral-100 rounded-xl">
-                <div>
-                  <p className="text-[10px] font-bold text-neutral-800">{item.label}</p>
-                  <p className="text-[8px] text-neutral-400">{item.desc}</p>
-                </div>
-                <ToggleSwitch checked={notifPrefs[item.key]} onChange={() => handleToggleNotif(item.key)} />
+            <div className="flex items-center justify-between gap-3 p-3 bg-neutral-50/70 border border-neutral-100 rounded-xl">
+              <div>
+                <p className="text-[10px] font-bold text-neutral-800">Notifikasi Email</p>
+                <p className="text-[8px] text-neutral-400">Terima ringkasan aktivitas lewat email.</p>
               </div>
-            ))}
+              <ToggleSwitch checked={notifPrefs.emailNotif} onChange={() => handleToggleNotif('emailNotif')} />
+            </div>
+            <div className="flex items-center justify-between gap-3 p-3 bg-neutral-50/70 border border-neutral-100 rounded-xl">
+              <div>
+                <p className="text-[10px] font-bold text-neutral-800">Notifikasi Push</p>
+                <p className="text-[8px] text-neutral-400">Notifikasi langsung di perangkat saat ada aktivitas baru.</p>
+              </div>
+              <ToggleSwitch checked={notifPrefs.pushNotif} onChange={() => handleToggleNotif('pushNotif')} />
+            </div>
           </div>
         </div>
 
-        {/* Zona Berbahaya */}
         <div className="bg-white rounded-2xl shadow-sm border border-rose-200 p-5 sm:p-6 space-y-3">
           <h3 className="text-[14px] font-bold text-rose-600 flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4" /> Zona Berbahaya
           </h3>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl">
             <div>
-              <p className="text-[10px] font-bold text-neutral-800">Nonaktifkan Akun Mitra</p>
+              <p className="text-[10px] font-bold text-neutral-800">Nonaktifkan Akun Operator</p>
               <p className="text-[8px] text-neutral-400 max-w-md">
-                Akun Anda akan disembunyikan dari sistem pemesanan dan trip baru tidak dapat dibuat sampai diaktifkan kembali oleh Admin Regional.
+                Akun Anda akan disembunyikan dari sistem operasional pos sampai diaktifkan kembali oleh Admin Regional.
               </p>
             </div>
             <button
@@ -483,9 +481,7 @@ export default function MitraAccountSettings() {
         maxWidth="max-w-sm"
       >
         <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">
-            Kode OTP akan dikirim ke nomor telepon terdaftar ({savedProfile.phone || 'nomor belum diatur'}) setiap kali login dari perangkat baru.
-          </p>
+          <p className="text-neutral-600">Kode OTP akan dikirim ke nomor telepon terdaftar Anda saat login dari perangkat baru.</p>
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setShow2FAModal(false)}
@@ -504,32 +500,6 @@ export default function MitraAccountSettings() {
       </BaseModal>
 
       <BaseModal
-        isOpen={showLogoutSessionsModal}
-        onClose={() => setShowLogoutSessionsModal(false)}
-        title="Keluar dari Semua Perangkat Lain?"
-        subtitle="Keamanan Sesi"
-        maxWidth="max-w-sm"
-      >
-        <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">Semua sesi aktif selain perangkat ini akan dipaksa logout. Anda perlu login ulang di perangkat tersebut.</p>
-          <div className="flex gap-2 pt-1">
-            <button
-              onClick={() => setShowLogoutSessionsModal(false)}
-              className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleLogoutOtherSessions}
-              className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
-            >
-              Ya, Keluarkan
-            </button>
-          </div>
-        </div>
-      </BaseModal>
-
-      <BaseModal
         isOpen={showDeactivateModal}
         onClose={() => setShowDeactivateModal(false)}
         title="Ajukan Nonaktifasi Akun?"
@@ -537,7 +507,7 @@ export default function MitraAccountSettings() {
         maxWidth="max-w-sm"
       >
         <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">Trip aktif yang sedang berjalan tetap harus diselesaikan terlebih dahulu. Pengajuan akan ditinjau oleh Admin Regional dalam 1x24 jam.</p>
+          <p className="text-neutral-600">Pengajuan nonaktifasi akun akan dikirim dan ditinjau oleh Admin Regional.</p>
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setShowDeactivateModal(false)}

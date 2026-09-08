@@ -1,31 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PackageCheck, Camera, QrCode, X as XIcon } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
-import { SkeletonTableRows } from '../../../components/ui/Skeleton';
-import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
+import { operatorService } from '../../../services/operatorService';
 
 export default function OperatorInspection() {
   const toast = useToast();
-  const [isLoadingInspections, setIsLoadingInspections] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    senderName: '',
-    itemType: '',
-    qrCode: ''
+    qrCodeTrip: '',
+    qrCodeTicket: '',
+    posId: '',
+    securitySealQr: ''
   });
 
   const [itemPhoto, setItemPhoto] = useState(null);
   const [itemPhotoPreviewUrl, setItemPhotoPreviewUrl] = useState(null);
-
-  const [inspections, setInspections] = useState([
-    { id: 'INS-001', sender: 'Budi Santoso', item: 'Elektronik (Laptop)', qr: 'QR-SGL-88910', status: 'Segel Terpasang', date: '19 Agu 2026, 10:00' },
-    { id: 'INS-002', sender: 'Siti Aminah', item: 'Makanan Khas Solo', qr: 'QR-SGL-88911', status: 'Segel Terpasang', date: '19 Agu 2026, 09:15' }
-  ]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoadingInspections(false), 700);
-    return () => clearTimeout(timer);
-  }, []);
+  const [latestScanResult, setLatestScanResult] = useState(null);
 
   const handlePhotoFileChange = (file) => {
     setItemPhoto(file || null);
@@ -35,34 +26,44 @@ export default function OperatorInspection() {
     });
   };
 
-  // FIX: bersihkan object URL preview foto barang saat operator pindah
-  // halaman sebelum menghapus/mengganti fotonya (mencegah memory leak).
-  useEffect(() => {
-    return () => {
-      if (itemPhotoPreviewUrl) URL.revokeObjectURL(itemPhotoPreviewUrl);
-    };
-  }, [itemPhotoPreviewUrl]);
-
-  const handleSubmit = (e) => {
+  const handleScanAndSeal = async (e) => {
     e.preventDefault();
     if (!itemPhoto) {
-      toast.warning('Wajib mengunggah foto fisik barang sebelum menyegel!', { title: 'Foto Barang Diperlukan' });
+      toast.warning('Wajib mengunggah foto fisik barang sebelum melakukan sealing & check-in!', { title: 'Foto Diperlukan' });
       return;
     }
 
-    const newEntry = {
-      id: `INS-${String(inspections.length + 1).padStart(3, '0')}`,
-      sender: formData.senderName || 'Pengirim Umum',
-      item: formData.itemType || 'Barang Umum',
-      qr: formData.qrCode || `QR-SGL-${Math.floor(10000 + Math.random() * 90000)}`,
-      status: 'Segel Terpasang',
-      date: 'Baru saja'
-    };
+    try {
+      setIsLoading(true);
 
-    setInspections([newEntry, ...inspections]);
-    setFormData({ senderName: '', itemType: '', qrCode: '' });
-    handlePhotoFileChange(null);
-    toast.success('Inspeksi fisik berhasil disimpan dan stiker segel QR tercatat!', { title: 'Inspeksi Tersimpan' });
+      // Memanggil API Checkpoint ke Backend untuk Check-in Asal & Pemasangan Segel
+      const payload = {
+        qrCodeTrip: formData.qrCodeTrip,
+        qrCodeTicket: formData.qrCodeTicket,
+        posId: formData.posId,
+        scanType: 'checkin_origin',
+        securitySealQr: formData.securitySealQr || `SEAL-${Math.floor(100000 + Math.random() * 900000)}`
+      };
+
+      const response = await operatorService.scanCheckpoint(payload);
+
+      setLatestScanResult({
+        id: response.checkpoint?.id || 'CHK-' + Date.now().toString().slice(-4),
+        trip: response.checkpoint?.trip?.qrCodeTrip || formData.qrCodeTrip,
+        order: response.checkpoint?.order?.qrCodeTiket || formData.qrCodeTicket,
+        status: 'Check-in Asal & Segel Aktif',
+        date: 'Baru saja'
+      });
+
+      setFormData({ qrCodeTrip: '', qrCodeTicket: '', posId: '', securitySealQr: '' });
+      handlePhotoFileChange(null);
+      toast.success(response.message || 'Check-in Pos Asal dan Segel QR berhasil dicatat ke database!', { title: 'Berhasil' });
+    } catch (error) {
+      console.error('Gagal melakukan scan checkpoint:', error);
+      toast.error(error.response?.data?.message || 'Gagal memproses ke server backend.', { title: 'Error Server' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -72,46 +73,60 @@ export default function OperatorInspection() {
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
-              <PackageCheck className="w-3 h-3" /> STANDAR KEAMANAN & VALIDASI POS
+              <PackageCheck className="w-3 h-3" /> POS OPERASIONAL & SECURITY SEALING
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
-            Inspeksi & Sealing (Pemeriksaan Paket)
+            Inspeksi & Sealing Checkpoint
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pemeriksaan fisik isi paket bersama pengirim, unggah foto kondisi, dan penempelan segel QR unik.
+            Validasi fisik paket pos asal, unggah foto kondisi, dan sinkronkan segel QR langsung ke database.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
-          <h2 className="text-[14px] font-bold text-neutral-800">Form Pemeriksaan & Sealing</h2>
-          <form onSubmit={handleSubmit} className="space-y-3.5 text-[10px]">
+          <h2 className="text-[14px] font-bold text-neutral-800">Form Validasi Pos Asal</h2>
+          <form onSubmit={handleScanAndSeal} className="space-y-3.5 text-[10px]">
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                NAMA PENGIRIM
+                KODE QR TRIP MITRA
               </label>
               <input 
                 type="text" 
                 required
-                placeholder="cth: Budi Santoso"
-                value={formData.senderName}
-                onChange={(e) => setFormData({...formData, senderName: e.target.value})}
+                placeholder="cth: TRIP-A2D4CS13"
+                value={formData.qrCodeTrip}
+                onChange={(e) => setFormData({...formData, qrCodeTrip: e.target.value})}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
               />
             </div>
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                JENIS & DESKRIPSI BARANG
+                KODE QR TIKET / PARCEL
               </label>
               <input 
                 type="text" 
                 required
-                placeholder="cth: Dokumen / Elektronik / Makanan"
-                value={formData.itemType}
-                onChange={(e) => setFormData({...formData, itemType: e.target.value})}
+                placeholder="cth: TKT-SDJF12H"
+                value={formData.qrCodeTicket}
+                onChange={(e) => setFormData({...formData, qrCodeTicket: e.target.value})}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                ID POS TEMPAT BERTUGAS
+              </label>
+              <input 
+                type="text" 
+                required
+                placeholder="cth: 10"
+                value={formData.posId}
+                onChange={(e) => setFormData({...formData, posId: e.target.value})}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
               />
             </div>
@@ -148,20 +163,19 @@ export default function OperatorInspection() {
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                NOMOR STIKER SEGEL QR UNIK
+                NOMOR STIKER SEGEL QR (SECURITY SEAL)
               </label>
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  required
-                  placeholder="Scan / Ketik Kode QR"
-                  value={formData.qrCode}
-                  onChange={(e) => setFormData({...formData, qrCode: e.target.value})}
+                  placeholder="Opsional / Auto"
+                  value={formData.securitySealQr}
+                  onChange={(e) => setFormData({...formData, securitySealQr: e.target.value})}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px]"
                 />
                 <button 
                   type="button" 
-                  onClick={() => setFormData({...formData, qrCode: `QR-SGL-${Math.floor(10000 + Math.random() * 90000)}`})}
+                  onClick={() => setFormData({...formData, securitySealQr: `SEAL-${Math.floor(100000 + Math.random() * 900000)}`})}
                   className="px-3 bg-purple-50 text-[#4B2172] font-bold text-[9px] rounded-xl hover:bg-purple-100 transition shrink-0 flex items-center gap-1 cursor-pointer"
                 >
                   <QrCode className="w-3.5 h-3.5" /> Auto
@@ -171,83 +185,49 @@ export default function OperatorInspection() {
 
             <button 
               type="submit"
-              className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer mt-1"
+              disabled={isLoading}
+              className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer mt-1 disabled:opacity-50"
             >
-              Simpan & Kunci Paket
+              {isLoading ? 'Memproses ke Server...' : 'Kunci & Check-in Asal'}
             </button>
           </form>
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
-          <h2 className="text-[14px] font-bold text-neutral-800">Riwayat Pemeriksaan & Segel Hari Ini</h2>
+          <h2 className="text-[14px] font-bold text-neutral-800">Status Hasil Scan Checkpoint Terakhir</h2>
           
-          <div className="block sm:hidden divide-y divide-neutral-100">
-            {isLoadingInspections ? (
-              <div className="p-4 space-y-3">
-                <SkeletonTableRows rows={3} columns={1} />
-              </div>
-            ) : inspections.length === 0 ? (
-              <EmptyState
-                icon={PackageCheck}
-                title="Belum Ada Pemeriksaan"
-                description="Belum ada riwayat pemeriksaan dan segel paket hari ini."
-              />
-            ) : inspections.map((item) => (
-              <div key={item.id} className="py-3 space-y-2 text-[10px]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-neutral-800 font-mono">{item.id}</span>
-                    <span className="text-[8px] text-neutral-400 block">{item.date}</span>
-                  </div>
-                  <StatusBadge variant="emerald">{item.status}</StatusBadge>
-                </div>
-                <div className="flex justify-between text-neutral-600">
-                  <span>Pengirim: <strong>{item.sender}</strong></span>
-                  <span className="font-mono font-bold text-[#4B2172]">{item.qr}</span>
-                </div>
-                <p className="text-[9px] text-neutral-500">Barang: {item.item}</p>
-              </div>
-            ))}
-          </div>
-
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4">ID & WAKTU</th>
-                  <th className="py-3 px-4">PENGIRIM</th>
-                  <th className="py-3 px-4">JENIS BARANG</th>
-                  <th className="py-3 px-4">KODE QR SEGEL</th>
-                  <th className="py-3 px-4">STATUS</th>
+                  <th className="py-3 px-4">ID LOG</th>
+                  <th className="py-3 px-4">TRIP QR</th>
+                  <th className="py-3 px-4">TICKET QR</th>
+                  <th className="py-3 px-4">STATUS BACKEND</th>
+                  <th className="py-3 px-4">WAKTU</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 text-[9px]">
-                {isLoadingInspections ? (
-                  <SkeletonTableRows rows={3} columns={5} />
-                ) : inspections.length === 0 ? (
+                {!latestScanResult ? (
                   <tr>
                     <td colSpan={5}>
-                      <EmptyState
-                        icon={PackageCheck}
-                        title="Belum Ada Pemeriksaan"
-                        description="Belum ada riwayat pemeriksaan dan segel paket hari ini."
-                      />
+                      <div className="py-12">
+                        <PackageCheck className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                        <p className="text-center text-neutral-400 text-[10px]">Belum ada aktivitas scan pos yang dikirim ke server pada sesi ini.</p>
+                      </div>
                     </td>
                   </tr>
-                ) : inspections.map((item) => (
-                  <tr key={item.id} className="hover:bg-neutral-50/60 transition">
+                ) : (
+                  <tr className="hover:bg-neutral-50/60 transition">
+                    <td className="py-3.5 px-4 font-bold text-neutral-800 font-mono text-[10px]">{latestScanResult.id}</td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-[#4B2172]">{latestScanResult.trip}</td>
+                    <td className="py-3.5 px-4 font-mono text-neutral-700">{latestScanResult.order}</td>
                     <td className="py-3.5 px-4">
-                      <p className="font-bold text-neutral-800 font-mono text-[10px]">{item.id}</p>
-                      <p className="text-[8px] text-neutral-400 font-semibold">{item.date}</p>
+                      <StatusBadge variant="emerald">{latestScanResult.status}</StatusBadge>
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-neutral-800">{item.sender}</td>
-                    <td className="py-3.5 px-4 font-semibold text-neutral-700">{item.item}</td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-[#4B2172]">{item.qr}</td>
-                    <td className="py-3.5 px-4">
-                      <StatusBadge variant="emerald">{item.status}</StatusBadge>
-                    </td>
+                    <td className="py-3.5 px-4 text-neutral-500 font-semibold">{latestScanResult.date}</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

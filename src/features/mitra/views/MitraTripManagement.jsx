@@ -6,6 +6,12 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useMitraData, estimateFare } from '../../../context/MitraDataContext';
 
+// CATATAN KESESUAIAN SCHEMA (belum bisa diperbaiki penuh di sini): ini
+// masih daftar nama kota statis, bukan data asli dari model PickupPoint/
+// City di schema.prisma (yang punya id, koordinat, operator pos, dst).
+// Trip.originPointId/destinationPointId di backend butuh ID PickupPoint
+// yang valid, bukan sekadar nama string seperti ini. Ganti dengan hasil
+// fetch nyata (mis. GET /api/pickup-points) begitu endpointnya tersedia.
 const ROUTE_OPTIONS = ['Solo (Pos Pusat)', 'Yogyakarta', 'Semarang', 'Surabaya'];
 
 export default function MitraTripManagement() {

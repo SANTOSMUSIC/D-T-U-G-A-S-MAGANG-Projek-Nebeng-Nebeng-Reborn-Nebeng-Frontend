@@ -1,58 +1,61 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ArrowDownLeft, ArrowUpRight, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Calendar, ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
+import { useAuth } from '../../../context/AuthContext';
+import { operatorService } from '../../../services/operatorService';
 
 export default function OperatorDashboard() {
+  const { user } = useAuth();
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
-  const [tripsSchedule] = useState([
-    {
-      id: 'TRIP-9081',
-      type: 'Masuk',
-      partnerName: 'Budi Santoso',
-      service: 'Ride / Transportasi',
-      plateNumber: 'AD 1234 XY',
-      time: '09:30 WIB',
-      status: 'Tiba di Pos',
-      notes: 'Penjemputan penumpang reguler Solo Grand Mall.'
-    },
-    {
-      id: 'TRIP-9082',
-      type: 'Keluar',
-      partnerName: 'Siti Aminah',
-      service: 'Kurir / Food',
-      plateNumber: 'AD 5678 AB',
-      time: '10:15 WIB',
-      status: 'Menunggu Keberangkatan',
-      notes: 'Pengiriman paket makanan kuliner Solo.'
-    },
-    {
-      id: 'TRIP-9085',
-      type: 'Masuk',
-      partnerName: 'Joko Widodo',
-      service: 'Kurir / Logistik',
-      plateNumber: 'H 9876 CD',
-      time: '11:00 WIB',
-      status: 'Dalam Perjalanan ke Pos',
-      notes: 'Transit paket logistik regional Jateng.'
-    }
-  ]);
+  const [tripsSchedule, setTripsSchedule] = useState([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoadingTrips(false), 700);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    const fetchOperatorData = async () => {
+      try {
+        if (isMounted) setIsLoadingTrips(true);
+        
+        // Memanggil operatorService untuk mendapatkan daftar trip
+        const rawData = await operatorService.getTrips();
+
+        const formatted = rawData.map((t, index) => ({
+          id: String(t.id || `TRIP-${index + 9080}`),
+          type: index % 2 === 0 ? 'Masuk' : 'Keluar',
+          partnerName: t.driver?.name || t.mitraName || 'Driver Mitra',
+          service: t.serviceType || 'Ride / Transportasi',
+          plateNumber: t.vehicle?.plateNumber || 'AD 1234 XY',
+          time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : '09:30 WIB',
+          status: t.status === 'in_transit' ? 'Dalam Perjalanan' : 'Tiba di Pos',
+          notes: t.notes || 'Aktivitas operasional pos'
+        }));
+
+        if (isMounted) {
+          setTripsSchedule(formatted);
+        }
+      } catch (error) {
+        console.error('Gagal mengambil data operasional pos:', error);
+        setTripsSchedule([]);
+      } finally {
+        if (isMounted) {
+          setIsLoadingTrips(false);
+        }
+      }
+    };
+
+    fetchOperatorData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // FIX: sebelumnya angka "2 Trip" / "1 Trip" di StatCard ditulis tetap,
-  // jadi tidak akan sinkron kalau jadwal trip berubah. Sekarang dihitung
-  // langsung dari tripsSchedule.
   const incomingCount = tripsSchedule.filter((trip) => trip.type === 'Masuk').length;
   const outgoingCount = tripsSchedule.filter((trip) => trip.type === 'Keluar').length;
 
-  // FIX: tanggal sebelumnya ditulis tetap ("19 Agu 2026") padahal labelnya
-  // "TANGGAL HARI INI" — sekarang selalu mengikuti tanggal sistem.
   const todayLabel = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'short',
@@ -66,14 +69,14 @@ export default function OperatorDashboard() {
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
-              POS MITRA SOLO GRAND MALL | SHIFT PAGI
+              POS OPERASIONAL WILAYAH | {user?.name ? user.name.toUpperCase() : 'OPERATOR POS'}
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
             Dashboard Operasional Pos
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pantau jadwal trip mitra yang masuk dan keluar di pos Anda hari ini.
+            Pantau jadwal trip mitra yang masuk dan keluar di pos Anda hari ini dari database server.
           </p>
         </div>
 
@@ -122,49 +125,6 @@ export default function OperatorDashboard() {
           </div>
         </div>
 
-        <div className="block sm:hidden divide-y divide-gray-100">
-          {isLoadingTrips ? (
-            <div className="p-4 space-y-3">
-              <SkeletonTableRows rows={3} columns={1} />
-            </div>
-          ) : tripsSchedule.length > 0 ? (
-            tripsSchedule.map((trip) => (
-              <div key={trip.id} className="py-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-[#4B2172] font-mono">{trip.id}</span>
-                  <StatusBadge variant={trip.type === 'Masuk' ? 'purple' : 'blue'}>
-                    {trip.type === 'Masuk' ? 'Masuk Pos' : 'Keluar Pos'}
-                  </StatusBadge>
-                </div>
-
-                <div className="text-[10px] font-bold text-neutral-800">
-                  {trip.partnerName} <span className="font-mono text-neutral-400 font-normal">({trip.plateNumber})</span>
-                </div>
-
-                <div className="flex items-center justify-between text-[9px] text-neutral-500">
-                  <span>Layanan: {trip.service}</span>
-                  <span className="font-mono font-semibold text-neutral-400 flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5" /> {trip.time}
-                  </span>
-                </div>
-
-                <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
-                  <StatusBadge variant="neutral">{trip.status}</StatusBadge>
-                  <span className="text-[8px] text-neutral-400 italic truncate max-w-[150px]">{trip.notes}</span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-4">
-              <EmptyState
-                icon={Calendar}
-                title="Belum Ada Jadwal Trip"
-                description="Belum ada trip mitra yang dijadwalkan masuk atau keluar hari ini."
-              />
-            </div>
-          )}
-        </div>
-
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -186,7 +146,7 @@ export default function OperatorDashboard() {
                     <EmptyState
                       icon={Calendar}
                       title="Belum Ada Jadwal Trip"
-                      description="Belum ada trip mitra yang dijadwalkan masuk atau keluar hari ini."
+                      description="Belum ada trip mitra di database yang dijadwalkan masuk atau keluar."
                     />
                   </td>
                 </tr>

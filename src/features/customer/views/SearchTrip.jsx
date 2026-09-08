@@ -12,7 +12,7 @@ const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 const TODAY_ISO = new Date().toISOString().split('T')[0];
 
 const formatRupiah = (value) =>
-  `Rp ${Math.max(0, Math.round(value)).toLocaleString('id-ID')}`;
+  `Rp ${Math.max(0, Math.round(value || 0)).toLocaleString('id-ID')}`;
 
 export default function SearchTrip() {
   const navigate = useNavigate();
@@ -34,54 +34,37 @@ export default function SearchTrip() {
   const [itemCategory, setItemCategory] = useState('Elektronik');
   const [itemCount, setItemCount] = useState(1);
   const [itemWeight, setItemWeight] = useState(5);
-  const [itemSize, setItemSize] = useState('M');
+  const [itemSize, setItemSize] = useState('m');
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
 
+  // FIX (kesesuaian schema): sebelumnya `code` di sini uppercase (XXS, S,
+  // M, ...) sementara enum ParcelSize di schema.prisma nilainya lowercase
+  // (xxs, xs, s, m, l, xl). Kalau `itemSize` ini langsung dikirim sebagai
+  // `sizeEnum` ke backend (field ItemOrder.sizeEnum), Prisma akan menolak
+  // karena enum case-sensitive. `code` sekarang disamakan lowercase dengan
+  // schema; `label` tetap uppercase untuk ditampilkan ke user.
   const sizeOptions = [
-    { code: 'XXS', label: 'XXS (< 1 kg)', weight: 1 },
-    { code: 'XS', label: 'XS (1-2 kg)', weight: 2 },
-    { code: 'S', label: 'S (2-5 kg)', weight: 4 },
-    { code: 'M', label: 'M (5-10 kg)', weight: 7 },
-    { code: 'L', label: 'L (10-20 kg)', weight: 15 },
-    { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
+    { code: 'xxs', label: 'XXS (< 1 kg)', weight: 1 },
+    { code: 'xs', label: 'XS (1-2 kg)', weight: 2 },
+    { code: 's', label: 'S (2-5 kg)', weight: 4 },
+    { code: 'm', label: 'M (5-10 kg)', weight: 7 },
+    { code: 'l', label: 'L (10-20 kg)', weight: 15 },
+    { code: 'xl', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  const mockTrips = [
-    {
-      id: 1,
-      mitraName: 'Budi Santoso',
-      origin: 'Pos Solo Kota',
-      destination: 'Pos Semarang Indah',
-      date: '2026-08-25',
-      type: 'penumpang',
-      vehicle: 'Toyota Avanza (H 1234 AB)',
-      vehicleCategory: 'mobil',
-      price: 'Rp 75.000',
-      basePrice: 75000,
-      priceUnit: 'kursi',
-      capacity: '3 Kursi Tersedia',
-      maxSeats: 3,
-      rating: '4.9 (120 trip)'
-    },
-    {
-      id: 2,
-      mitraName: 'Siti Aminah',
-      origin: 'Pos Solo Kota',
-      destination: 'Pos Yogyakarta Pusat',
-      date: '2026-08-25',
-      type: 'barang',
-      vehicle: 'Yamaha NMAX (AD 5678 CD - Motor)',
-      vehicleCategory: 'motor',
-      price: 'Rp 50.000 / paket',
-      basePrice: 50000,
-      priceUnit: 'paket',
-      remainingCapacityKg: 20,
-      rating: '4.8 (85 trip)'
-    }
-  ];
+  // FIX (hapus dummy data): dulu ada 2 trip contoh (Budi Santoso / Siti
+  // Aminah) yang di-hardcode di sini dan selalu muncul di hasil pencarian
+  // apa pun filternya. Trip model di schema (mitra, vehicle, originPoint,
+  // destinationPoint, price, seatAvailable, remainingWeightCapacityKg,
+  // status) berasal dari database, bukan dari kode frontend, jadi data
+  // contoh ini dihapus. `trips` sekarang kosong sampai diwire ke endpoint
+  // pencarian trip nyata (mis. GET /api/trips?origin=&destination=&date=
+  // &type= via apiClient) yang mengembalikan Trip beserta relasi mitra,
+  // vehicle, originPoint, destinationPoint sesuai schema.
+  const trips = [];
 
-  const filteredTrips = mockTrips.filter(trip => {
+  const filteredTrips = trips.filter(trip => {
     const matchOrigin = origin ? trip.origin.toLowerCase().includes(origin.toLowerCase()) : true;
     const matchDest = destination ? trip.destination.toLowerCase().includes(destination.toLowerCase()) : true;
     const matchDate = date ? trip.date === date : true;
@@ -91,10 +74,14 @@ export default function SearchTrip() {
 
   const isLoadingTrips = useSimulatedLoading([origin, destination, date, serviceType], 700);
 
-  const totalAccumulatedWeight = itemCount * itemWeight;
+  const safeSeatCount = Math.max(1, seatCount || 1);
+  const safeItemCount = Math.max(1, itemCount || 1);
+  const safeItemWeight = Math.max(1, itemWeight || 1);
+
+  const totalAccumulatedWeight = safeItemCount * safeItemWeight;
   const isOverWeightCapacity = selectedTrip?.type === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingCapacityKg || 0);
   const maxAllowedSeats = selectedTrip?.vehicleCategory === 'motor' ? 1 : (selectedTrip?.maxSeats || 1);
-  const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (seatCount > maxAllowedSeats || seatCount < 1);
+  const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (safeSeatCount > maxAllowedSeats);
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
   const isPassengerPhoneValid = selectedTrip?.type === 'penumpang' ? PHONE_REGEX.test(passengerPhone.trim()) : true;
@@ -103,8 +90,8 @@ export default function SearchTrip() {
   const isBarangValid = selectedTrip?.type === 'barang' ? (receiverName.trim() !== '' && isReceiverPhoneValid) : true;
   const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid;
 
-  const quantity = selectedTrip?.type === 'barang' ? itemCount : seatCount;
-  const totalPrice = (selectedTrip?.basePrice || 0) * (quantity || 0);
+  const quantity = selectedTrip?.type === 'barang' ? safeItemCount : safeSeatCount;
+  const totalPrice = (selectedTrip?.basePrice || 0) * quantity;
 
   const handleSizeChange = (sizeCode) => {
     setItemSize(sizeCode);
@@ -125,7 +112,7 @@ export default function SearchTrip() {
     setItemCategory('Elektronik');
     setItemCount(1);
     setItemWeight(7);
-    setItemSize('M');
+    setItemSize('m');
     setReceiverName('');
     setReceiverPhone('');
   };
@@ -136,13 +123,26 @@ export default function SearchTrip() {
     setBookingStep('pin');
   };
 
-  const handlePinChange = (value, index) => {
-    if (isNaN(value)) return;
+  const handlePinChange = (val, index) => {
+    const cleaned = val.replace(/\D/g, '');
+    if (!cleaned && val !== '') return;
+
+    if (cleaned.length > 1) {
+      const newPin = [...pin];
+      for (let i = 0; i < 6; i++) {
+        newPin[i] = cleaned[i] || '';
+      }
+      setPin(newPin);
+      const nextIndex = Math.min(cleaned.length, 5);
+      document.getElementById(`pin-input-${nextIndex}`)?.focus();
+      return;
+    }
+
     const newPin = [...pin];
-    newPin[index] = value;
+    newPin[index] = cleaned;
     setPin(newPin);
 
-    if (value && index < 5) {
+    if (cleaned && index < 5) {
       document.getElementById(`pin-input-${index + 1}`)?.focus();
     }
   };
@@ -154,12 +154,26 @@ export default function SearchTrip() {
   };
 
   const handleVerifyPinAndCheckout = () => {
-    if (pin.some(p => p === '') || isCheckingOut) return;
+    if (pin.some(p => p === '') || isCheckingOut || !selectedTrip) return;
     setIsCheckingOut(true);
 
     const isBarang = selectedTrip.type === 'barang';
     const newTicketId = `TKT-${selectedTrip.id}-${Date.now().toString().slice(-6)}`;
 
+    // CATATAN KESESUAIAN SCHEMA (belum diperbaiki di sini karena butuh
+    // endpoint backend, bukan sekadar bug frontend):
+    // 1. `type: 'penumpang' | 'barang'` di bawah ini adalah label Indonesia
+    //    lokal, sedangkan enum OrderType di schema pakai 'passenger' |
+    //    'parcel'. Perlu mapping saat POST ke /api/orders.
+    // 2. PIN 6-digit di sini hanya dicek "sudah terisi semua", TIDAK
+    //    pernah diverifikasi ke User.pinHash — siapa pun bisa checkout
+    //    dengan PIN sembarang. Verifikasi PIN wajib dilakukan di backend
+    //    (bandingkan hash), bukan hanya validasi panjang di client.
+    // 3. Objek tiket lokal ini (id, title, from, to, mitra, ...) bentuknya
+    //    tidak sama dengan model Order (tripId, customerId, seatsBooked,
+    //    totalPrice Decimal, qrCodeTicket, escrowStatus, dst). Saat
+    //    backend order tersedia, addTicket() sebaiknya diganti dengan
+    //    hasil response API, bukan objek buatan sendiri di client.
     addTicket({
       id: newTicketId,
       type: selectedTrip.type,
@@ -171,8 +185,8 @@ export default function SearchTrip() {
       schedule: `${selectedTrip.date} • Sesuai Jadwal Trip Mitra`,
       totalPrice: formatRupiah(totalPrice),
       detail: isBarang
-        ? `${itemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName || '-'} (${receiverPhone || '-'})`
-        : `${seatCount} Kursi • Atas Nama ${passengerName || '-'} (${passengerPhone || '-'})`,
+        ? `${safeItemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName || '-'} (${receiverPhone || '-'})`
+        : `${safeSeatCount} Kursi • Atas Nama ${passengerName || '-'} (${passengerPhone || '-'})`,
       status: 'Aktif',
       currentStatusText: 'Menunggu Check-in di Pos Asal',
       otp: isBarang ? String(Math.floor(100000 + Math.random() * 900000)) : null,
@@ -369,7 +383,10 @@ export default function SearchTrip() {
                     min="1"
                     max={maxAllowedSeats}
                     value={seatCount}
-                    onChange={(e) => setSeatCount(Math.min(Math.max(parseInt(e.target.value) || 1, 1), maxAllowedSeats))}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setSeatCount(isNaN(val) ? '' : Math.min(Math.max(val, 1), maxAllowedSeats));
+                    }}
                     className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                   />
                 </div>
@@ -442,7 +459,10 @@ export default function SearchTrip() {
                       type="number"
                       min="1"
                       value={itemCount}
-                      onChange={(e) => setItemCount(parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setItemCount(isNaN(val) ? '' : Math.max(val, 1));
+                      }}
                       className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                     />
                   </div>
@@ -452,7 +472,10 @@ export default function SearchTrip() {
                       type="number"
                       min="1"
                       value={itemWeight}
-                      onChange={(e) => setItemWeight(parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setItemWeight(isNaN(val) ? '' : Math.max(val, 1));
+                      }}
                       className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                     />
                   </div>
@@ -543,9 +566,9 @@ export default function SearchTrip() {
                   id={`pin-input-${index}`}
                   type="password"
                   inputMode="numeric"
-                  maxLength="1"
+                  maxLength="6"
                   value={digit}
-                  onChange={(e) => handlePinChange(e.target.value.replace(/\D/g, ''), index)}
+                  onChange={(e) => handlePinChange(e.target.value, index)}
                   onKeyDown={(e) => handlePinKeyDown(e, index)}
                   className="w-8 h-9 text-center text-[12px] font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:border-[#4B2172] font-mono"
                 />

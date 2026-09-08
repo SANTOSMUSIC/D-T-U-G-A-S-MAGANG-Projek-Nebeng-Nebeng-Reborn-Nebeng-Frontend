@@ -26,95 +26,52 @@ export function estimateFare(origin, destination, vehicle) {
 
 // Counter internal untuk ID unik, tidak bergantung pada panjang array
 // (aman walau ada trip yang dibatalkan/dihapus).
-let tripCounter = 702;
+// FIX (hapus dummy data): counter dulu mulai dari angka yang sengaja
+// "menyambung" ID trip/transaksi contoh di bawah (702, 401, 882). Sekarang
+// data contoh sudah dihapus, jadi counter mulai dari 0 seperti akun baru
+// yang sungguhan belum punya trip/transaksi sama sekali.
+let tripCounter = 0;
 function nextTripId() {
   tripCounter += 1;
   return `TRIP-${tripCounter}`;
 }
 
-let withdrawalCounter = 401;
+let withdrawalCounter = 0;
 function nextWithdrawalId() {
   withdrawalCounter += 1;
   return `WD-${withdrawalCounter}`;
 }
 
-let incomeCounter = 882;
+let incomeCounter = 0;
 function nextIncomeId() {
   incomeCounter += 1;
   return `IN-${incomeCounter}`;
 }
 
-const initialTrips = [
-  {
-    id: 'TRIP-701',
-    origin: 'Solo (Pos Pusat)',
-    destination: 'Yogyakarta',
-    date: '2026-09-03',
-    time: '08:00',
-    vehicle: 'Motor',
-    seats: 1,
-    luggage: 15,
-    estimation: estimateFare('Solo (Pos Pusat)', 'Yogyakarta', 'Motor'),
-    status: 'In Transit',
-    escrowAmount: 750000,
-  },
-  {
-    id: 'TRIP-702',
-    origin: 'Solo',
-    destination: 'Semarang',
-    date: '2026-09-04',
-    time: '10:00',
-    vehicle: 'Mobil',
-    seats: 4,
-    luggage: 45,
-    estimation: estimateFare('Solo', 'Semarang', 'Mobil'),
-    status: 'Aktif',
-    escrowAmount: 500000,
-  },
-  // Riwayat trip yang sudah selesai (dananya sudah cair, tidak masuk hitungan escrow)
-  {
-    id: 'TRIP-498',
-    origin: 'Solo',
-    destination: 'Surabaya',
-    date: '2026-08-31',
-    time: '09:00',
-    vehicle: 'Mobil',
-    seats: 4,
-    luggage: 40,
-    estimation: 350000,
-    status: 'Selesai',
-    escrowAmount: 0,
-    rating: 5.0,
-  },
-  {
-    id: 'TRIP-497',
-    origin: 'Solo',
-    destination: 'Madiun',
-    date: '2026-08-16',
-    time: '09:00',
-    vehicle: 'Motor',
-    seats: 1,
-    luggage: 15,
-    estimation: 200000,
-    status: 'Selesai',
-    escrowAmount: 0,
-    rating: 4.8,
-  },
-];
+// FIX (hapus dummy data): sebelumnya ada 4 trip contoh (TRIP-701, 702,
+// 498, 497) lengkap dengan escrow & rating fiktif, yang selalu tampil di
+// Dashboard/Trip Management/QR/Balance sejak akun baru pertama login.
+// Sekarang mitra baru mulai dari kosong — trip hanya muncul setelah
+// benar-benar dibuat lewat addTrip() (form "Kelola Trip & Jadwal"), atau
+// nanti lewat fetch dari backend (GET /api/trips milik mitra yang login).
+const initialTrips = [];
 
-const initialHistory = [
-  { id: 'WD-401', date: '20 Agu 2026', type: 'Pencairan (Withdrawal)', amount: -2500000, status: 'success', statusLabel: 'Berhasil ke BCA' },
-  { id: 'IN-882', date: '19 Agu 2026', type: 'Komisi Trip TRIP-699', amount: 1400000, status: 'success', statusLabel: 'Masuk ke Available Balance' },
-];
+const initialHistory = [];
 
 export function MitraDataProvider({ children }) {
   const [trips, setTrips] = useState(initialTrips);
-  const [availableBalance, setAvailableBalance] = useState(3850000);
+  // FIX (hapus dummy data): saldo dulu mulai dari Rp 3.850.000 padahal
+  // schema-nya (model Wallet) mendefinisikan balance default 0.00 untuk
+  // wallet baru. Rekening bank juga dulu sudah terisi contoh ("Budi
+  // Santoso" / BCA / 1234567890) padahal itu data milik mitra lain, bukan
+  // milik akun yang sedang login. Sekarang keduanya mulai kosong/0, sama
+  // seperti mitra baru yang benar-benar belum pernah bertransaksi.
+  const [availableBalance, setAvailableBalance] = useState(0);
   const [walletHistory, setWalletHistory] = useState(initialHistory);
   const [bankInfo, setBankInfo] = useState({
-    bankName: 'Bank BCA',
-    accountNumber: '1234567890',
-    accountHolder: 'Budi Santoso (Mitra)',
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
   });
 
   // Escrow hold dihitung otomatis dari trip yang masih berjalan — satu sumber
