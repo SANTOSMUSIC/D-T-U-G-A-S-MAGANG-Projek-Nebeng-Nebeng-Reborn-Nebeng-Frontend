@@ -48,6 +48,9 @@ export default function PricingPolicyManagement() {
       try {
         const data = await getPricingPolicy();
 
+        const data = await getPricingPolicy();
+main
+
         if (Array.isArray(data) && data.length > 0) {
           const motorData = data.find(item => item.serviceType === 'motor');
           const carData = data.find(item => item.serviceType === 'mobil');
@@ -265,6 +268,18 @@ export default function PricingPolicyManagement() {
                     onChange={handleFareChange('motorBaseFare')}
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
                   />
+superadmin/FEBE
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Per KM (Rp)</label>
+                  <input 
+                    type="number"
+                    value={transportPricing.motorPerKm}
+                    onChange={handleFareChange('motorPerKm')}
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
+                  />
+                </div>
+
                 </div>
                 <div>
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">Tarif Per KM (Rp)</label>
@@ -276,6 +291,7 @@ export default function PricingPolicyManagement() {
                     className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
                   />
                 </div>
+main
               </div>
             </div>
 
