@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { Smartphone, RefreshCw, ShieldCheck, QrCode, AlertCircle } from 'lucide-react';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import EmptyState from '../../../components/ui/EmptyState';
-import { useMitraData } from '../../../context/MitraDataContext';
+import { useMitraData } from '../../../hooks/useMitraData';
 
 // NOTE: butuh `npm install qrcode` di project ini. QR kini digenerate
 // sepenuhnya di client (canvas), tidak lagi mengirim data rute/kendaraan
@@ -15,22 +15,21 @@ export default function MitraQrDisplay() {
   const activeTrips = trips.filter((t) => t.status === 'Aktif' || t.status === 'In Transit');
 
   const [selectedTripId, setSelectedTripId] = useState(activeTrips[0]?.id ?? null);
-  const [dynamicToken, setDynamicToken] = useState(`TOKEN-${Math.floor(1000 + Math.random() * 9000)}`);
+  // Token acak dibuat lewat initializer function useState (lazy init), jadi
+  // Math.random() hanya dieksekusi satu kali oleh React saat state pertama
+  // kali dibuat — bukan dipanggil langsung di badan komponen tiap render.
+  const [dynamicToken, setDynamicToken] = useState(
+    () => `TOKEN-${Math.floor(1000 + Math.random() * 9000)}`
+  );
   const [countdown, setCountdown] = useState(30);
   const [qrError, setQrError] = useState(false);
   const canvasRef = useRef(null);
 
   // Kalau trip yang sebelumnya dipilih hilang (mis. dibatalkan/selesai),
-  // otomatis pindah ke trip aktif pertama yang tersedia.
-  useEffect(() => {
-    const stillExists = activeTrips.some((t) => t.id === selectedTripId);
-    if (!stillExists) {
-      setSelectedTripId(activeTrips[0]?.id ?? null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTrips.map((t) => t.id).join(',')]);
-
-  const current = activeTrips.find((t) => t.id === selectedTripId);
+  // otomatis jatuh balik ke trip aktif pertama yang tersedia (dihitung
+  // langsung saat render, tanpa efek, supaya tidak memicu render ganda).
+  const current =
+    activeTrips.find((t) => t.id === selectedTripId) ?? activeTrips[0] ?? null;
 
   // Auto-refresh token dinamis setiap 30 detik untuk keamanan.
   useEffect(() => {

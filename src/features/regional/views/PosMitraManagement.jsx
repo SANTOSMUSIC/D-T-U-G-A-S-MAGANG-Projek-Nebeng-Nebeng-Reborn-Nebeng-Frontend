@@ -7,6 +7,7 @@ import BaseModal from '../../../components/ui/BaseModal';
 import { regionalService } from '../../../services/regionalService';
 import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../services/apiClient';
+import { getRegionId } from '../../../utils/regionId';
 
 export default function PosMitraManagement() {
   const toast = useToast();
@@ -35,6 +36,38 @@ export default function PosMitraManagement() {
     name: '', province: ''
   });
 
+  // FIX: dipusatkan di satu tempat supaya format + filter wilayah selalu
+  // konsisten di setiap titik yang memuat ulang daftar pos (load awal,
+  // setelah simpan/edit, setelah hapus) — sebelumnya logic ini disalin
+  // 3x terpisah dan hanya melakukan format tanpa penyaringan wilayah,
+  // sehingga pos dari region lain tetap tampil kalau backend tidak
+  // menyaring berdasarkan query `regionId`.
+  const formatAndScopePos = (rawPos, regId) => {
+    const list = Array.isArray(rawPos) ? rawPos : (rawPos?.data || []);
+    return list
+      .map(p => ({
+        id: String(p.id),
+        name: p.name,
+        address: p.address,
+        lat: String(p.latitude),
+        long: String(p.longitude),
+        cityId: p.cityId ? String(p.cityId) : '',
+        cityName: p.city?.name || '-',
+        // FIX: sertakan regionId asli milik pos (pakai getRegionId supaya
+        // tetap kebaca walau bentuk field dari backend berbeda-beda).
+        regionId: getRegionId(p) || getRegionId(p.city),
+        operatorId: p.operatorId ? String(p.operatorId) : '',
+        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
+        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
+        qrCodePos: p.qrCodePos
+      }))
+      // Lapisan pengaman kedua di frontend: hanya tampilkan pos yang
+      // regionId-nya cocok dengan wilayah admin yang login. Pos tanpa
+      // regionId (data lama) tetap ditampilkan supaya tidak tiba-tiba
+      // hilang, tapi pos yang JELAS berbeda wilayah selalu disaring.
+      .filter(p => !regId || !p.regionId || p.regionId === String(regId));
+  };
+
   // useEffect yang diperbarui: Tanpa guard ketat agar request tetap terkirim dan mudah dipantau
   useEffect(() => {
     let isMounted = true;
@@ -56,20 +89,7 @@ export default function PosMitraManagement() {
           })
         ]);
 
-        const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
-        const formattedPos = rawPos.map(p => ({
-          id: String(p.id),
-          name: p.name,
-          address: p.address,
-          lat: String(p.latitude),
-          long: String(p.longitude),
-          cityId: p.cityId ? String(p.cityId) : '',
-          cityName: p.city?.name || '-',
-          operatorId: p.operatorId ? String(p.operatorId) : '',
-          operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
-          status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
-          qrCodePos: p.qrCodePos
-        }));
+        const formattedPos = formatAndScopePos(posData, regId);
 
         const citiesData = Array.isArray(cityRes.data) ? cityRes.data : (cityRes.data?.data || []);
 
@@ -78,7 +98,7 @@ export default function PosMitraManagement() {
           : (userRes.data?.data || userRes.data?.users || []);
 
         const validOperators = rawUsers.filter(op => {
-          const opRegion = op.regionId ? String(op.regionId) : null;
+          const opRegion = getRegionId(op);
           if (!regId) return op.status === 'active';
           return opRegion === String(regId) && op.status === 'active';
         });
@@ -201,21 +221,7 @@ export default function PosMitraManagement() {
       setIsModalOpen(false);
       
       const posData = await regionalService.getPickupPoints(regId);
-      const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
-      const formattedPos = rawPos.map(p => ({
-        id: String(p.id),
-        name: p.name,
-        address: p.address,
-        lat: String(p.latitude),
-        long: String(p.longitude),
-        cityId: p.cityId ? String(p.cityId) : '',
-        cityName: p.city?.name || '-',
-        operatorId: p.operatorId ? String(p.operatorId) : '',
-        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
-        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
-        qrCodePos: p.qrCodePos
-      }));
-      setPosList(formattedPos);
+      setPosList(formatAndScopePos(posData, regId));
 
     } catch (error) {
       console.error('Gagal menyimpan pos:', error);
@@ -232,21 +238,7 @@ export default function PosMitraManagement() {
       
       const regId = activeRegionId || user?.regionId;
       const posData = await regionalService.getPickupPoints(regId);
-      const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
-      const formattedPos = rawPos.map(p => ({
-        id: String(p.id),
-        name: p.name,
-        address: p.address,
-        lat: String(p.latitude),
-        long: String(p.longitude),
-        cityId: p.cityId ? String(p.cityId) : '',
-        cityName: p.city?.name || '-',
-        operatorId: p.operatorId ? String(p.operatorId) : '',
-        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
-        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
-        qrCodePos: p.qrCodePos
-      }));
-      setPosList(formattedPos);
+      setPosList(formatAndScopePos(posData, regId));
     } catch (error) {
       toast.error('Gagal menghapus pos.', { title: error });
     }

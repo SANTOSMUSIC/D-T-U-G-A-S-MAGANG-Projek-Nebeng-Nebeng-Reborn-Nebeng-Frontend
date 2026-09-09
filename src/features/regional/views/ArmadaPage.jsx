@@ -5,6 +5,7 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import { useAuth } from '../../../context/AuthContext';
 import { regionalService } from '../../../services/regionalService';
+import { getRegionId } from '../../../utils/regionId';
 
 export default function FleetCourierPage() {
   const toast = useToast();
@@ -30,7 +31,7 @@ export default function FleetCourierPage() {
             const isMitra = u.role && String(u.role).toLowerCase() === 'mitra';
             if (!isMitra) return false;
             if (!currentRegionId) return true;
-            return u.regionId ? String(u.regionId) === currentRegionId : true;
+            return getRegionId(u) === currentRegionId;
           })
           .map(u => ({
             id: String(u.id),

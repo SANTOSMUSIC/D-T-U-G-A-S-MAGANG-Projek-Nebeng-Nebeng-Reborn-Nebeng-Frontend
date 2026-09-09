@@ -1,4 +1,6 @@
 import apiClient from './apiClient';
+import { getRegionId } from '../utils/regionId';
+import { getAssignedPos } from '../utils/posId';
 
 export async function loginRequest({ email, password }) {
   if (!email || !password) {
@@ -34,12 +36,42 @@ export async function loginRequest({ email, password }) {
     throw new Error('Token otentikasi tidak ditemukan dari server');
   }
 
+  // FIX: sebelumnya field ini (khususnya regionId) tidak pernah diambil
+  // dari response login, padahal untuk role 'regional'/'operator' backend
+  // mengirimkan regionId (kadang dibungkus sebagai object `region`) yang
+  // dipakai di seluruh panel regional untuk memfilter data sesuai wilayah
+  // admin yang login (lihat PosMitraManagement.jsx, dst). Karena tidak
+  // pernah tersimpan, setiap request ke backend selalu tanpa regionId dan
+  // data dari wilayah lain ikut ditampilkan. Sekarang seluruh identitas
+  // user (termasuk regionId) dikembalikan sebagai object `user` supaya
+  // bisa disimpan utuh ke sesi oleh Login.jsx.
+  const regionId = getRegionId(userObj);
+  const regionName = userObj?.region?.name ?? userObj?.regionName ?? null;
+
+  // FIX: sama seperti regionId di atas, tapi untuk Pos tempat seorang
+  // Operator Pos ditugaskan (lihat utils/posId.js). Tanpa ini, layar
+  // Operator (Dual Scanner/Inspection/Handover) tidak tahu pos resmi
+  // operator yang login, sehingga field "ID Pos Bertugas" jadi input
+  // bebas yang bisa diisi ID pos manapun oleh operator.
+  const { id: posId, name: posName } = getAssignedPos(userObj);
+
   return {
     role: role.toLowerCase(),
     token: accessToken,
     refreshToken: refreshToken,
     email: userObj?.email || email,
     name: userObj?.name,
+    user: {
+      id: userObj?.id ?? null,
+      name: userObj?.name ?? null,
+      email: userObj?.email || email,
+      phone: userObj?.phone ?? null,
+      role: role.toLowerCase(),
+      regionId,
+      regionName,
+      posId,
+      posName,
+    },
   };
 }
 

@@ -58,14 +58,33 @@ export default function RegionalTripMonitoringPage() {
         
         const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
         
-        const formatted = rawData.map(t => ({
+        const formatted = rawData.map(t => {
+          // BUG FIX (monitoring Regional menampilkan status keliru): sebelumnya
+          // status apa pun selain 'in_transit'/'completed' (mis. trip yang baru
+          // 'scheduled'/terjadwal atau 'cancelled'/dibatalkan) selalu jatuh ke
+          // fallback "Sedang Berjalan", sehingga Admin Regional bisa melihat
+          // trip yang belum berangkat (atau sudah dibatalkan) seolah-olah
+          // sedang berjalan di jalan. Sekarang setiap status dipetakan
+          // eksplisit, dan status yang belum dikenal ditampilkan apa adanya
+          // (bukan disamaratakan jadi "Sedang Berjalan").
+          const STATUS_MAP = {
+            scheduled: 'Terjadwal',
+            pending: 'Terjadwal',
+            in_transit: 'Sedang Berjalan',
+            completed: 'Selesai',
+            cancelled: 'Dibatalkan',
+            canceled: 'Dibatalkan',
+          };
+          const mappedStatus = STATUS_MAP[t.status] || (t.status ? String(t.status) : 'Terjadwal');
+
+          return {
           id: String(t.id || `TRIP-${Math.floor(Math.random() * 9000 + 1000)}`),
           passenger: t.customer?.name || t.passengerName || 'Pelanggan Umum',
           driver: t.driver?.name || t.mitraName || 'Driver Mitra',
           vehicle: t.vehicle ? `${t.vehicle.type} (${t.vehicle.plateNumber})` : 'Kendaraan Standar',
           originPos: t.originPickupPoint?.name || 'Pos Asal',
           destinationPos: t.destinationPickupPoint?.name || 'Pos Tujuan',
-          status: t.status === 'in_transit' ? 'Sedang Berjalan' : t.status === 'completed' ? 'Selesai' : 'Sedang Berjalan',
+          status: mappedStatus,
           fare: t.fare ? `Rp ${Number(t.fare).toLocaleString('id-ID')}` : 'Rp 35.000',
           time: t.createdAt ? new Date(t.createdAt).toLocaleString('id-ID') : 'Hari ini',
           baseSpeed: 45,
@@ -87,7 +106,8 @@ export default function RegionalTripMonitoringPage() {
           geofenceZone: 'Zona Regional Wilayah',
           geofenceStatus: 'Inside Boundary',
           speedLimit: '50 km/jam'
-        }));
+          };
+        });
 
         if (isMounted) {
           setTripList(formatted);
@@ -370,8 +390,10 @@ export default function RegionalTripMonitoringPage() {
           className="bg-neutral-50 border border-neutral-200 rounded-full px-3 py-1.5 text-[10px] font-semibold text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
         >
           <option value="Semua">Semua Status</option>
+          <option value="Terjadwal">Terjadwal</option>
           <option value="Sedang Berjalan">Sedang Berjalan</option>
           <option value="Selesai">Selesai</option>
+          <option value="Dibatalkan">Dibatalkan</option>
         </select>
       </div>
 

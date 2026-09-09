@@ -52,6 +52,21 @@ export default function MitraOnboarding() {
         const verifications = response.data?.data || response.data || [];
         if (verifications.length > 0) {
           const hasActive = verifications.some(v => v.status === 'pending' || v.status === 'approved');
+          // FIX (bug: status approve dari Admin Regional tidak masuk ke akun mitra):
+          // sebelumnya hasil fetch dari backend cuma dipakai untuk setSubmitted(true),
+          // tidak pernah disinkronkan ke mitraProfile.verificationStatus di AuthContext.
+          // Akibatnya walau backend sudah mengembalikan status 'approved', sesi mitra
+          // tetap nyangkut di status lama ('pending'/'unverified') karena tidak ada
+          // yang menulis ulang nilainya. Sekarang setiap kali status diambil, nilai
+          // paling relevan (approved > pending > rejected) ditulis balik ke sesi.
+          const latestStatus = verifications.some(v => v.status === 'approved')
+            ? 'approved'
+            : verifications.some(v => v.status === 'pending')
+              ? 'pending'
+              : verifications.some(v => v.status === 'rejected')
+                ? 'rejected'
+                : null;
+          if (latestStatus && isMounted) updateMitraProfile({ verificationStatus: latestStatus });
           if (hasActive && isMounted) setSubmitted(true);
         }
       } catch (err) {
@@ -62,6 +77,7 @@ export default function MitraOnboarding() {
     }
     checkVerificationStatus();
     return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateMitraProfile stabil (useCallback di AuthContext), sengaja tidak dimasukkan supaya efek ini tidak re-run tiap render
   }, []);
 
   const handleInputChange = (e) => {
@@ -291,17 +307,12 @@ export default function MitraOnboarding() {
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
                 <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]">
+                  {/* FIX (kesesuaian schema): opsi "Box" dihapus — enum
+                      VehicleType di schema.prisma hanya punya `motor` dan
+                      `mobil`, dan MitraTripManagement.jsx juga cuma
+                      mendukung dua kategori ini saat bikin trip. */}
                   <option value="motor">Sepeda Motor</option>
                   <option value="mobil">Mobil / Minibus</option>
-                </select>
-                <select 
-                  name="vehicleType"
-                  value={formData.vehicleType}
-                  onChange={handleInputChange}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                >
-                  <option value="Motor">Sepeda Motor</option>
-                  <option value="Mobil">Mobil / Minibus</option>
                 </select>
               </div>
               <div>
@@ -419,9 +430,6 @@ export default function MitraOnboarding() {
           <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h2 className="text-[18px] font-bold text-neutral-800">Pendaftaran Berhasil Dikirim!</h2>
-          <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">Berkas fisik berhasil diunggah ke folder server dan data Anda masuk ke antrean admin.</p>
-
           <h2 className="text-[18px] font-bold text-neutral-800">
             {mitraVerificationStatus === 'approved' ? 'Akun Anda Sudah Terverifikasi!' : 'Pendaftaran Berhasil Dikirim!'}
           </h2>

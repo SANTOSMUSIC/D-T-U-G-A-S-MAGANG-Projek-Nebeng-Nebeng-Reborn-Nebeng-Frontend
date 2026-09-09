@@ -19,8 +19,12 @@ export default function OperatorDashboard() {
       try {
         if (isMounted) setIsLoadingTrips(true);
         
-        // Memanggil operatorService untuk mendapatkan daftar trip
-        const rawData = await operatorService.getTrips();
+        // BUG FIX (kebocoran data lintas pos): sebelumnya dipanggil tanpa
+        // parameter sama sekali, jadi operator berpotensi melihat trip
+        // dari SEMUA pos, bukan cuma pos tempat dia ditugaskan. Sekarang
+        // dikirim posId milik operator yang login (lihat user.posId di
+        // authService.js) supaya backend bisa menyaringnya.
+        const rawData = await operatorService.getTrips(user?.posId ? { posId: user.posId } : {});
 
         const formatted = rawData.map((t, index) => ({
           id: String(t.id || `TRIP-${index + 9080}`),
@@ -51,7 +55,7 @@ export default function OperatorDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user?.posId]);
 
   const incomingCount = tripsSchedule.filter((trip) => trip.type === 'Masuk').length;
   const outgoingCount = tripsSchedule.filter((trip) => trip.type === 'Keluar').length;

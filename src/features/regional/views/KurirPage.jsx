@@ -6,6 +6,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
 import { regionalService } from '../../../services/regionalService';
+import { getRegionId } from '../../../utils/regionId';
 
 export default function KurirPage() {
   const toast = useToast();
@@ -33,7 +34,7 @@ export default function KurirPage() {
             if (!isMitraRole) return false;
 
             if (!currentRegionId) return true;
-            return u.regionId ? String(u.regionId) === currentRegionId : true;
+            return getRegionId(u) === currentRegionId;
           })
           .map(u => ({
             id: String(u.id),

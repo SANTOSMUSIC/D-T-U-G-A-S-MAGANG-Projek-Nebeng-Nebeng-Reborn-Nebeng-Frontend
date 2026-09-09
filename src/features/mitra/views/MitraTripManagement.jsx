@@ -4,13 +4,20 @@ import { useToast } from '../../../context/ToastContext';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
-import { useMitraData, estimateFare } from '../../../context/MitraDataContext';
+import { useMitraData } from '../../../hooks/useMitraData';
+import { estimateFare } from '../../../services/mitraPricing';
 
+// CATATAN KESESUAIAN SCHEMA (belum bisa diperbaiki penuh di sini): ini
+// masih daftar nama kota statis, bukan data asli dari model PickupPoint/
+// City di schema.prisma (yang punya id, koordinat, operator pos, dst).
+// Trip.originPointId/destinationPointId di backend butuh ID PickupPoint
+// yang valid, bukan sekadar nama string seperti ini. Ganti dengan hasil
+// fetch nyata (mis. GET /api/pickup-points) begitu endpointnya tersedia.
 const ROUTE_OPTIONS = ['Solo (Pos Pusat)', 'Yogyakarta', 'Semarang', 'Surabaya'];
 
 export default function MitraTripManagement() {
   const toast = useToast();
-  const { trips, addTrip, cancelTrip, updateTripStatus } = useMitraData();
+  const { trips, addTrip, cancelTrip } = useMitraData();
 
   const [formData, setFormData] = useState({
     origin: 'Solo (Pos Pusat)',
@@ -26,7 +33,6 @@ export default function MitraTripManagement() {
   const [selectedEmergencyTrip, setSelectedEmergencyTrip] = useState(null);
   const [emergencyCategory, setEmergencyCategory] = useState('Kendaraan Mogok');
   const [emergencyDescription, setEmergencyDescription] = useState('');
-  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
   const [cancelConfirmTarget, setCancelConfirmTarget] = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -96,25 +102,6 @@ export default function MitraTripManagement() {
     });
 
     toast.success('Trip baru berhasil dibuat dan dijadwalkan ke sistem!', { title: 'Trip Dibuat' });
-  };
-
-  const handleRequestStatusChange = (trip) => {
-    if (trip.status === 'Selesai' || trip.status === 'Dibatalkan') return;
-    const nextStatus = trip.status === 'Aktif' ? 'In Transit' : 'Selesai';
-    setStatusConfirmTarget({ tripId: trip.id, nextStatus });
-  };
-
-  const handleConfirmStatusChange = () => {
-    if (!statusConfirmTarget) return;
-    const { tripId, nextStatus } = statusConfirmTarget;
-    updateTripStatus(tripId, nextStatus);
-    toast.success(
-      nextStatus === 'Selesai'
-        ? `Trip ${tripId} selesai. Dana escrow otomatis cair ke Available Balance.`
-        : `Status trip ${tripId} berhasil diubah menjadi "${nextStatus}".`,
-      { title: 'Status Diperbarui' }
-    );
-    setStatusConfirmTarget(null);
   };
 
   const handleConfirmCancel = () => {
@@ -310,6 +297,9 @@ export default function MitraTripManagement() {
               <Calendar className="w-4 h-4 text-[#4B2172]" /> Daftar Trip Terjadwal
             </h2>
           </div>
+          <p className="text-[8px] text-neutral-400 -mt-2">
+            Status trip (In Transit / Selesai) diperbarui otomatis oleh Operator Pos saat scan checkpoint QR — bukan diubah manual dari sini.
+          </p>
 
           <div className="space-y-3">
             {visibleTrips.length === 0 ? (
@@ -325,16 +315,20 @@ export default function MitraTripManagement() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-[10px] text-neutral-800 font-mono">{trip.id}</span>
                       
-                      <button 
-                        onClick={() => handleRequestStatusChange(trip)}
-                        disabled={trip.status === 'Selesai'}
-                        className="cursor-pointer"
-                        title="Klik untuk ubah status"
-                      >
-                        <StatusBadge variant={getTripBadgeVariant(trip.status)}>
-                          Status: {trip.status}
-                        </StatusBadge>
-                      </button>
+                      {/* BUG FIX (wewenang antar role Mitra vs Operator Pos): status
+                          trip di sini SEBELUMNYA bisa diklik langsung oleh Mitra untuk
+                          mengubah "Aktif -> In Transit -> Selesai", dan begitu "Selesai"
+                          escrow otomatis cair ke saldo Mitra (lihat updateTripStatus di
+                          MitraDataContext.jsx). Itu artinya Mitra bisa "menyetujui
+                          sendiri" pencairan dana miliknya sendiri, padahal sesuai alur
+                          bisnis (lihat Operator Pos: dual QR scan checkpoint), yang
+                          berwenang memicu IN_TRANSIT/ARRIVED + pelepasan escrow adalah
+                          Operator Pos lewat scan QR di pos asal/tujuan, BUKAN Mitra.
+                          Sekarang status di sini murni tampilan (read-only) — tidak ada
+                          lagi tombol/onClick untuk mengubahnya dari sisi Mitra. */}
+                      <StatusBadge variant={getTripBadgeVariant(trip.status)}>
+                        Status: {trip.status}
+                      </StatusBadge>
 
                       <span className="bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-1">
                         {trip.vehicle === 'Motor' ? <Bike className="w-2.5 h-2.5" /> : <Car className="w-2.5 h-2.5" />} {trip.vehicle}
@@ -461,36 +455,6 @@ export default function MitraTripManagement() {
             </button>
           </div>
         </form>
-      </BaseModal>
-
-      <BaseModal
-        isOpen={Boolean(statusConfirmTarget)}
-        onClose={() => setStatusConfirmTarget(null)}
-        title="Konfirmasi Perubahan Status"
-        subtitle={`Trip ID: ${statusConfirmTarget?.tripId}`}
-        maxWidth="max-w-sm"
-      >
-        <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">
-            {statusConfirmTarget?.nextStatus === 'Selesai'
-              ? `Tandai trip ${statusConfirmTarget?.tripId} sebagai SELESAI? Dana escrow akan otomatis cair ke Available Balance. Status ini bersifat final.`
-              : `Ubah status trip ${statusConfirmTarget?.tripId} menjadi "In Transit"?`}
-          </p>
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={() => setStatusConfirmTarget(null)}
-              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleConfirmStatusChange}
-              className="flex-1 py-2 bg-[#4B2172] text-white rounded-full font-bold cursor-pointer shadow-sm"
-            >
-              Ya, Lanjutkan
-            </button>
-          </div>
-        </div>
       </BaseModal>
 
       <BaseModal

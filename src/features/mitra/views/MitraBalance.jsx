@@ -4,7 +4,7 @@ import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
-import { useMitraData } from '../../../context/MitraDataContext';
+import { useMitraData } from '../../../hooks/useMitraData';
 
 const STATUS_LABEL = { 'Aktif': 'Menunggu Keberangkatan', 'In Transit': 'Dalam Perjalanan (Escrow Hold)' };
 
@@ -114,6 +114,19 @@ export default function MitraBalance() {
           </h3>
 
           {!isEditingBank ? (
+            !bankInfo.bankName && !bankInfo.accountNumber ? (
+              <div className="bg-neutral-50 p-3.5 rounded-xl border border-dashed border-neutral-200 space-y-2 text-center">
+                <p className="text-[10px] font-bold text-neutral-600">Belum ada rekening bank terdaftar</p>
+                <p className="text-[8px] text-neutral-400">Tambahkan rekening tujuan pencairan saldo Anda.</p>
+                <button
+                  type="button"
+                  onClick={handleStartEditBank}
+                  className="mt-1 px-3.5 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[9px] font-bold transition cursor-pointer"
+                >
+                  Tambah Rekening Bank
+                </button>
+              </div>
+            ) : (
             <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -147,6 +160,7 @@ export default function MitraBalance() {
                 </div>
               </div>
             </div>
+            )
           ) : (
             <form onSubmit={handleSaveBank} className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200 space-y-2.5 text-[10px]">
               <div>

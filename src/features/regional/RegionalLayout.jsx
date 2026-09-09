@@ -12,10 +12,18 @@ const REGIONAL_MENU_PATH = {
   'Laporan Keuangan': 'laporan',
 };
 
+// BUG FIX: key sebelumnya 'operator_pos' tidak pernah cocok dengan role
+// asli yang dikirim backend ('operator', setelah rename admin_wilayah ->
+// regional / operator_pos -> operator). Meski RegionalLayout ini secara
+// praktis hanya dirender untuk role 'regional' (lihat ProtectedRoute di
+// App.jsx), key yang salah ini tetap berpotensi menyesatkan kalau
+// formatRoleLabel dipakai ulang di tempat lain nanti — jadi diperbaiki
+// supaya konsisten dengan penamaan role yang sudah di-rename.
 const ROLE_LABELS = {
   regional_admin: 'Admin Regional',
   admin_regional: 'Admin Regional',
-  operator_pos: 'Operator Pos',
+  regional: 'Admin Regional',
+  operator: 'Operator Pos',
 };
 
 function formatRoleLabel(role) {

@@ -15,6 +15,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
+import apiClient from '../../../services/apiClient';
+import { uploadMyAvatar } from '../../../services/userService';
 
 // FIX (struktur halaman): "Pengaturan Akun" adalah satu-satunya tempat
 // untuk MENGUBAH data — profil & kendaraan, foto profil, kata sandi, 2FA,
@@ -81,7 +83,9 @@ export default function MitraAccountSettings() {
     setProfileDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProfile = (e) => {
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (
       !profileDraft.fullName.trim() ||
@@ -105,11 +109,67 @@ export default function MitraAccountSettings() {
     // photoDataUrl yang sudah tersimpan lewat handleAvatarChange tidak
     // ikut ketimpa nilai lama.
     const { fullName, email, phone, address, vehicleType, plateNumber } = profileDraft;
-    updateMitraProfile({ fullName, email, phone, address, vehicleType, plateNumber });
-    toast.success('Profil berhasil diperbarui.', { title: 'Profil Diperbarui' });
+
+    // FIX (bug: "Gagal Menyimpan — property phone/plateNumber should not
+    // exist"): sebelumnya phone & plateNumber ikut dikirim dalam satu body
+    // ke /users/me/profile, padahal DTO endpoint itu di backend cuma
+    // menerima field KTP/rekening (fullNameKtp, addressKtp, dst — divalidasi
+    // whitelist, jadi field asing langsung ditolak). phone sebenarnya milik
+    // endpoint user dasar (/users/me), dan plateNumber milik entity Vehicle
+    // (/vehicles/:id), bukan profil KTP. Sekarang masing-masing dikirim ke
+    // endpoint yang benar; kegagalan salah satu tetap dilaporkan tanpa
+    // membuat sesi lokal ikut berubah untuk bagian yang gagal.
+    setIsSavingProfile(true);
+    try {
+      await apiClient.patch('/users/me/profile', {
+        fullNameKtp: fullName.trim(),
+        addressKtp: address.trim(),
+      });
+      await apiClient.patch('/users/me', {
+        phone: phone.trim(),
+      });
+
+      if (plateNumber.trim()) {
+        try {
+          const vehiclesRes = await apiClient.get('/vehicles/me');
+          const vehicles = vehiclesRes.data?.data || vehiclesRes.data || [];
+          const myVehicle = Array.isArray(vehicles) ? vehicles[0] : null;
+          if (myVehicle?.id) {
+            await apiClient.patch(`/vehicles/${myVehicle.id}`, { plateNumber: plateNumber.trim() });
+          }
+        } catch (vehicleError) {
+          // Profil & telepon tetap tersimpan walau update plat gagal —
+          // dilaporkan terpisah supaya tidak menutupi keberhasilan bagian lain.
+          toast.warning(
+            vehicleError.response?.data?.message || 'Nomor plat gagal diperbarui, tapi profil lain tersimpan.',
+            { title: 'Sebagian Gagal' }
+          );
+        }
+      }
+
+      updateMitraProfile({ fullName, email, phone, address, vehicleType, plateNumber });
+      toast.success('Profil berhasil diperbarui.', { title: 'Profil Diperbarui' });
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || 'Gagal menyimpan profil ke server. Coba lagi.',
+        { title: 'Gagal Menyimpan' }
+      );
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleAvatarChange = (e) => {
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // FIX (bug: foto profil hilang setelah logout lalu login lagi): sama
+  // seperti bug profil KTP/telepon sebelumnya — foto cuma dibaca sebagai
+  // base64 lewat FileReader dan disimpan ke session storage
+  // (updateMitraProfile), tidak pernah benar-benar diunggah ke server.
+  // logout() menghapus session storage, jadi "tersimpan"-nya cuma ilusi.
+  // Sekarang file diunggah ke backend (POST /users/me/avatar, endpoint
+  // yang sudah ada di userService.js) dan URL hasil unggahan itulah yang
+  // dipakai/disimpan, bukan base64 lokal.
+  const handleAvatarChange = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
@@ -125,16 +185,28 @@ export default function MitraAccountSettings() {
     }
 
     setAvatarError('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result);
-      updateMitraProfile({ photoDataUrl: reader.result });
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await uploadMyAvatar(formData);
+      const avatarUrl = res?.data?.avatarUrl || res?.avatarUrl || res?.data?.url || res?.url;
+
+      // Tetap tampilkan preview lokal langsung (instan, tidak menunggu
+      // reload gambar dari URL server), tapi yang disimpan sebagai sumber
+      // kebenaran adalah URL dari server, bukan base64.
+      const reader = new FileReader();
+      reader.onload = () => setAvatarPreview(reader.result);
+      reader.readAsDataURL(file);
+
+      updateMitraProfile({ photoDataUrl: avatarUrl || undefined });
       toast.success('Foto profil berhasil diperbarui.', { title: 'Foto Diperbarui' });
-    };
-    reader.onerror = () => {
-      setAvatarError('Gagal membaca file foto. Coba lagi.');
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      setAvatarError(error.response?.data?.message || 'Gagal mengunggah foto ke server. Coba lagi.');
+    } finally {
+      setIsUploadingAvatar(false);
+      e.target.value = '';
+    }
   };
 
   const handleChangePassword = (e) => {
@@ -285,9 +357,12 @@ export default function MitraAccountSettings() {
                   onChange={(e) => handleProfileFieldChange('vehicleType', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 >
+                  {/* FIX (kesesuaian schema): opsi "Box" dihapus — enum
+                      VehicleType di schema.prisma hanya punya `motor` dan
+                      `mobil`, dan MitraTripManagement.jsx juga cuma
+                      mendukung dua kategori ini saat bikin trip. */}
                   <option value="Motor">Sepeda Motor</option>
                   <option value="Mobil">Mobil / Minibus</option>
-                  <option value="Box">Mobil Box / Pick Up</option>
                 </select>
               </div>
               <div>
@@ -312,9 +387,10 @@ export default function MitraAccountSettings() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+                disabled={isSavingProfile}
+                className={`px-4 py-2.5 rounded-xl font-bold transition shadow-sm ${isSavingProfile ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'}`}
               >
-                Simpan Perubahan
+                {isSavingProfile ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
           </form>
