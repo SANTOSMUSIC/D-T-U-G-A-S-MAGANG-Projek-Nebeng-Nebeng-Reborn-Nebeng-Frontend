@@ -12,7 +12,7 @@ const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 
 export default function MitraOnboarding() {
   const { user } = useAuth();
-
+  const { mitraVerificationStatus, updateMitraProfile } = useAuth();
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
     phone: user?.phone || '',
@@ -232,6 +232,15 @@ export default function MitraOnboarding() {
     } finally {
       setIsLoading(false);
     }
+
+    updateMitraProfile({
+      fullName: formData.fullName.trim(),
+      phone: formData.phone.trim(),
+      address: formData.address.trim(),
+      vehicleType: formData.vehicleType,
+      plateNumber: formData.plateNumber.trim(),
+      verificationStatus: 'pending',
+    });
   };
 
   if (isLoading) {
@@ -252,6 +261,12 @@ export default function MitraOnboarding() {
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Lengkapi data diri, rekening bank, kendaraan, dan unggah berkas fisik.</p>
         </div>
         {submitted && <StatusBadge variant="amber">Menunggu Verifikasi Admin</StatusBadge>}
+
+        {submitted && (
+          <StatusBadge variant={mitraVerificationStatus === 'approved' ? 'emerald' : 'amber'}>
+            {mitraVerificationStatus === 'approved' ? 'Terverifikasi' : 'Menunggu Verifikasi Admin'}
+          </StatusBadge>
+        )}
       </div>
 
       {!submitted ? (
@@ -278,6 +293,15 @@ export default function MitraOnboarding() {
                 <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]">
                   <option value="motor">Sepeda Motor</option>
                   <option value="mobil">Mobil / Minibus</option>
+                </select>
+                <select 
+                  name="vehicleType"
+                  value={formData.vehicleType}
+                  onChange={handleInputChange}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                >
+                  <option value="Motor">Sepeda Motor</option>
+                  <option value="Mobil">Mobil / Minibus</option>
                 </select>
               </div>
               <div>
@@ -397,6 +421,23 @@ export default function MitraOnboarding() {
           </div>
           <h2 className="text-[18px] font-bold text-neutral-800">Pendaftaran Berhasil Dikirim!</h2>
           <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">Berkas fisik berhasil diunggah ke folder server dan data Anda masuk ke antrean admin.</p>
+
+          <h2 className="text-[18px] font-bold text-neutral-800">
+            {mitraVerificationStatus === 'approved' ? 'Akun Anda Sudah Terverifikasi!' : 'Pendaftaran Berhasil Dikirim!'}
+          </h2>
+          <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">
+            {mitraVerificationStatus === 'approved'
+              ? 'Data dan dokumen Anda sudah disetujui oleh tim verifikasi regional. Anda sekarang bisa membuat trip baru.'
+              : 'Dokumen dan data Face ID Anda sedang ditinjau oleh tim verifikasi regional. Akun Anda akan diaktifkan setelah proses validasi selesai.'}
+          </p>
+          {mitraVerificationStatus !== 'approved' && (
+            <button 
+              onClick={() => updateMitraProfile({ verificationStatus: 'unverified' })}
+              className="mt-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-bold rounded-xl transition cursor-pointer"
+            >
+              Ulangi / Edit Data
+            </button>
+          )}
         </div>
       )}
     </div>
