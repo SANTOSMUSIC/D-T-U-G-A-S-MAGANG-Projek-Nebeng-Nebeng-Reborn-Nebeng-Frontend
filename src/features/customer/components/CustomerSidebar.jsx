@@ -13,13 +13,18 @@ import {
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
 
-export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', isCustomerVerified = false, customerProfile = null, onMenuSelect, onLogout }) {
+export default function CustomerSidebar({ activeMenu = 'Cari & Booking Trip', isCustomerVerified = false, customerProfile = null, onMenuSelect, onLogout }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    { name: 'Onboarding Biometrik', icon: UserCheck, locked: false },
+    { 
+      name: 'Onboarding Biometrik', 
+      icon: UserCheck, 
+      locked: isCustomerVerified, // Disable jika sudah terverifikasi karena sudah selesai
+      label: isCustomerVerified ? 'Terverifikasi (Selesai)' : 'Onboarding Biometrik'
+    },
     { name: 'Cari & Booking Trip', icon: Compass, locked: !isCustomerVerified },
     { name: 'Tickets & Digital QR', icon: Ticket, locked: !isCustomerVerified },
     { name: 'Profil Saya', icon: User, locked: !isCustomerVerified },
@@ -110,7 +115,7 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', i
                       key={item.name}
                       disabled={item.locked}
                       onClick={() => handleMenuSelect(item)}
-                      title={item.locked ? 'Selesaikan verifikasi biometrik untuk membuka menu ini' : undefined}
+                      title={item.locked ? (isCustomerVerified ? 'Verifikasi biometrik sudah selesai' : 'Selesaikan verifikasi biometrik untuk membuka menu ini') : undefined}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left ${
                         isActive
                           ? 'bg-white text-[#4B2172] font-semibold shadow-sm cursor-default'
@@ -120,8 +125,8 @@ export default function CustomerSidebar({ activeMenu = 'Onboarding Biometrik', i
                       }`}
                     >
                       <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : item.locked ? 'text-white/30' : 'text-white/70'}`} />
-                      <span className="flex-1">{item.name}</span>
-                      {item.locked && <Lock className="w-3 h-3 text-white/30" />}
+                      <span className="flex-1">{item.label || item.name}</span>
+                      {item.locked && (isCustomerVerified ? <ShieldCheck className="w-3 h-3 text-emerald-300" /> : <Lock className="w-3 h-3 text-white/30" />)}
                     </button>
                   );
                 })}

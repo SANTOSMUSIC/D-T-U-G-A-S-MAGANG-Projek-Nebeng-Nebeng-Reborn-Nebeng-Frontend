@@ -1,54 +1,89 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Settings, User, ShieldCheck, Eye, EyeOff, Pencil, Save, X, Phone, IdCard, Award, Ticket as TicketIcon, Camera } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTickets } from '../../../context/TicketsContext';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
-
-// FIX (struktur halaman, sama pola dengan Mitra): "Pengaturan Akun" adalah
-// tempat untuk MENGUBAH data profil customer. "Profil Saya"
-// (CustomerProfileModal.jsx) sekarang murni ringkasan/read-only yang
-// dipicu dari CustomerSidebar, dan tombol "Pengaturan Akun"-nya
-// mengarah ke halaman ini (/customer/profile/pengaturan).
-//
-// Logout tetap lewat CustomerSidebar (tidak diduplikasi di sini),
-// mengikuti pola MitraAccountSettings yang juga tidak punya tombol
-// logout sendiri.
+import apiClient from '../../../services/apiClient';
 
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
-const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB, konsisten dengan pola Mitra/Superadmin/Regional/Operator
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 
-// FIX: sebelumnya slice(0,4) dan slice(-4) bisa tumpang tindih kalau NIK
-// lebih pendek dari 8 karakter (data uji/tidak lengkap), sehingga digit
-// asli malah terekspos dobel alih-alih tersamarkan — untuk NIK persis 8
-// karakter bahkan tidak ter-mask sama sekali. Sekarang NIK <=8 karakter
-// selalu ditampilkan full-mask, aman untuk data 16-digit asli maupun
-// data pendek/tidak lengkap.
 const maskNik = (nik) => {
-  if (!nik) return '-';
+  if (!nik || nik === '-') return '-';
   if (nik.length <= 8) return 'x'.repeat(nik.length);
   return `${nik.slice(0, 4)}${'x'.repeat(nik.length - 8)}${nik.slice(-4)}`;
 };
 
+// Helper untuk menormalkan URL file/avatar agar menyertakan domain backend
+const getFullFileUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('blob:') || path.startsWith('data:')) return path;
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const baseURL = apiClient.defaults.baseURL 
+    ? apiClient.defaults.baseURL.replace('/api', '') 
+    : 'http://localhost:3000';
+  return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
 export default function CustomerAccountSettings() {
-  const { customerProfile, isCustomerVerified, updateCustomerProfile } = useAuth();
+  const { customerProfile, updateCustomerProfile } = useAuth();
   const { tickets: allTickets } = useTickets();
   const toast = useToast();
 
+  const [liveUser, setLiveUser] = useState(null);
   const [showNik, setShowNik] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  
   const [draft, setDraft] = useState({
-    fullName: customerProfile?.fullName || '',
-    phone: customerProfile?.phone || ''
+    fullName: '',
+    phone: '',
+    nik: ''
   });
 
-  // FIX: foto profil ditambahkan mengikuti pola Mitra/Superadmin/Regional/
-  // Operator — disimpan sebagai bagian dari customerProfile (photoDataUrl,
-  // base64) lewat updateCustomerProfile, supaya bertahan sampai user
-  // ganti/refresh. Dibatasi 2MB per foto.
-  const [avatarPreview, setAvatarPreview] = useState(customerProfile?.photoDataUrl || null);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUserData = async () => {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res.data) {
+          setLiveUser(res.data);
+          const userNik = res.data.nik || res.data.profile?.ktpNumber || res.data.ktpNumber || '';
+          setDraft({
+            fullName: res.data.name || '',
+            phone: res.data.phone || '',
+            nik: userNik
+          });
+          if (res.data.avatar) {
+            setAvatarPreview(getFullFileUrl(res.data.avatar));
+          } else if (customerProfile?.photoDataUrl) {
+            setAvatarPreview(customerProfile.photoDataUrl);
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data akun live:', err);
+      }
+    };
+    fetchUserData();
+    return () => {
+      isMounted = false;
+    };
+  }, [customerProfile?.photoDataUrl]);
+
+  const isVerified = liveUser?.statusVerification === 'approved';
+  const displayName = liveUser?.name || customerProfile?.fullName || 'Pelanggan Nebeng';
+  const displayPhone = liveUser?.phone || customerProfile?.phone || '-';
+  const displayNik = liveUser?.nik || liveUser?.profile?.ktpNumber || customerProfile?.nik || '-';
+  const memberSince = liveUser?.createdAt
+    ? new Date(liveUser.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '-';
 
   const isPhoneValid = PHONE_REGEX.test(draft.phone.trim());
   const isNameValid = draft.fullName.trim().length > 0;
@@ -56,24 +91,15 @@ export default function CustomerAccountSettings() {
 
   const completedTrips = allTickets.filter(t => t.status === 'Selesai').length;
   const activeTrips = allTickets.filter(t => t.status === 'Aktif').length;
-  const rewardPoints = 450; // placeholder until reward wallet is wired to a real balance
+  const rewardPoints = liveUser?.rewardPoints ?? 0;
 
   const startEditing = () => {
     setDraft({
-      fullName: customerProfile?.fullName || '',
-      phone: customerProfile?.phone || ''
+      fullName: displayName,
+      phone: displayPhone,
+      nik: displayNik !== '-' ? displayNik : ''
     });
     setIsEditing(true);
-  };
-
-  const handleSave = () => {
-    if (!canSave) return;
-    updateCustomerProfile({
-      fullName: draft.fullName.trim(),
-      phone: draft.phone.trim()
-    });
-    setIsEditing(false);
-    toast.success('Profil Anda berhasil diperbarui.', { title: 'Tersimpan' });
   };
 
   const handleAvatarChange = (e) => {
@@ -92,21 +118,52 @@ export default function CustomerAccountSettings() {
     }
 
     setAvatarError('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result);
-      updateCustomerProfile({ photoDataUrl: reader.result });
-      toast.success('Foto profil berhasil diperbarui.', { title: 'Foto Diperbarui' });
-    };
-    reader.onerror = () => {
-      setAvatarError('Gagal membaca file foto. Coba lagi.');
-    };
-    reader.readAsDataURL(file);
+    setSelectedAvatarFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
   };
 
-  const memberSince = customerProfile?.verifiedAt
-    ? new Date(customerProfile.verifiedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '-';
+  const handleSave = async () => {
+    if (!canSave) return;
+
+    try {
+      let uploadedAvatarUrl = liveUser?.avatar;
+
+      if (selectedAvatarFile) {
+        const formDataObj = new FormData();
+        formDataObj.append('file', selectedAvatarFile);
+        formDataObj.append('destination', 'uploads/avatars');
+
+        const uploadRes = await apiClient.post('/users/me/avatar', formDataObj, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        uploadedAvatarUrl = uploadRes.data.avatar || uploadRes.data.filePath;
+      }
+
+      await apiClient.patch('/users/me', {
+        name: draft.fullName.trim(),
+        phone: draft.phone.trim(),
+      });
+
+      const fullAvatarUrl = getFullFileUrl(uploadedAvatarUrl);
+
+      updateCustomerProfile({
+        fullName: draft.fullName.trim(),
+        phone: draft.phone.trim(),
+        photoDataUrl: fullAvatarUrl,
+        nik: draft.nik
+      });
+
+      setLiveUser(prev => prev ? { ...prev, name: draft.fullName.trim(), phone: draft.phone.trim(), avatar: uploadedAvatarUrl } : prev);
+      setAvatarPreview(fullAvatarUrl);
+      setIsEditing(false);
+      setSelectedAvatarFile(null);
+      toast.success('Profil dan foto berhasil diperbarui.', { title: 'Tersimpan' });
+    } catch (error) {
+      console.error('Gagal menyimpan profil:', error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan perubahan ke server.', { title: 'Error' });
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -154,11 +211,19 @@ export default function CustomerAccountSettings() {
           <div className="flex items-center gap-3">
             <div className="relative w-12 h-12 shrink-0">
               {avatarPreview ? (
-                <img src={avatarPreview} alt="Foto Profil" className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-50 shadow-sm" />
+                <img 
+                  src={avatarPreview} 
+                  alt="Foto Profil" 
+                  className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-50 shadow-sm"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = 'none';
+                  }} 
+                />
               ) : (
                 <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#4B2172] flex items-center justify-center shrink-0">
-                  {customerProfile?.fullName?.trim() ? (
-                    <span className="text-[16px] font-extrabold">{customerProfile.fullName.trim().charAt(0).toUpperCase()}</span>
+                  {displayName.trim() ? (
+                    <span className="text-[16px] font-extrabold">{displayName.trim().charAt(0).toUpperCase()}</span>
                   ) : (
                     <User className="w-6 h-6" />
                   )}
@@ -181,10 +246,10 @@ export default function CustomerAccountSettings() {
               />
             </div>
             <div>
-              <h2 className="text-[14px] font-bold text-neutral-800">{customerProfile?.fullName || '-'}</h2>
-              <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5 ${isCustomerVerified ? 'text-emerald-600' : 'text-neutral-400'}`}>
+              <h2 className="text-[14px] font-bold text-neutral-800">{displayName}</h2>
+              <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5 ${isVerified ? 'text-emerald-600' : 'text-neutral-400'}`}>
                 <ShieldCheck size={11} />
-                {isCustomerVerified ? 'Akun Terverifikasi' : 'Belum Terverifikasi'}
+                {isVerified ? 'Akun Terverifikasi' : 'Belum Terverifikasi'}
               </span>
               {avatarError && <p className="text-[8px] text-rose-600 font-bold mt-1">{avatarError}</p>}
             </div>
@@ -232,7 +297,7 @@ export default function CustomerAccountSettings() {
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               />
             ) : (
-              <p className="px-3.5 py-2.5 bg-neutral-50 rounded-xl font-bold text-neutral-800 border border-transparent">{customerProfile?.fullName || '-'}</p>
+              <p className="px-3.5 py-2.5 bg-neutral-50 rounded-xl font-bold text-neutral-800 border border-transparent">{displayName}</p>
             )}
           </div>
 
@@ -250,7 +315,7 @@ export default function CustomerAccountSettings() {
             </div>
             <p className="px-3.5 py-2.5 bg-neutral-50 rounded-xl font-mono font-bold text-neutral-800 flex items-center gap-2">
               <IdCard className="w-3.5 h-3.5 text-neutral-400" />
-              {showNik ? (customerProfile?.nik || '-') : maskNik(customerProfile?.nik)}
+              {showNik ? displayNik : maskNik(displayNik)}
             </p>
           </div>
 
@@ -273,7 +338,7 @@ export default function CustomerAccountSettings() {
             ) : (
               <p className="px-3.5 py-2.5 bg-neutral-50 rounded-xl font-bold text-neutral-800 flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                {customerProfile?.phone || '-'}
+                {displayPhone}
               </p>
             )}
           </div>

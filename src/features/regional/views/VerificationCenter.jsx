@@ -56,15 +56,11 @@ export default function VerificationCenterPage() {
         
         const responseData = await regionalService.getVerifications(undefined, currentRegionId);
 
-        // Di dalam file VerificationCenter.jsx, perbarui bagian pemetaan data (format response) menjadi seperti ini:
         const formatted = responseData.map(item => {
           const profile = item.user?.profile || {};
           const vehicle = item.user?.vehicles?.[0] || {};
           
-          // Ambil semua file dari database
           const rawFiles = item.files || [];
-          
-          // Jika faceImageUrl ada di profil, masukkan ke daftar file jika belum ada
           let allFiles = rawFiles.map(f => ({ ...f, filePath: getFullFileUrl(f.filePath) }));
           
           if (profile.faceImageUrl && !allFiles.some(f => f.filePath === getFullFileUrl(profile.faceImageUrl))) {
@@ -150,7 +146,7 @@ export default function VerificationCenterPage() {
       setVerificationAuditLogs(prevLogs => [newLog, ...prevLogs]);
 
       setIsDetailModalOpen(false);
-      toast.success(`Verifikasi ID ${id} berhasil disetujui dan akun mitra diaktifkan.`, { title: 'Disetujui' });
+      toast.success(`Verifikasi ID ${id} berhasil disetujui dan akun diaktifkan.`, { title: 'Disetujui' });
     } catch (error) {
       console.error('Gagal menyetujui verifikasi:', error);
       toast.error(error.response?.data?.message || 'Gagal menyetujui dokumen di server.', { title: 'Error' });
@@ -231,7 +227,7 @@ export default function VerificationCenterPage() {
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Verification Center & Face ID</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas, rekening, dan kendaraan mitra wilayah Anda.</p>
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas, rekening, dan kendaraan wilayah Anda.</p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-[#4B2172]/10 rounded-full shrink-0">
@@ -319,103 +315,126 @@ export default function VerificationCenterPage() {
         </div>
       </div>
 
+      {/* Modal Detail Review Berkas yang Dipercantik */}
       <BaseModal
         isOpen={Boolean(isDetailModalOpen && selectedVerification)}
         onClose={() => setIsDetailModalOpen(false)}
         title={`Review Berkas: ${selectedVerification?.name}`}
-        subtitle={`ID Verifikasi: ${selectedVerification?.id} • Tipe: ${selectedVerification?.type}`}
-        maxWidth="max-w-2xl"
+        subtitle={`ID Verifikasi: ${selectedVerification?.id} • Tipe Dokumen: ${selectedVerification?.type?.toUpperCase()}`}
+        maxWidth="max-w-3xl"
       >
         {selectedVerification && (
-          <div className="space-y-4">
-            {/* Informasi Identitas Pengguna */}
-            <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
-              <span className="text-[9px] font-bold text-neutral-500 uppercase">Informasi Identitas Pengguna</span>
-              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div><strong>NIK:</strong> {selectedVerification.identity.ktpNumber}</div>
-                <div><strong>Nama KTP:</strong> {selectedVerification.identity.fullNameKtp}</div>
-                <div className="col-span-2"><strong>Alamat KTP:</strong> {selectedVerification.identity.addressKtp}</div>
+          <div className="space-y-5 text-[11px]">
+            {/* Grid Informasi Utama */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Informasi Identitas Pengguna */}
+              <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2">
+                <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Identitas & KTP Pengguna
+                </span>
+                <div className="space-y-1 text-neutral-700">
+                  <div><strong className="text-neutral-400">NIK:</strong> <span className="font-mono font-bold">{selectedVerification.identity.ktpNumber}</span></div>
+                  <div><strong className="text-neutral-400">Nama KTP:</strong> <span className="font-bold">{selectedVerification.identity.fullNameKtp}</span></div>
+                  <div><strong className="text-neutral-400">Alamat KTP:</strong> {selectedVerification.identity.addressKtp}</div>
+                </div>
+              </div>
+
+              {/* Informasi Finansial / Kendaraan */}
+              <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2">
+                {selectedVerification.role === 'MITRA' ? (
+                  <>
+                    <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5" /> Kendaraan & Rekening Bank
+                    </span>
+                    <div className="space-y-1 text-neutral-700">
+                      <div><strong className="text-neutral-400">Kendaraan:</strong> {selectedVerification.vehicle.type} - {selectedVerification.vehicle.model} ({selectedVerification.vehicle.plateNumber})</div>
+                      <div><strong className="text-neutral-400">Bank:</strong> {selectedVerification.identity.bankName} ({selectedVerification.identity.bankAccountNumber})</div>
+                      <div><strong className="text-neutral-400">Pemilik Rek:</strong> {selectedVerification.identity.bankAccountHolder}</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5" /> Status Akun Customer
+                    </span>
+                    <div className="space-y-1 text-neutral-700">
+                      <div><strong className="text-neutral-400">Peran:</strong> Customer Terverifikasi</div>
+                      <div><strong className="text-neutral-400">Kontak HP:</strong> <span className="font-mono">{selectedVerification.phone}</span></div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Informasi Rekening Bank (Hanya Ditampilkan Jika Role Mitra) */}
-            {selectedVerification.role === 'mitra' && (
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
-                <span className="text-[9px] font-bold text-neutral-500 uppercase flex items-center gap-1">
-                  <CreditCard className="w-3 h-3 text-[#4B2172]" /> Informasi Rekening Bank (Pencairan)
-                </span>
-                <div className="grid grid-cols-3 gap-2 text-[10px]">
-                  <div><strong>Bank:</strong> {selectedVerification.identity.bankName}</div>
-                  <div><strong>No. Rekening:</strong> {selectedVerification.identity.bankAccountNumber}</div>
-                  <div><strong>Pemilik:</strong> {selectedVerification.identity.bankAccountHolder}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Informasi Kendaraan Terdaftar (Hanya Ditampilkan Jika Role Mitra) */}
-            {selectedVerification.role === 'mitra' && (
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
-                <span className="text-[9px] font-bold text-neutral-500 uppercase flex items-center gap-1">
-                  <Truck className="w-3 h-3 text-[#4B2172]" /> Informasi Kendaraan Terdaftar
-                </span>
-                <div className="grid grid-cols-3 gap-2 text-[10px]">
-                  <div><strong>Jenis:</strong> {selectedVerification.vehicle.type}</div>
-                  <div><strong>Model:</strong> {selectedVerification.vehicle.model}</div>
-                  <div><strong>Plat Nomor:</strong> {selectedVerification.vehicle.plateNumber}</div>
-                </div>
-              </div>
-            )}
-
             {selectedVerification.status === 'Ditolak' && selectedVerification.rejectionReason && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[10px] text-rose-800 font-medium">
-                <strong>Catatan Alasan Penolakan:</strong> {selectedVerification.rejectionReason}
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 font-medium">
+                <strong>Catatan Alasan Penolakan Sebelumnya:</strong> {selectedVerification.rejectionReason}
               </div>
             )}
 
-            <div className="space-y-2">
-            <span className="text-[9px] font-bold text-neutral-500 uppercase">Berkas Lampiran & Face ID</span>
-            <div className="grid grid-cols-3 gap-3">
-              {selectedVerification.files.length > 0 ? (
-                selectedVerification.files.map((file, idx) => {
-                  const validFileUrl = file.filePath;
-                  return (
-                    <div key={idx} className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200 space-y-1">
-                      <span className="text-[8px] font-bold text-[#4B2172] uppercase">
-                        {file.isFaceId ? 'Face ID Scan' : (file.fileType || `Dokumen ${idx + 1}`)}
-                      </span>
-                      <div className="h-32 bg-white rounded-lg overflow-hidden border border-neutral-100 flex items-center justify-center">
-                        {validFileUrl ? (
-                          <a href={validFileUrl} target="_blank" rel="noopener noreferrer" className="w-full h-full block">
+            {/* Bagian Pratinjau Berkas & Face ID yang Diperbesar */}
+            <div className="space-y-2.5">
+              <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Pratinjau Berkas Lampiran & Face ID Scan</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {selectedVerification.files.length > 0 ? (
+                  selectedVerification.files.map((file, idx) => {
+                    const validFileUrl = file.filePath;
+                    return (
+                      <div key={idx} className="bg-neutral-900/5 p-3 rounded-2xl border border-neutral-200 space-y-2 flex flex-col justify-between">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider">
+                            {file.isFaceId ? '📸 Face ID Liveness Scan' : `📄 Berkas Lampiran KTP (${idx + 1})`}
+                          </span>
+                          {validFileUrl && (
+                            <a 
+                              href={validFileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-[9px] font-bold text-[#4B2172] hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-full shadow-xs"
+                            >
+                              🔍 Zoom Fullscreen
+                            </a>
+                          )}
+                        </div>
+                        <div className="h-48 bg-white rounded-xl overflow-hidden border border-neutral-200 flex items-center justify-center shadow-inner">
+                          {validFileUrl ? (
                             <img 
                               src={validFileUrl} 
-                              alt="Lampiran" 
-                              className="w-full h-full object-cover hover:scale-105 transition" 
+                              alt="Lampiran Dokumen" 
+                              className="w-full h-full object-contain bg-neutral-950/5 hover:scale-105 transition duration-300 cursor-zoom-in"
+                              onClick={() => window.open(validFileUrl, '_blank')}
                               onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.5'><rect width='18' height='18' x='3' y='3' rx='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>";
                               }} 
                             />
-                          </a>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[9px] text-neutral-400">File tidak valid</div>
-                        )}
+                          ) : (
+                            <div className="text-[10px] text-neutral-400 italic">File tidak tersedia atau gagal dimuat</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-[10px] text-neutral-500 italic">Tidak ada berkas file terlampir.</p>
-              )}
+                    );
+                  })
+                ) : (
+                  <p className="text-[10px] text-neutral-500 italic col-span-2 text-center py-4">Tidak ada berkas file terlampir.</p>
+                )}
+              </div>
             </div>
-          </div>
 
+            {/* Aksi Review Tombol */}
             {!isDecided(selectedVerification) && (
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100">
-                <button onClick={() => handleOpenRejectModal(selectedVerification)} className="px-4 py-2 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-full cursor-pointer transition">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">
+                <button 
+                  onClick={() => handleOpenRejectModal(selectedVerification)} 
+                  className="px-5 py-2.5 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer transition shadow-xs"
+                >
                   Tolak Berkas
                 </button>
-                <button onClick={() => handleApprove(selectedVerification.id)} className="px-4 py-2 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-full cursor-pointer transition shadow-sm">
-                  Setujui Berkas & Aktifkan Mitra
+                <button 
+                  onClick={() => handleApprove(selectedVerification.id)} 
+                  className="px-5 py-2.5 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl cursor-pointer transition shadow-md"
+                >
+                  Setujui Berkas & Aktifkan Akun
                 </button>
               </div>
             )}
@@ -423,6 +442,7 @@ export default function VerificationCenterPage() {
         )}
       </BaseModal>
 
+      {/* Modal Penolakan Berkas */}
       <BaseModal
         isOpen={Boolean(isRejectModalOpen && selectedVerification)}
         onClose={() => setIsRejectModalOpen(false)}
