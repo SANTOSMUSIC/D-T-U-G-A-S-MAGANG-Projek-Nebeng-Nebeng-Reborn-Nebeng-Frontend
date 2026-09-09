@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSimulatedLoading } from '../../../hooks/useSimulatedLoading';
 import { Compass, Search, MapPin, Calendar, Users, Package, ArrowRight, ShieldCheck, Lock, Wallet } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useTickets } from '../../../context/TicketsContext';
+import { useToast } from '../../../context/ToastContext';
+import apiClient from '../../../services/apiClient';
 
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 const TODAY_ISO = new Date().toISOString().split('T')[0];
@@ -17,10 +18,19 @@ const formatRupiah = (value) =>
 export default function SearchTrip() {
   const navigate = useNavigate();
   const { addTicket } = useTickets();
+  const toast = useToast();
+
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState('');
   const [serviceType, setServiceType] = useState('penumpang');
+
+  // State untuk menyimpan daftar pos resmi dari backend
+  const [pickupPoints, setPickupPoints] = useState([]);
+  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
+
+  const [trips, setTrips] = useState([]);
+  const [isLoadingTrips, setIsLoadingTrips] = useState(false);
 
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [bookingStep, setBookingStep] = useState('form');
@@ -35,6 +45,7 @@ export default function SearchTrip() {
   const [itemCount, setItemCount] = useState(1);
   const [itemWeight, setItemWeight] = useState(5);
   const [itemSize, setItemSize] = useState('M');
+  
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
 
@@ -47,68 +58,70 @@ export default function SearchTrip() {
     { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  const mockTrips = [
-    {
-      id: 1,
-      mitraName: 'Budi Santoso',
-      origin: 'Pos Solo Kota',
-      destination: 'Pos Semarang Indah',
-      date: '2026-08-25',
-      type: 'penumpang',
-      vehicle: 'Toyota Avanza (H 1234 AB)',
-      vehicleCategory: 'mobil',
-      price: 'Rp 75.000',
-      basePrice: 75000,
-      priceUnit: 'kursi',
-      capacity: '3 Kursi Tersedia',
-      maxSeats: 3,
-      rating: '4.9 (120 trip)'
-    },
-    {
-      id: 2,
-      mitraName: 'Siti Aminah',
-      origin: 'Pos Solo Kota',
-      destination: 'Pos Yogyakarta Pusat',
-      date: '2026-08-25',
-      type: 'barang',
-      vehicle: 'Yamaha NMAX (AD 5678 CD - Motor)',
-      vehicleCategory: 'motor',
-      price: 'Rp 50.000 / paket',
-      basePrice: 50000,
-      priceUnit: 'paket',
-      remainingCapacityKg: 20,
-      rating: '4.8 (85 trip)'
-    }
-  ];
+  // 1. Ambil daftar Pos Resmi (Pickup Points) dari backend saat pertama kali dibuka
+  useEffect(() => {
+    const fetchPickupPoints = async () => {
+      setIsLoadingPoints(true);
+      try {
+        const res = await apiClient.get('/pickup-points', { params: { onlyActive: true } });
+        setPickupPoints(res.data || []);
+      } catch (err) {
+        console.error('Gagal memuat daftar pos:', err);
+        toast.error('Gagal memuat daftar pos resmi.', { title: 'Error' });
+      } finally {
+        setIsLoadingPoints(false);
+      }
+    };
+    fetchPickupPoints();
+  }, [toast]);
 
-  const filteredTrips = mockTrips.filter(trip => {
-    const matchOrigin = origin ? trip.origin.toLowerCase().includes(origin.toLowerCase()) : true;
-    const matchDest = destination ? trip.destination.toLowerCase().includes(destination.toLowerCase()) : true;
-    const matchDate = date ? trip.date === date : true;
-    const matchType = serviceType ? trip.type === serviceType : true;
-    return matchOrigin && matchDest && matchDate && matchType;
-  });
+  // 2. Ambil daftar trip berdasarkan filter pos asal, tujuan, tanggal, dan tipe
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTrips = async () => {
+      setIsLoadingTrips(true);
+      try {
+        const params = {};
+        if (origin) params.originPointId = origin;
+        if (destination) params.destinationPointId = destination;
+        if (date) params.date = date;
+        if (serviceType) params.vehicleType = serviceType === 'penumpang' ? 'mobil' : 'motor';
 
-  const isLoadingTrips = useSimulatedLoading([origin, destination, date, serviceType], 700);
+        const res = await apiClient.get('/trips', { params });
+        if (isMounted) {
+          const list = res.data?.data || res.data || [];
+          setTrips(list);
+        }
+      } catch (err) {
+        console.error('Gagal memuat daftar trip:', err);
+        toast.error('Gagal mengambil data trip dari server.', { title: 'Error' });
+      } finally {
+        if (isMounted) setIsLoadingTrips(false);
+      }
+    };
+    fetchTrips();
+    return () => { isMounted = false; };
+  }, [origin, destination, date, serviceType, toast]);
 
   const safeSeatCount = Math.max(1, seatCount || 1);
   const safeItemCount = Math.max(1, itemCount || 1);
   const safeItemWeight = Math.max(1, itemWeight || 1);
 
   const totalAccumulatedWeight = safeItemCount * safeItemWeight;
-  const isOverWeightCapacity = selectedTrip?.type === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingCapacityKg || 0);
-  const maxAllowedSeats = selectedTrip?.vehicleCategory === 'motor' ? 1 : (selectedTrip?.maxSeats || 1);
-  const isOverSeatCapacity = selectedTrip?.type === 'penumpang' && (safeSeatCount > maxAllowedSeats);
+  const isOverWeightCapacity = serviceType === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingWeightCapacityKg || 0);
+  const maxAllowedSeats = selectedTrip?.vehicleType === 'motor' ? 1 : (selectedTrip?.seatAvailable || 1);
+  const isOverSeatCapacity = serviceType === 'penumpang' && (safeSeatCount > maxAllowedSeats);
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
-  const isPassengerPhoneValid = selectedTrip?.type === 'penumpang' ? PHONE_REGEX.test(passengerPhone.trim()) : true;
-  const isReceiverPhoneValid = selectedTrip?.type === 'barang' ? PHONE_REGEX.test(receiverPhone.trim()) : true;
-  const isPassengerValid = selectedTrip?.type === 'penumpang' ? (passengerName.trim() !== '' && isPassengerPhoneValid) : true;
-  const isBarangValid = selectedTrip?.type === 'barang' ? (receiverName.trim() !== '' && isReceiverPhoneValid) : true;
+  const isPassengerPhoneValid = serviceType === 'penumpang' ? PHONE_REGEX.test(passengerPhone.trim()) : true;
+  const isReceiverPhoneValid = serviceType === 'barang' ? PHONE_REGEX.test(receiverPhone.trim()) : true;
+  const isPassengerValid = serviceType === 'penumpang' ? (passengerName.trim() !== '' && isPassengerPhoneValid) : true;
+  const isBarangValid = serviceType === 'barang' ? (receiverName.trim() !== '' && isReceiverPhoneValid) : true;
   const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid;
 
-  const quantity = selectedTrip?.type === 'barang' ? safeItemCount : safeSeatCount;
-  const totalPrice = (selectedTrip?.basePrice || 0) * quantity;
+  const quantity = serviceType === 'barang' ? safeItemCount : safeSeatCount;
+  const basePrice = selectedTrip?.price || 0;
+  const totalPrice = basePrice * quantity;
 
   const handleSizeChange = (sizeCode) => {
     setItemSize(sizeCode);
@@ -170,38 +183,66 @@ export default function SearchTrip() {
     }
   };
 
-  const handleVerifyPinAndCheckout = () => {
+  const handleVerifyPinAndCheckout = async () => {
     if (pin.some(p => p === '') || isCheckingOut || !selectedTrip) return;
     setIsCheckingOut(true);
 
-    const isBarang = selectedTrip.type === 'barang';
-    const newTicketId = `TKT-${selectedTrip.id}-${Date.now().toString().slice(-6)}`;
+    try {
+      const pinString = pin.join('');
+      await apiClient.post('/users/me/pin/verify', { pin: pinString });
 
-    addTicket({
-      id: newTicketId,
-      type: selectedTrip.type,
-      title: isBarang ? `Nebeng Barang (Paket ${itemCategory})` : 'Nebeng Penumpang',
-      from: selectedTrip.origin,
-      to: selectedTrip.destination,
-      mitra: selectedTrip.mitraName,
-      vehicle: selectedTrip.vehicle,
-      schedule: `${selectedTrip.date} • Sesuai Jadwal Trip Mitra`,
-      totalPrice: formatRupiah(totalPrice),
-      detail: isBarang
-        ? `${safeItemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName || '-'} (${receiverPhone || '-'})`
-        : `${safeSeatCount} Kursi • Atas Nama ${passengerName || '-'} (${passengerPhone || '-'})`,
-      status: 'Aktif',
-      currentStatusText: 'Menunggu Check-in di Pos Asal',
-      otp: isBarang ? String(Math.floor(100000 + Math.random() * 900000)) : null,
-      trackingLogs: [
-        { status: 'Booking Dikonfirmasi & Dana Diamankan (Escrow)', location: selectedTrip.origin, time: 'Baru saja', completed: true, active: true },
-        { status: 'Checked-in at Pos', location: selectedTrip.origin, time: '-', completed: false, active: false },
-        { status: 'In Transit', location: `Menuju ${selectedTrip.destination}`, time: '-', completed: false, active: false },
-        { status: 'Arrived at Pos Destination', location: selectedTrip.destination, time: '-', completed: false, active: false }
-      ]
-    });
+      const orderPayload = {
+        tripId: String(selectedTrip.id),
+        type: serviceType === 'penumpang' ? 'passenger' : 'parcel',
+        ...(serviceType === 'penumpang' ? {
+          seatsBooked: safeSeatCount
+        } : {
+          items: [{
+            itemName: itemCategory,
+            itemCategory: itemCategory,
+            quantity: safeItemCount,
+            weightPerItemKg: itemWeight,
+            sizeEnum: itemSize.toLowerCase(),
+            recipientName: receiverName,
+            recipientPhone: receiverPhone
+          }]
+        })
+      };
 
-    setBookingStep('success');
+      const res = await apiClient.post('/orders', orderPayload);
+      const createdOrder = res.data;
+
+      addTicket({
+        id: createdOrder.id,
+        type: serviceType,
+        title: serviceType === 'barang' ? `Nebeng Barang (${itemCategory})` : 'Nebeng Penumpang',
+        from: selectedTrip.originPoint?.name || 'Pos Asal',
+        to: selectedTrip.destinationPoint?.name || 'Pos Tujuan',
+        mitra: selectedTrip.mitra?.name || 'Mitra',
+        vehicle: selectedTrip.vehicle ? `${selectedTrip.vehicle.model} (${selectedTrip.vehicle.plateNumber})` : '-',
+        schedule: `${selectedTrip.departureDate?.split('T')[0]} • Sesuai Jadwal`,
+        totalPrice: formatRupiah(totalPrice),
+        detail: serviceType === 'barang'
+          ? `${safeItemCount} Item (${totalAccumulatedWeight} Kg) • Penerima: ${receiverName} (${receiverPhone})`
+          : `${safeSeatCount} Kursi • Atas Nama ${passengerName} (${passengerPhone})`,
+        status: 'Aktif',
+        currentStatusText: 'Menunggu Check-in di Pos Asal',
+        otp: createdOrder.otpClaim || null,
+        trackingLogs: [
+          { status: 'Booking Dikonfirmasi & Dana Diamankan (Escrow)', location: selectedTrip.originPoint?.name, time: 'Baru saja', completed: true, active: true },
+          { status: 'Checked-in at Pos', location: selectedTrip.originPoint?.name, time: '-', completed: false, active: false },
+          { status: 'In Transit', location: 'Dalam Perjalanan', time: '-', completed: false, active: false },
+          { status: 'Arrived at Pos Destination', location: selectedTrip.destinationPoint?.name, time: '-', completed: false, active: false }
+        ]
+      });
+
+      setBookingStep('success');
+      toast.success('Pesanan berhasil dibuat dan dana diamankan di Escrow.', { title: 'Sukses' });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'PIN salah atau gagal memproses pesanan.', { title: 'Gagal' });
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   return (
@@ -223,33 +264,46 @@ export default function SearchTrip() {
         </div>
       </div>
 
+      {/* FILTER PENCARIAN DENGAN DROPDOWN POS RESMI */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-[10px]">
           <div>
             <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Asal</label>
             <div className="relative">
-              <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
-              <input 
-                type="text"
-                placeholder="Pilih atau ketik Pos Asal"
+              <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3.5 z-10" />
+              <select
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-              />
+                disabled={isLoadingPoints}
+                className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer appearance-none disabled:opacity-50"
+              >
+                <option value="">{isLoadingPoints ? 'Memuat pos...' : '-- Pilih Pos Asal --'}</option>
+                {pickupPoints.map((point) => (
+                  <option key={point.id} value={point.id}>
+                    {point.name} {point.city?.name ? `(${point.city.name})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
           <div>
             <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Tujuan</label>
             <div className="relative">
-              <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
-              <input 
-                type="text"
-                placeholder="Pilih atau ketik Pos Tujuan"
+              <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3.5 z-10" />
+              <select
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-              />
+                disabled={isLoadingPoints}
+                className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer appearance-none disabled:opacity-50"
+              >
+                <option value="">{isLoadingPoints ? 'Memuat pos...' : '-- Pilih Pos Tujuan --'}</option>
+                {pickupPoints.map((point) => (
+                  <option key={point.id} value={point.id}>
+                    {point.name} {point.city?.name ? `(${point.city.name})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -298,7 +352,7 @@ export default function SearchTrip() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-[14px] font-bold text-neutral-800">Hasil Trip Tersedia ({filteredTrips.length})</h2>
+        <h2 className="text-[14px] font-bold text-neutral-800">Hasil Trip Tersedia ({trips.length})</h2>
         
         {isLoadingTrips ? (
           <div className="grid grid-cols-1 gap-3">
@@ -309,35 +363,35 @@ export default function SearchTrip() {
               </div>
             ))}
           </div>
-        ) : filteredTrips.length > 0 ? (
+        ) : trips.length > 0 ? (
           <div className="grid grid-cols-1 gap-3">
-            {filteredTrips.map((trip) => (
+            {trips.map((trip) => (
               <div key={trip.id} className="bg-white rounded-2xl p-4 sm:p-5 border border-neutral-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <StatusBadge variant="purple">
-                      {trip.type === 'penumpang' ? 'Nebeng Penumpang' : 'Nebeng Barang'}
+                      {serviceType === 'penumpang' ? 'Nebeng Penumpang' : 'Nebeng Barang'}
                     </StatusBadge>
-                    <span className="text-[9px] text-neutral-400 font-medium">Mitra: <strong className="text-neutral-700">{trip.mitraName}</strong> ({trip.rating})</span>
+                    <span className="text-[9px] text-neutral-400 font-medium">Mitra: <strong className="text-neutral-700">{trip.mitra?.name || 'Mitra'}</strong></span>
                   </div>
                   
                   <div className="flex items-center gap-2 text-[12px] font-bold text-neutral-800">
-                    <span>{trip.origin}</span>
+                    <span>{trip.originPoint?.name || 'Pos Asal'}</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#4B2172]" />
-                    <span>{trip.destination}</span>
+                    <span>{trip.destinationPoint?.name || 'Pos Tujuan'}</span>
                   </div>
 
                   <div className="flex flex-wrap gap-3 text-[9px] text-neutral-400 font-medium">
-                    <span>📅 Tanggal: <strong className="text-neutral-700">{trip.date}</strong></span>
-                    <span>🚗 Kendaraan: <strong className="text-neutral-700">{trip.vehicle}</strong></span>
-                    <span>⚡ Sisa Kapasitas: <strong className="text-[#4B2172]">{trip.type === 'penumpang' ? trip.capacity : `${trip.remainingCapacityKg} kg`}</strong></span>
+                    <span>📅 Tanggal: <strong className="text-neutral-700">{trip.departureDate?.split('T')[0]}</strong></span>
+                    <span>🚗 Kendaraan: <strong className="text-neutral-700">{trip.vehicle ? `${trip.vehicle.model} (${trip.vehicle.plateNumber})` : '-'}</strong></span>
+                    <span>⚡ Sisa Kapasitas: <strong className="text-[#4B2172]">{serviceType === 'penumpang' ? `${trip.seatAvailable} Kursi` : `${trip.remainingWeightCapacityKg} kg`}</strong></span>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2 w-full md:w-auto">
                   <div className="text-right">
                     <span className="text-[8px] text-neutral-400 block">Tarif Layanan</span>
-                    <span className="text-[14px] font-bold text-emerald-600">{trip.price}</span>
+                    <span className="text-[14px] font-bold text-emerald-600">{formatRupiah(trip.price)}</span>
                   </div>
                   <button 
                     onClick={() => handleOpenBooking(trip)}
@@ -364,7 +418,7 @@ export default function SearchTrip() {
         isOpen={Boolean(selectedTrip)}
         onClose={() => setSelectedTrip(null)}
         title={
-          bookingStep === 'form' ? (selectedTrip?.type === 'penumpang' ? 'Formulir Nebeng Penumpang' : 'Formulir Nebeng Barang') :
+          bookingStep === 'form' ? (serviceType === 'penumpang' ? 'Formulir Nebeng Penumpang' : 'Formulir Nebeng Barang') :
           bookingStep === 'pin' ? 'Keamanan Transaksi & Checkout' : 'Konfirmasi Selesai'
         }
         subtitle="Booking Engine & Checkout"
@@ -373,11 +427,11 @@ export default function SearchTrip() {
         {bookingStep === 'form' && (
           <form onSubmit={handleProceedToPin} className="space-y-3 text-[10px]">
             <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-200 text-[9px] space-y-0.5">
-              <p className="text-neutral-400">Rute: <strong className="text-neutral-800">{selectedTrip?.origin} ➔ {selectedTrip?.destination}</strong></p>
-              <p className="text-neutral-400">Mitra: <strong className="text-neutral-800">{selectedTrip?.mitraName}</strong> ({selectedTrip?.vehicle})</p>
+              <p className="text-neutral-400">Rute: <strong className="text-neutral-800">{selectedTrip?.originPoint?.name} ➔ {selectedTrip?.destinationPoint?.name}</strong></p>
+              <p className="text-neutral-400">Mitra: <strong className="text-neutral-800">{selectedTrip?.mitra?.name}</strong></p>
             </div>
 
-            {selectedTrip?.type === 'penumpang' && (
+            {serviceType === 'penumpang' && (
               <>
                 <div>
                   <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jumlah Kursi</label>
@@ -417,15 +471,12 @@ export default function SearchTrip() {
                         passengerPhone.trim() && !isPassengerPhoneValid ? 'border-rose-300 focus:border-rose-400' : 'border-neutral-200 focus:border-[#4B2172]'
                       }`}
                     />
-                    {passengerPhone.trim() && !isPassengerPhoneValid && (
-                      <p className="text-[8px] text-rose-600 font-bold mt-1">Format nomor tidak valid.</p>
-                    )}
                   </div>
                 </div>
               </>
             )}
 
-            {selectedTrip?.type === 'barang' && (
+            {serviceType === 'barang' && (
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -504,25 +555,20 @@ export default function SearchTrip() {
                       placeholder="08xxxxxxxxxx"
                       value={receiverPhone}
                       onChange={(e) => setReceiverPhone(e.target.value.replace(/[^\d+]/g, ''))}
-                      className={`w-full px-3 py-2 bg-neutral-50 border rounded-xl font-bold text-neutral-800 focus:outline-none ${
-                        receiverPhone.trim() && !isReceiverPhoneValid ? 'border-rose-300 focus:border-rose-400' : 'border-neutral-200 focus:border-[#4B2172]'
-                      }`}
+                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none"
                     />
-                    {receiverPhone.trim() && !isReceiverPhoneValid && (
-                      <p className="text-[8px] text-rose-600 font-bold mt-1">Format nomor tidak valid.</p>
-                    )}
                   </div>
                 </div>
 
                 {isOverWeightCapacity && (
-                  <p className="text-[8px] text-rose-600 font-bold">⚠️ Total berat ({totalAccumulatedWeight} Kg) melebihi batas sisa bagasi ({selectedTrip?.remainingCapacityKg} Kg).</p>
+                  <p className="text-[8px] text-rose-600 font-bold">⚠️ Total berat ({totalAccumulatedWeight} Kg) melebihi kapasitas sisa bagasi ({selectedTrip?.remainingWeightCapacityKg} Kg).</p>
                 )}
               </>
             )}
 
             <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl flex items-center justify-between">
               <span className="text-[9px] font-bold text-neutral-600">
-                Total ({quantity} {selectedTrip?.priceUnit || 'unit'} × {formatRupiah(selectedTrip?.basePrice || 0)})
+                Total ({quantity} unit × {formatRupiah(basePrice)})
               </span>
               <span className="text-[14px] font-bold text-[#4B2172]">{formatRupiah(totalPrice)}</span>
             </div>
