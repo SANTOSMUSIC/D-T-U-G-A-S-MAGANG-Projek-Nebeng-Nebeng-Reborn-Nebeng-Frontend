@@ -78,7 +78,7 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
         className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative bg-gradient-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
+        <div className="relative bg-linear-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
           <button
             type="button"
             onClick={onClose}

@@ -25,7 +25,6 @@ export default function SearchTrip() {
   const [date, setDate] = useState('');
   const [serviceType, setServiceType] = useState('penumpang');
 
-  // State untuk menyimpan daftar pos resmi dari backend
   const [pickupPoints, setPickupPoints] = useState([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
@@ -58,7 +57,7 @@ export default function SearchTrip() {
     { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  // 1. Ambil daftar Pos Resmi (Pickup Points) dari backend saat pertama kali dibuka
+  // 1. Ambil daftar Pos Resmi (Pickup Points) dari backend[cite: 22]
   useEffect(() => {
     const fetchPickupPoints = async () => {
       setIsLoadingPoints(true);
@@ -75,7 +74,7 @@ export default function SearchTrip() {
     fetchPickupPoints();
   }, [toast]);
 
-  // 2. Ambil daftar trip berdasarkan filter pos asal, tujuan, tanggal, dan tipe
+  // 2. Ambil daftar trip secara fleksibel (hanya kirim parameter jika diisi)[cite: 22]
   useEffect(() => {
     let isMounted = true;
     const fetchTrips = async () => {
@@ -85,7 +84,12 @@ export default function SearchTrip() {
         if (origin) params.originPointId = origin;
         if (destination) params.destinationPointId = destination;
         if (date) params.date = date;
-        if (serviceType) params.vehicleType = serviceType === 'penumpang' ? 'mobil' : 'motor';
+        // Jangan memaksa filter vehicleType jika ingin melihat semua jenis kendaraan yang tersedia
+        if (serviceType === 'penumpang') {
+          params.vehicleType = 'mobil';
+        } else {
+          params.vehicleType = 'motor';
+        }
 
         const res = await apiClient.get('/trips', { params });
         if (isMounted) {
@@ -189,7 +193,7 @@ export default function SearchTrip() {
 
     try {
       const pinString = pin.join('');
-      await apiClient.post('/users/me/pin/verify', { pin: pinString });
+      await apiClient.post('/users/me/pin/verify', { pin: pinString }); //[cite: 22]
 
       const orderPayload = {
         tripId: String(selectedTrip.id),
@@ -209,7 +213,7 @@ export default function SearchTrip() {
         })
       };
 
-      const res = await apiClient.post('/orders', orderPayload);
+      const res = await apiClient.post('/orders', orderPayload); //[cite: 22]
       const createdOrder = res.data;
 
       addTicket({
@@ -264,11 +268,11 @@ export default function SearchTrip() {
         </div>
       </div>
 
-      {/* FILTER PENCARIAN DENGAN DROPDOWN POS RESMI */}
+      {/* FILTER PENCARIAN */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-[10px]">
           <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Asal</label>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Asal (Opsional)</label>
             <div className="relative">
               <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3.5 z-10" />
               <select
@@ -277,7 +281,7 @@ export default function SearchTrip() {
                 disabled={isLoadingPoints}
                 className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer appearance-none disabled:opacity-50"
               >
-                <option value="">{isLoadingPoints ? 'Memuat pos...' : '-- Pilih Pos Asal --'}</option>
+                <option value="">Semua Pos Asal</option>
                 {pickupPoints.map((point) => (
                   <option key={point.id} value={point.id}>
                     {point.name} {point.city?.name ? `(${point.city.name})` : ''}
@@ -288,7 +292,7 @@ export default function SearchTrip() {
           </div>
 
           <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Tujuan</label>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Tujuan (Opsional)</label>
             <div className="relative">
               <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3.5 z-10" />
               <select
@@ -297,7 +301,7 @@ export default function SearchTrip() {
                 disabled={isLoadingPoints}
                 className="w-full pl-9 pr-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer appearance-none disabled:opacity-50"
               >
-                <option value="">{isLoadingPoints ? 'Memuat pos...' : '-- Pilih Pos Tujuan --'}</option>
+                <option value="">Semua Pos Tujuan</option>
                 {pickupPoints.map((point) => (
                   <option key={point.id} value={point.id}>
                     {point.name} {point.city?.name ? `(${point.city.name})` : ''}

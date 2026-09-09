@@ -38,6 +38,12 @@ export default function MyTickets() {
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const chatBottomRef = useRef(null);
 
+  // Gunakan useRef agar nilai conversationId selalu sinkron di dalam setInterval polling
+  const conversationIdRef = useRef(chatConversationId);
+  useEffect(() => {
+    conversationIdRef.current = chatConversationId;
+  }, [chatConversationId]);
+
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
@@ -46,7 +52,7 @@ export default function MyTickets() {
     let isMounted = true;
 
     const loadData = async () => {
-      // 1. Fetch Daftar Pesanan/Tiket dari Backend (GET /orders/me)[cite: 42]
+      // 1. Fetch Daftar Pesanan/Tiket dari Backend (GET /orders/me)
       setIsLoadingTickets(true);
       try {
         const res = await apiClient.get('/orders/me');
@@ -106,7 +112,7 @@ export default function MyTickets() {
         if (isMounted) setIsLoadingTickets(false);
       }
 
-      // 2. Fetch Reward & Poin dari Backend (GET /rewards/me)[cite: 48]
+      // 2. Fetch Reward & Poin dari Backend (GET /rewards/me)
       setIsLoadingRewards(true);
       try {
         const resReward = await apiClient.get('/rewards/me');
@@ -129,6 +135,32 @@ export default function MyTickets() {
       isMounted = false;
     };
   }, [toast]);
+
+  // Polling Pesan Otomatis (Real-time update menggunakan useRef agar sinkron)
+  useEffect(() => {
+    if (activeModalType !== 'chat') return;
+
+    let isMounted = true;
+    const fetchMessagesPeriodic = async () => {
+      const currentId = conversationIdRef.current;
+      if (!currentId) return;
+
+      try {
+        const resMsg = await apiClient.get(`/chat/conversation/${currentId}/messages`);
+        if (isMounted) {
+          setChatMessages(resMsg.data || []);
+        }
+      } catch {
+        // Abaikan error saat polling latar belakang
+      }
+    };
+
+    const interval = setInterval(fetchMessagesPeriodic, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeModalType]);
 
   useEffect(() => {
     let timer;
@@ -174,7 +206,6 @@ export default function MyTickets() {
     );
   });
 
-  // Fungsi refresh data secara manual setelah pembatalan order
   const refreshData = async () => {
     try {
       const res = await apiClient.get('/orders/me');
@@ -228,7 +259,6 @@ export default function MyTickets() {
     }
   };
 
-  // 3. Batalkan Pesanan via Backend (PATCH /orders/:id/cancel)[cite: 42]
   const handleCancelTicket = async () => {
     if (!selectedTicket || isCancelling) return;
     setIsCancelling(true);
@@ -245,7 +275,6 @@ export default function MyTickets() {
     }
   };
 
-  // 4. Membuka Modal & Mengambil/Membuat Conversation Chat via API[cite: 35]
   const openModal = async (ticket, type) => {
     setSelectedTicket(ticket);
     setActiveModalType(type);
@@ -277,7 +306,6 @@ export default function MyTickets() {
     }
   };
 
-  // 5. Kirim Pesan Chat via Backend (POST /chat/conversation/:id/messages)[cite: 35]
   const handleSendChatMessage = async (e) => {
     e.preventDefault();
     if (!newMessageText.trim() || !chatConversationId) return;
@@ -316,7 +344,7 @@ export default function MyTickets() {
             My Tickets & Live Digital QR
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Tunjukkan QR Code digital di Pos, chat langsung dengan Mitra, dan kelola Poin Reward Anda[cite: 35].
+            Tunjukkan QR Code digital di Pos, chat langsung dengan Mitra, dan kelola Poin Reward Anda.
           </p>
         </div>
       </div>
@@ -527,7 +555,10 @@ export default function MyTickets() {
       {/* MODAL CHAT TERINTEGRASI BACKEND */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'chat')}
-        onClose={() => setSelectedTicket(null)}
+        onClose={() => {
+          setSelectedTicket(null);
+          setChatConversationId(null);
+        }}
         title={`Chat dengan Mitra (${selectedTicket?.mitra})`}
         subtitle={`Trip: ${selectedTicket?.from} ➔ ${selectedTicket?.to}`}
         maxWidth="max-w-lg"
