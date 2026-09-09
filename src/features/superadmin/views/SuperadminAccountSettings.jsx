@@ -166,6 +166,9 @@ export default function SuperadminAccountSettings() {
 
         const uploadRes = await uploadMyAvatar(formData);
 
+        const uploadRes = await uploadMyAvatar(formData);
+main
+
         const relativePath = uploadRes?.data?.avatar;
         if (relativePath) {
           const baseURL = apiClient.defaults.baseURL 

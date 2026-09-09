@@ -33,7 +33,6 @@ export default function VerificationCenterPage() {
     'Skor Liveness Scan Face ID di bawah ambang batas minimum'
   ];
 
-  // Helper untuk membersihkan dan menormalkan URL file dari database/backend
   const getFullFileUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('blob:')) return null;
@@ -56,15 +55,12 @@ export default function VerificationCenterPage() {
         
         const responseData = await regionalService.getVerifications(undefined, currentRegionId);
 
-        // Di dalam file VerificationCenter.jsx, perbarui bagian pemetaan data (format response) menjadi seperti ini:
         const formatted = responseData.map(item => {
           const profile = item.user?.profile || {};
           const vehicle = item.user?.vehicles?.[0] || {};
           
-          // Ambil semua file dari database
           const rawFiles = item.files || [];
           
-          // Jika faceImageUrl ada di profil, masukkan ke daftar file jika belum ada
           let allFiles = rawFiles.map(f => ({ ...f, filePath: getFullFileUrl(f.filePath) }));
           
           if (profile.faceImageUrl && !allFiles.some(f => f.filePath === getFullFileUrl(profile.faceImageUrl))) {

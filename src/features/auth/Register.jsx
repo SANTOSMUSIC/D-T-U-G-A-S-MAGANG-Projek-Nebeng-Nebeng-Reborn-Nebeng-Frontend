@@ -20,7 +20,10 @@ export default function Register({ onSwitchToLogin }) {
     email: '',
     phone: '',
     role: 'customer',
+Fix/bug
     regionId: '',
+
+main
     password: '',
     confirmPassword: '',
   });

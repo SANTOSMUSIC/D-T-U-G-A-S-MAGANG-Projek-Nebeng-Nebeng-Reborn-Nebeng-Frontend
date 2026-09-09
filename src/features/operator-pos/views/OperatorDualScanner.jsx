@@ -23,12 +23,10 @@ export default function OperatorDualScanner() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [scanHistory, setScanHistory] = useState([]);
 
-  // State untuk Modal Kamera Aman (Anti-Blank & Toleran Error)
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [activeTargetField, setActiveTargetField] = useState(null); // 'trip' atau 'ticket'
+  const [activeTargetField, setActiveTargetField] = useState(null);
   const videoRef = useRef(null);
 
-  // Fungsi untuk Membuka Kamera via MediaDevices API secara Aman
   const startCamera = async (target) => {
     setActiveTargetField(target);
     setIsCameraActive(true);
@@ -54,7 +52,6 @@ export default function OperatorDualScanner() {
     }
   };
 
-  // Fungsi untuk Menutup Kamera & Matikan Stream
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const tracks = videoRef.current.srcObject.getTracks();
@@ -65,7 +62,6 @@ export default function OperatorDualScanner() {
     setActiveTargetField(null);
   };
 
-  // Simulasi instan penangkapan QR jika kamera fisik bermasalah / tidak ada
   const handleCaptureMockQr = () => {
     const sampleCode = activeTargetField === 'trip' ? `TRIP-${Math.floor(100000 + Math.random() * 900000)}` : `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
     

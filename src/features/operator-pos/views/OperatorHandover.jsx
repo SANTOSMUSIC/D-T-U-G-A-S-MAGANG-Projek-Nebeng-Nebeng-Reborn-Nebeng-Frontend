@@ -17,7 +17,6 @@ export default function OperatorHandover() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [handoverHistory, setHandoverHistory] = useState([]);
 
-  // State untuk Modal Force Release Darurat
   const [showForceModal, setShowForceModal] = useState(false);
   const [forceTicket, setForceTicket] = useState('');
   const [forcePosId, setForcePosId] = useState('1');
@@ -74,7 +73,6 @@ export default function OperatorHandover() {
     }
   };
 
-  // Handler untuk Intervensi Darurat (Force Release)
   const handleForceReleaseSubmit = async (e) => {
     e.preventDefault();
     if (!forceTicket.trim() || !forcePosId.trim()) {

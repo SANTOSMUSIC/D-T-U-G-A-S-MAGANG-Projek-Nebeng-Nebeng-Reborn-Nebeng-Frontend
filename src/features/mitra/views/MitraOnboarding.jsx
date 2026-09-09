@@ -64,6 +64,8 @@ export default function MitraOnboarding() {
     return () => { isMounted = false; };
   }, []);
 
+  cationStatus === 'approved';
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let nextValue = value;
@@ -293,6 +295,19 @@ export default function MitraOnboarding() {
                 <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]">
                   <option value="motor">Sepeda Motor</option>
                   <option value="mobil">Mobil / Minibus</option>
+
+                <select 
+                  name="vehicleType"
+                  value={formData.vehicleType}
+                  onChange={handleInputChange}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                >
+                  {/* FIX (kesesuaian schema): opsi "Box" dihapus — enum
+                      VehicleType di schema.prisma hanya punya `motor` dan
+                      `mobil`, dan MitraTripManagement.jsx juga cuma
+                      mendukung dua kategori ini saat bikin trip. */}
+                  <option value="Motor">Sepeda Motor</option>
+                  <option value="Mobil">Mobil / Minibus</option>
                 </select>
                 <select 
                   name="vehicleType"
