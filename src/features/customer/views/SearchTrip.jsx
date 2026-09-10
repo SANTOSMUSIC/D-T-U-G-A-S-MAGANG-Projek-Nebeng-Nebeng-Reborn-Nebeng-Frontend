@@ -43,8 +43,8 @@ export default function SearchTrip() {
 
   const [itemCategory, setItemCategory] = useState('Elektronik');
   const [itemCount, setItemCount] = useState(1);
-  const [itemWeight, setItemWeight] = useState(5);
-  const [itemSize, setItemSize] = useState('M');
+  const [itemWeight, setItemWeight] = useState(2);
+  const [itemSize, setItemSize] = useState('S');
   
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
@@ -84,23 +84,24 @@ export default function SearchTrip() {
         const params = {};
         if (origin) params.originPointId = origin;
         if (destination) params.destinationPointId = destination;
-        
         params.date = date || TODAY_ISO;
-        
-        if (serviceType === 'penumpang') {
-          params.vehicleType = 'mobil';
-        } else {
-          params.vehicleType = 'motor';
-        }
 
         const res = await apiClient.get('/trips', { params });
         if (isMounted) {
           const list = res.data?.data || res.data || [];
-          const activeList = list.filter(t => {
+          
+          const filteredByService = list.filter(t => {
             const tripDateStr = t.departureDate?.split('T')[0];
-            return tripDateStr >= TODAY_ISO;
+            const isNotPast = tripDateStr >= TODAY_ISO;
+            
+            if (serviceType === 'penumpang') {
+              return isNotPast && Number(t.seatTotal || t.seatAvailable || 0) > 0;
+            } else {
+              return isNotPast && Number(t.maxWeightCapacityKg || t.remainingWeightCapacityKg || 0) > 0;
+            }
           });
-          setTrips(activeList);
+
+          setTrips(filteredByService);
         }
       } catch (err) {
         console.error('Gagal memuat daftar trip:', err);
@@ -118,8 +119,10 @@ export default function SearchTrip() {
   const safeItemWeight = Math.max(1, itemWeight || 1);
 
   const totalAccumulatedWeight = safeItemCount * safeItemWeight;
-  const isOverWeightCapacity = serviceType === 'barang' && totalAccumulatedWeight > (selectedTrip?.remainingWeightCapacityKg || 0);
-  const maxAllowedSeats = selectedTrip?.vehicleType === 'motor' ? 1 : (selectedTrip?.seatAvailable || 1);
+  const maxAvailableWeight = selectedTrip ? Number(selectedTrip.remainingWeightCapacityKg || selectedTrip.maxWeightCapacityKg || 100) : 100;
+  const isOverWeightCapacity = serviceType === 'barang' && totalAccumulatedWeight > maxAvailableWeight;
+  
+  const maxAllowedSeats = selectedTrip ? Number(selectedTrip.seatAvailable || selectedTrip.seatTotal || 1) : 1;
   const isOverSeatCapacity = serviceType === 'penumpang' && (safeSeatCount > maxAllowedSeats);
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
@@ -152,8 +155,8 @@ export default function SearchTrip() {
     setPassengerPhone('');
     setItemCategory('Elektronik');
     setItemCount(1);
-    setItemWeight(7);
-    setItemSize('M');
+    setItemWeight(2);
+    setItemSize('S');
     setReceiverName('');
     setReceiverPhone('');
   };
@@ -399,7 +402,7 @@ export default function SearchTrip() {
                   <div className="flex flex-wrap gap-3 text-[9px] text-neutral-400 font-medium">
                     <span>📅 Tanggal: <strong className="text-neutral-700">{trip.departureDate?.split('T')[0]}</strong></span>
                     <span>🚗 Kendaraan: <strong className="text-neutral-700">{trip.vehicle ? `${trip.vehicle.model} (${trip.vehicle.plateNumber})` : '-'}</strong></span>
-                    <span>⚡ Sisa Kapasitas: <strong className="text-[#4B2172]">{serviceType === 'penumpang' ? `${trip.seatAvailable} Kursi` : `${trip.remainingWeightCapacityKg} kg`}</strong></span>
+                    <span>⚡ Sisa Kapasitas: <strong className="text-[#4B2172]">{serviceType === 'penumpang' ? `${trip.seatAvailable ?? trip.seatTotal} Kursi` : `${trip.remainingWeightCapacityKg ?? trip.maxWeightCapacityKg} kg`}</strong></span>
                   </div>
                 </div>
 
@@ -576,7 +579,7 @@ export default function SearchTrip() {
                 </div>
 
                 {isOverWeightCapacity && (
-                  <p className="text-[8px] text-rose-600 font-bold">⚠️ Total berat ({totalAccumulatedWeight} Kg) melebihi kapasitas sisa bagasi ({selectedTrip?.remainingWeightCapacityKg} Kg).</p>
+                  <p className="text-[8px] text-rose-600 font-bold">⚠️ Total berat ({totalAccumulatedWeight} Kg) melebihi kapasitas sisa bagasi ({maxAvailableWeight} Kg).</p>
                 )}
               </>
             )}

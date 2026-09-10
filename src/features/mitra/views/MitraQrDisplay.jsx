@@ -16,8 +16,8 @@ export default function MitraQrDisplay() {
   const [qrError, setQrError] = useState(false);
   const canvasRef = useRef(null);
 
-  // Ambil daftar trip milik mitra secara aman di dalam useEffect
   useEffect(() => {
+    let isMounted = true;
     const fetchMitraTrips = async () => {
       setIsLoading(true);
       try {
@@ -33,6 +33,7 @@ export default function MitraQrDisplay() {
           return isOwner && isActive;
         });
 
+        if (!isMounted) return;
         setTrips(myActiveTrips);
         if (myActiveTrips.length > 0 && !selectedTripId) {
           setSelectedTripId(myActiveTrips[0].id);
@@ -41,16 +42,17 @@ export default function MitraQrDisplay() {
         console.error('Gagal memuat trip aktif:', err);
         toast.error('Gagal menyambungkan data QR ke server.', { title: 'Error' });
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchMitraTrips();
+    return () => { isMounted = false; };
   }, [toast, selectedTripId]);
 
   const current = trips.find((t) => String(t.id) === String(selectedTripId));
 
-  // Auto-refresh token dinamis setiap 30 detik untuk keamanan QR
+  // Auto-refresh token dinamis setiap 30 detik untuk keamanan anti-spoofing
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -65,7 +67,6 @@ export default function MitraQrDisplay() {
     return () => clearInterval(timer);
   }, [selectedTripId]);
 
-  // Render QR ke canvas secara lokal
   useEffect(() => {
     if (!current || !canvasRef.current) return;
     const qrPayload = `TRIP-${current.id}|Route:${current.originPoint?.name}->${current.destinationPoint?.name}|TS:${dynamicToken}`;
@@ -78,6 +79,7 @@ export default function MitraQrDisplay() {
   const handleManualRefresh = () => {
     setDynamicToken(`TOKEN-${Math.floor(1000 + Math.random() * 9000)}`);
     setCountdown(30);
+    toast.success('Token QR berhasil diperbarui secara manual!', { title: 'Refresh Berhasil' });
   };
 
   return (

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ShieldCheck, UserCheck, AlertTriangle, Unlock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShieldCheck, UserCheck, AlertTriangle, Unlock, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
@@ -11,18 +11,46 @@ export default function OperatorHandover() {
   const [recipientName, setRecipientName] = useState('');
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  const [posId, setPosId] = useState('1');
+  const [posId, setPosId] = useState('');
+  const [assignedPosName, setAssignedPosName] = useState('Memuat Pos...');
   const [otpCode, setOtpCode] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [handoverHistory, setHandoverHistory] = useState([]);
 
-  // State untuk Modal Force Release Darurat
   const [showForceModal, setShowForceModal] = useState(false);
   const [forceTicket, setForceTicket] = useState('');
-  const [forcePosId, setForcePosId] = useState('1');
   const [forceOtp, setForceOtp] = useState('');
   const [isForcing, setIsForcing] = useState(false);
+
+  // Auto-detect Pos ID dan Nama Pos dari profil operator yang login
+  useEffect(() => {
+    const fetchOperatorPos = async () => {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        const userId = userRes.data?.id;
+
+        const pointsRes = await apiClient.get('/pickup-points');
+        const allPoints = pointsRes.data?.data || pointsRes.data || [];
+        
+        const myPos = allPoints.find(p => String(p.operatorId) === String(userId)) || allPoints[0];
+
+        if (myPos) {
+          setPosId(String(myPos.id));
+          setAssignedPosName(myPos.name || `Pos ID: ${myPos.id}`);
+        } else {
+          setPosId('1');
+          setAssignedPosName('Pos Utama (ID: 1)');
+        }
+      } catch (err) {
+        console.error('Gagal mendeteksi pos operator otomatis:', err);
+        setPosId('1');
+        setAssignedPosName('Pos Utama (ID: 1)');
+      }
+    };
+
+    fetchOperatorPos();
+  }, []);
 
   const handleHandoverSubmit = async (e) => {
     e.preventDefault();
@@ -74,11 +102,10 @@ export default function OperatorHandover() {
     }
   };
 
-  // Handler untuk Intervensi Darurat (Force Release)
   const handleForceReleaseSubmit = async (e) => {
     e.preventDefault();
-    if (!forceTicket.trim() || !forcePosId.trim()) {
-      toast.warning('Nomor Tiket dan ID Pos wajib diisi untuk force release!', { title: 'Data Kurang' });
+    if (!forceTicket.trim()) {
+      toast.warning('Nomor Tiket wajib diisi untuk force release!', { title: 'Data Kurang' });
       return;
     }
 
@@ -86,7 +113,7 @@ export default function OperatorHandover() {
       setIsForcing(true);
       const payload = {
         qrCodeTicket: forceTicket.trim().toUpperCase(),
-        posId: String(forcePosId),
+        posId: String(posId),
         ...(forceOtp ? { otpClaim: forceOtp.trim() } : {})
       };
 
@@ -122,33 +149,31 @@ export default function OperatorHandover() {
           </p>
         </div>
 
-        {/* Tombol Intervensi Darurat */}
-        <button
-          type="button"
-          onClick={() => setShowForceModal(true)}
-          className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
-        >
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>Bantuan Darurat (Force Release HP Rusak)</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Indikator Pos Otomatis */}
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-purple-50 border border-purple-100 rounded-xl shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-[#4B2172]" />
+            <div>
+              <p className="text-[8px] font-bold text-neutral-400 uppercase">Pos Penugasan</p>
+              <p className="text-[10px] font-bold text-[#4B2172]">{assignedPosName}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowForceModal(true)}
+            className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Bantuan Darurat</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h2 className="text-[14px] font-bold text-neutral-800">Form Serah Terima Paket</h2>
           <form onSubmit={handleHandoverSubmit} className="space-y-3.5 text-[10px]">
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS BERTUGAS</label>
-              <input
-                type="text"
-                required
-                placeholder="cth: 1"
-                value={posId}
-                onChange={(e) => setPosId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px]"
-              />
-            </div>
-
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">NAMA PENERIMA</label>
               <input
@@ -257,7 +282,6 @@ export default function OperatorHandover() {
         </div>
       </div>
 
-      {/* Modal Intervensi Darurat Force Release */}
       <BaseModal
         isOpen={showForceModal}
         onClose={() => setShowForceModal(false)}
@@ -267,18 +291,7 @@ export default function OperatorHandover() {
       >
         <form onSubmit={handleForceReleaseSubmit} className="space-y-3 text-[10px]">
           <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-amber-800 text-[9px]">
-            <strong>Perhatian:</strong> Tindakan ini akan memaksa pencairan dana escrow dan menyelesaikan pesanan berdasarkan verifikasi manual KTP di pos.
-          </div>
-
-          <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS BERTUGAS</label>
-            <input
-              type="text"
-              required
-              value={forcePosId}
-              onChange={(e) => setForcePosId(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 font-mono text-[10px]"
-            />
+            <strong>Perhatian:</strong> Tindakan ini akan memaksa pencairan dana escrow berdasarkan verifikasi manual KTP di pos.
           </div>
 
           <div>

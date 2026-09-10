@@ -31,14 +31,12 @@ export default function MyTickets() {
   const [qrCountdown, setQrCountdown] = useState(30);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // State Fitur Chat Backend
   const [chatConversationId, setChatConversationId] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessageText, setNewMessageText] = useState('');
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const chatBottomRef = useRef(null);
 
-  // Gunakan useRef agar nilai conversationId selalu sinkron di dalam setInterval polling
   const conversationIdRef = useRef(chatConversationId);
   useEffect(() => {
     conversationIdRef.current = chatConversationId;
@@ -46,13 +44,12 @@ export default function MyTickets() {
 
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
-  // Mengambil Data Pesanan dan Reward secara aman di dalam useEffect
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
-      // 1. Fetch Daftar Pesanan/Tiket dari Backend (GET /orders/me)
       setIsLoadingTickets(true);
       try {
         const res = await apiClient.get('/orders/me');
@@ -63,6 +60,7 @@ export default function MyTickets() {
             const origin = trip.originPoint?.name || 'Pos Asal';
             const destination = trip.destinationPoint?.name || 'Pos Tujuan';
             const mitraName = trip.mitra?.name || 'Mitra';
+            const mitraId = trip.mitraId || trip.mitra?.id || null;
             const vehicleModel = trip.vehicle ? `${trip.vehicle.model} (${trip.vehicle.plateNumber})` : 'Kendaraan Resmi';
 
             let statusText = 'Aktif';
@@ -77,6 +75,7 @@ export default function MyTickets() {
               id: order.id,
               rawId: order.id,
               tripId: trip.id,
+              revieweeId: mitraId,
               customerId: order.customerId,
               type: order.type,
               title: isParcel ? `Nebeng Barang (${order.itemOrders?.[0]?.itemCategory || 'Paket'})` : 'Nebeng Penumpang',
@@ -112,7 +111,6 @@ export default function MyTickets() {
         if (isMounted) setIsLoadingTickets(false);
       }
 
-      // 2. Fetch Reward & Poin dari Backend (GET /rewards/me)
       setIsLoadingRewards(true);
       try {
         const resReward = await apiClient.get('/rewards/me');
@@ -136,7 +134,6 @@ export default function MyTickets() {
     };
   }, [toast]);
 
-  // Polling Pesan Otomatis (Real-time update menggunakan useRef agar sinkron)
   useEffect(() => {
     if (activeModalType !== 'chat') return;
 
@@ -215,6 +212,7 @@ export default function MyTickets() {
         const origin = trip.originPoint?.name || 'Pos Asal';
         const destination = trip.destinationPoint?.name || 'Pos Tujuan';
         const mitraName = trip.mitra?.name || 'Mitra';
+        const mitraId = trip.mitraId || trip.mitra?.id || null;
         const vehicleModel = trip.vehicle ? `${trip.vehicle.model} (${trip.vehicle.plateNumber})` : 'Kendaraan Resmi';
 
         let statusText = 'Aktif';
@@ -229,6 +227,7 @@ export default function MyTickets() {
           id: order.id,
           rawId: order.id,
           tripId: trip.id,
+          revieweeId: mitraId,
           customerId: order.customerId,
           type: order.type,
           title: isParcel ? `Nebeng Barang (${order.itemOrders?.[0]?.itemCategory || 'Paket'})` : 'Nebeng Penumpang',
@@ -324,10 +323,34 @@ export default function MyTickets() {
     }
   };
 
-  const submitReview = (e) => {
+  // DIPERBAIKI: Mengirim ulasan langsung ke backend `/reviews` dengan parameter tripId dan revieweeId
+  const submitReview = async (e) => {
     e.preventDefault();
-    setActiveModalType(null);
-    toast.success('Ulasan berhasil dikirim!', { title: 'Terkirim' });
+    if (!selectedTicket || isSubmittingReview) return;
+
+    try {
+      setIsSubmittingReview(true);
+      const payload = {
+        tripId: String(selectedTicket.tripId),
+        revieweeId: String(selectedTicket.revieweeId),
+        rating: Number(rating),
+        comment: reviewText.trim() || undefined,
+      };
+
+      await apiClient.post('/reviews', payload);
+
+      toast.success('Ulasan dan rating berhasil dikirim ke mitra!', { title: 'Sukses' });
+      setActiveModalType(null);
+      setSelectedTicket(null);
+      setReviewText('');
+      setRating(5);
+      refreshData();
+    } catch (err) {
+      console.error('Gagal mengirim ulasan:', err);
+      toast.error(err.response?.data?.message || 'Gagal mengirim ulasan ke server.', { title: 'Error' });
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   return (
@@ -552,7 +575,6 @@ export default function MyTickets() {
         </div>
       )}
 
-      {/* MODAL CHAT TERINTEGRASI BACKEND */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'chat')}
         onClose={() => {
@@ -608,7 +630,6 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      {/* Modal QR Code */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'qr')}
         onClose={() => setSelectedTicket(null)}
@@ -641,7 +662,6 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      {/* Modal Detail & Tracking */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'detail')}
         onClose={() => setSelectedTicket(null)}
@@ -686,7 +706,6 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      {/* Modal Review */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'review')}
         onClose={() => setSelectedTicket(null)}
@@ -726,21 +745,22 @@ export default function MyTickets() {
             <button
               type="button"
               onClick={() => setSelectedTicket(null)}
+              disabled={isSubmittingReview}
               className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition cursor-pointer shadow-sm"
+              disabled={isSubmittingReview}
+              className="flex-1 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
             >
-              Kirim Ulasan
+              {isSubmittingReview ? 'Mengirim...' : 'Kirim Ulasan'}
             </button>
           </div>
         </form>
       </BaseModal>
 
-      {/* Modal Pembatalan Tiket */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'cancel')}
         onClose={() => { if (!isCancelling) setSelectedTicket(null); }}

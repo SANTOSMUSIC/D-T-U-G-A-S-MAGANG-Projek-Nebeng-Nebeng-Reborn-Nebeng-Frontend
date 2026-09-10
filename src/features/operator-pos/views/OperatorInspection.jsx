@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { PackageCheck, Camera, QrCode, X as XIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { PackageCheck, Camera, QrCode, X as XIcon, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import { operatorService } from '../../../services/operatorService';
+import apiClient from '../../../services/apiClient';
 
 export default function OperatorInspection() {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [assignedPosName, setAssignedPosName] = useState('Memuat Pos...');
+  const [isPosReady, setIsPosReady] = useState(false);
+  
   const [formData, setFormData] = useState({
     qrCodeTrip: '',
     qrCodeTicket: '',
@@ -19,7 +23,41 @@ export default function OperatorInspection() {
   const [latestScanResult, setLatestScanResult] = useState(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // Fungsi utilitas untuk kompresi gambar agar ramah jaringan pos yang lambat
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOperatorPos = async () => {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        const userId = userRes.data?.id;
+
+        const pointsRes = await apiClient.get('/pickup-points');
+        const allPoints = pointsRes.data?.data || pointsRes.data || [];
+        
+        const myPos = allPoints.find(p => String(p.operatorId) === String(userId)) || allPoints[0];
+
+        if (!isMounted) return;
+
+        if (myPos && myPos.id) {
+          setFormData(prev => ({ ...prev, posId: String(myPos.id) }));
+          setAssignedPosName(myPos.name || `Pos ID: ${myPos.id}`);
+          setIsPosReady(true);
+        } else {
+          setAssignedPosName('Pos Belum Ditugaskan');
+          setIsPosReady(false);
+        }
+      } catch (err) {
+        console.error('Gagal mendeteksi pos operator otomatis:', err);
+        if (isMounted) {
+          setAssignedPosName('Gagal Memuat Pos');
+          setIsPosReady(false);
+        }
+      }
+    };
+
+    fetchOperatorPos();
+    return () => { isMounted = false; };
+  }, []);
+
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -57,7 +95,7 @@ export default function OperatorInspection() {
               lastModified: Date.now(),
             });
             resolve(compressedFile);
-          }, 'image/jpeg', 0.7); // Kualitas kompresi 70%
+          }, 'image/jpeg', 0.7);
         };
       };
     });
@@ -72,9 +110,7 @@ export default function OperatorInspection() {
 
     try {
       setIsCompressing(true);
-      toast.info('Mengompresi ukuran foto agar cepat terkirim...', { title: 'Optimalisasi' });
       const optimizedFile = await compressImage(file);
-      
       setItemPhoto(optimizedFile);
       setItemPhotoPreviewUrl((prevUrl) => {
         if (prevUrl) URL.revokeObjectURL(prevUrl);
@@ -90,8 +126,13 @@ export default function OperatorInspection() {
 
   const handleScanAndSeal = async (e) => {
     e.preventDefault();
+    if (!isPosReady || !formData.posId) {
+      toast.error('ID Pos operasional tidak terdeteksi. Hubungi Admin Regional.', { title: 'Akses Ditolak' });
+      return;
+    }
+
     if (!itemPhoto) {
-      toast.warning('Wajib mengunggah foto fisik barang sebelum melakukan sealing & check-in!', { title: 'Foto Diperlukan' });
+      toast.warning('Wajib mengunggah foto fisik barang sebelum sealing & check-in!', { title: 'Foto Diperlukan' });
       return;
     }
 
@@ -101,24 +142,24 @@ export default function OperatorInspection() {
       const payload = {
         qrCodeTrip: formData.qrCodeTrip.trim().toUpperCase(),
         qrCodeTicket: formData.qrCodeTicket.trim().toUpperCase(),
-        posId: formData.posId.trim(),
+        posId: String(formData.posId),
         scanType: 'checkin_origin',
-        securitySealQr: formData.securitySealQr.trim() || `SEAL-${Math.floor(100000 + Math.random() * 900000)}`
+        securitySealQr: formData.securitySealQr.trim().toUpperCase() || `SEAL-${Math.floor(100000 + Math.random() * 900000)}`
       };
 
       const response = await operatorService.scanCheckpoint(payload);
 
       setLatestScanResult({
-        id: response.checkpoint?.id || 'CHK-' + Date.now().toString().slice(-4),
+        id: response.checkpoint?.id ? String(response.checkpoint.id) : 'CHK-' + Date.now().toString().slice(-4),
         trip: response.checkpoint?.trip?.qrCodeTrip || formData.qrCodeTrip,
         order: response.checkpoint?.order?.qrCodeTiket || formData.qrCodeTicket,
         status: 'Check-in Asal & Segel Aktif',
         date: 'Baru saja'
       });
 
-      setFormData({ qrCodeTrip: '', qrCodeTicket: '', posId: '', securitySealQr: '' });
+      setFormData(prev => ({ ...prev, qrCodeTrip: '', qrCodeTicket: '', securitySealQr: '' }));
       handlePhotoFileChange(null);
-      toast.success(response.message || 'Check-in Pos Asal dan Segel QR berhasil dicatat ke database!', { title: 'Berhasil' });
+      toast.success(response.message || 'Check-in Pos Asal dan Segel QR berhasil dicatat!', { title: 'Berhasil' });
     } catch (error) {
       console.error('Gagal melakukan scan checkpoint:', error);
       toast.error(error.response?.data?.message || 'Gagal memproses ke server backend.', { title: 'Error Server' });
@@ -144,6 +185,14 @@ export default function OperatorInspection() {
             Validasi fisik paket pos asal, unggah foto kondisi, dan sinkronkan segel QR langsung ke database.
           </p>
         </div>
+
+        <div className={`flex items-center gap-2 px-3.5 py-2 border rounded-xl shrink-0 ${isPosReady ? 'bg-purple-50 border-purple-100 text-[#4B2172]' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+          {isPosReady ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+          <div>
+            <p className="text-[8px] font-bold uppercase opacity-70">Pos Penugasan Anda</p>
+            <p className="text-[10px] font-bold">{assignedPosName}</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -159,7 +208,7 @@ export default function OperatorInspection() {
                 required
                 placeholder="cth: TRIP-A2D4CS13"
                 value={formData.qrCodeTrip}
-                onChange={(e) => setFormData({...formData, qrCodeTrip: e.target.value})}
+                onChange={(e) => setFormData({...formData, qrCodeTrip: e.target.value.toUpperCase()})}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] uppercase font-mono"
               />
             </div>
@@ -173,22 +222,8 @@ export default function OperatorInspection() {
                 required
                 placeholder="cth: TKT-SDJF12H"
                 value={formData.qrCodeTicket}
-                onChange={(e) => setFormData({...formData, qrCodeTicket: e.target.value})}
+                onChange={(e) => setFormData({...formData, qrCodeTicket: e.target.value.toUpperCase()})}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] uppercase font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS TEMPAT BERTUGAS
-              </label>
-              <input 
-                type="text" 
-                required
-                placeholder="cth: 1"
-                value={formData.posId}
-                onChange={(e) => setFormData({...formData, posId: e.target.value})}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] font-mono"
               />
             </div>
 
@@ -198,10 +233,10 @@ export default function OperatorInspection() {
               </label>
               {itemPhotoPreviewUrl ? (
                 <div className="flex items-center gap-2.5 p-2 rounded-xl border border-neutral-200 bg-neutral-50">
-                  <img src={itemPhotoPreviewUrl} alt="Pratinjau Barang" className="w-12 h-12 object-cover rounded-lg border border-neutral-200 shrink-0" />
+                  <img src={itemPhotoPreviewUrl} alt="Pratinjau" className="w-12 h-12 object-cover rounded-lg border border-neutral-200 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[9px] font-bold text-emerald-600">
-                      {isCompressing ? 'Mengompresi Foto...' : 'Foto Siap Dikirim'}
+                      {isCompressing ? 'Mengompresi...' : 'Foto Siap Dikirim'}
                     </p>
                     <p className="text-[8px] text-neutral-400 truncate">{itemPhoto?.name}</p>
                   </div>
@@ -233,7 +268,7 @@ export default function OperatorInspection() {
                   type="text" 
                   placeholder="Opsional / Auto"
                   value={formData.securitySealQr}
-                  onChange={(e) => setFormData({...formData, securitySealQr: e.target.value})}
+                  onChange={(e) => setFormData({...formData, securitySealQr: e.target.value.toUpperCase()})}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] font-mono uppercase"
                 />
                 <button 
@@ -248,7 +283,7 @@ export default function OperatorInspection() {
 
             <button 
               type="submit"
-              disabled={isLoading || isCompressing}
+              disabled={isLoading || isCompressing || !isPosReady}
               className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer mt-1 disabled:opacity-50"
             >
               {isLoading ? 'Memproses ke Server...' : 'Kunci & Check-in Asal'}

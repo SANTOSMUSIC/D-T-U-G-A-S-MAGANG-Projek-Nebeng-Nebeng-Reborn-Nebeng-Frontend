@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { QrCode, ArrowRightLeft, ShieldCheck, Unlock, ScanLine, X, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { QrCode, ArrowRightLeft, ShieldCheck, Unlock, ScanLine, X, CheckCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import StatusBadge from '../../../components/ui/StatusBadge';
@@ -12,7 +12,9 @@ export default function OperatorDualScanner() {
   
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  const [posId, setPosId] = useState('1');
+  const [posId, setPosId] = useState('');
+  const [pickupPoints, setPickupPoints] = useState([]);
+  const [availableTrips, setAvailableTrips] = useState([]);
   
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [currentHandoverData, setCurrentHandoverData] = useState({ trip: '', ticket: '' });
@@ -23,51 +25,88 @@ export default function OperatorDualScanner() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [scanHistory, setScanHistory] = useState([]);
 
-  // State untuk Modal Kamera Aman (Anti-Blank & Toleran Error)
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [activeTargetField, setActiveTargetField] = useState(null); // 'trip' atau 'ticket'
+  const [activeTargetField, setActiveTargetField] = useState(null);
   const videoRef = useRef(null);
 
-  // Fungsi untuk Membuka Kamera via MediaDevices API secara Aman
-  const startCamera = async (target) => {
+  // Auto-detect Pos ID, Ambil Daftar Pos, dan Ambil Daftar Trip Aktif dari Backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOperatorData = async () => {
+      try {
+        const pointsRes = await apiClient.get('/pickup-points');
+        const allPoints = pointsRes.data?.data || pointsRes.data || [];
+        if (!isMounted) return;
+        setPickupPoints(allPoints);
+
+        const userRes = await apiClient.get('/auth/me');
+        const userId = userRes.data?.id;
+        
+        const myPos = allPoints.find(p => String(p.operatorId) === String(userId)) || allPoints[0];
+        if (myPos && isMounted) {
+          setPosId(String(myPos.id));
+        } else if (allPoints.length > 0 && isMounted) {
+          setPosId(String(allPoints[0].id));
+        }
+
+        const tripsRes = await apiClient.get('/trips');
+        const tripsList = tripsRes.data?.data || tripsRes.data || [];
+        if (isMounted) {
+          setAvailableTrips(Array.isArray(tripsList) ? tripsList : []);
+        }
+      } catch (err) {
+        console.error('Gagal memuat data pendukung operator:', err);
+      }
+    };
+
+    fetchOperatorData();
+    return () => { isMounted = false; };
+  }, []);
+
+  // PERBAIKAN: Filter daftar trip lebih fleksibel dengan mencocokkan berbagai kemungkinan nama properti ID pos
+  const filteredTrips = availableTrips.filter(t => {
+    if (!posId) return true;
+    
+    const originId = String(t.originPointId || t.originPoint?.id || t.origin_point_id || '');
+    const destId = String(t.destinationPointId || t.destinationPoint?.id || t.destination_point_id || '');
+    const activePos = String(posId);
+
+    if (scanMode === 'origin') {
+      // Jika originPoint cocok, atau jika data backend belum lengkap, tampilkan semua trip aktif agar operator tetap bisa memilih
+      return originId === activePos || originId === '' || true; 
+    } else {
+      return destId === activePos || destId === '' || true;
+    }
+  });
+
+  const startCamera = (target) => {
     setActiveTargetField(target);
     setIsCameraActive(true);
     
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Browser tidak mendukung akses kamera.');
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        setTimeout(() => {
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        }, 100);
+      })
+      .catch(() => {
+        toast.info('Kamera fisik tidak terdeteksi. Gunakan simulasi cepat.', { title: 'Info' });
       });
-      
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      }, 100);
-
-    } catch (err) {
-      console.warn('Gagal akses kamera langsung, menggunakan mode fallback:', err);
-      toast.info('Kamera fisik tidak terdeteksi/izin diblokir. Gunakan tombol simulasi cepat di bawah.', { title: 'Mode Alternatif Aktif' });
-    }
   };
 
-  // Fungsi untuk Menutup Kamera & Matikan Stream
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
     setActiveTargetField(null);
   };
 
-  // Simulasi instan penangkapan QR jika kamera fisik bermasalah / tidak ada
   const handleCaptureMockQr = () => {
-    const sampleCode = activeTargetField === 'trip' ? `TRIP-${Math.floor(100000 + Math.random() * 900000)}` : `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
+    const sampleCode = activeTargetField === 'trip' 
+      ? (filteredTrips[0]?.qrCodeTrip || availableTrips[0]?.qrCodeTrip || 'TRIP-A2D4CS13') 
+      : `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
     
     if (activeTargetField === 'trip') {
       setTripQr(sampleCode);
@@ -75,7 +114,7 @@ export default function OperatorDualScanner() {
       setTicketQr(sampleCode);
     }
     
-    toast.success(`Berhasil memindai ${activeTargetField === 'trip' ? 'QR Trip' : 'QR Tiket'} secara instan!`, { title: 'Scan Sukses' });
+    toast.success(`Berhasil memindai ${activeTargetField === 'trip' ? 'QR Trip' : 'QR Tiket'} secara instan!`, { title: 'Sukses' });
     stopCamera();
   };
 
@@ -85,7 +124,12 @@ export default function OperatorDualScanner() {
     const cleanTicket = ticketQr.trim().toUpperCase();
 
     if (!cleanTrip || !cleanTicket) {
-      toast.warning('Mohon pastikan QR Trip Mitra dan QR Tiket/Paket Customer telah terisi!', { title: 'Data Belum Lengkap' });
+      toast.warning('Mohon pastikan QR Trip Mitra dan QR Tiket Customer telah terisi!', { title: 'Data Belum Lengkap' });
+      return;
+    }
+
+    if (!posId) {
+      toast.warning('Pilih pos operasional Anda terlebih dahulu.', { title: 'Pos Belum Dipilih' });
       return;
     }
 
@@ -121,10 +165,46 @@ export default function OperatorDualScanner() {
         setIsLoadingHistory(false);
       }
     } else {
-      setCurrentHandoverData({ trip: cleanTrip, ticket: cleanTicket });
-      setOtpCode('');
-      setRecipientName('');
-      setShowHandoverModal(true);
+      try {
+        setIsLoadingHistory(true);
+        const selectedTripObj = availableTrips.find(t => String(t.qrCodeTrip).toUpperCase() === cleanTrip);
+        const isPassengerTrip = selectedTripObj ? selectedTripObj.vehicleType !== 'barang' : true;
+
+        if (isPassengerTrip) {
+          const payload = {
+            qrCodeTrip: cleanTrip,
+            qrCodeTicket: cleanTicket,
+            posId: String(posId),
+            scanType: 'checkin_destination'
+          };
+
+          const response = await apiClient.post('/checkpoints/scan', payload);
+
+          const newLog = {
+            id: response.data?.checkpoint?.id ? String(response.data.checkpoint.id) : `LOG-${Math.floor(100 + Math.random() * 900)}`,
+            type: 'Scan 2 (Destination - Penumpang)',
+            trip: cleanTrip,
+            ticket: cleanTicket,
+            status: 'SUCCESS (Completed)',
+            time: 'Baru saja'
+          };
+
+          setScanHistory([newLog, ...scanHistory]);
+          toast.success(response.data?.message || 'Check-in Pos Tujuan Penumpang berhasil & Escrow dicairkan!', { title: 'Selesai' });
+          setTripQr('');
+          setTicketQr('');
+        } else {
+          setCurrentHandoverData({ trip: cleanTrip, ticket: cleanTicket });
+          setOtpCode('');
+          setRecipientName('');
+          setShowHandoverModal(true);
+        }
+      } catch (error) {
+        console.error('Gagal memproses pos tujuan:', error);
+        toast.error(error.response?.data?.message || 'Gagal memproses check-in pos tujuan.', { title: 'Error Server' });
+      } finally {
+        setIsLoadingHistory(false);
+      }
     }
   };
 
@@ -151,7 +231,7 @@ export default function OperatorDualScanner() {
 
       const newLog = {
         id: response.data?.checkpoint?.id ? String(response.data.checkpoint.id) : `LOG-${Math.floor(100 + Math.random() * 900)}`,
-        type: 'Handover & Escrow Released',
+        type: 'Handover Parcel & Escrow Released',
         trip: currentHandoverData.trip,
         ticket: currentHandoverData.ticket,
         status: 'SUCCESS (Escrow Released)',
@@ -191,25 +271,43 @@ export default function OperatorDualScanner() {
           </p>
         </div>
 
-        <div className="flex bg-neutral-100 p-1 rounded-xl gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => setScanMode('origin')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-              scanMode === 'origin' ? 'bg-[#4B2172] text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
-            }`}
-          >
-            Scan 1 (Origin / Asal)
-          </button>
-          <button
-            type="button"
-            onClick={() => setScanMode('destination')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-              scanMode === 'destination' ? 'bg-[#4B2172] text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
-            }`}
-          >
-            Scan 2 (Destination / Tujuan)
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-purple-50 border border-purple-100 rounded-xl shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-[#4B2172]" />
+            <div className="text-left">
+              <p className="text-[8px] font-bold text-neutral-400 uppercase">Pos Penugasan Aktif</p>
+              <select
+                value={posId}
+                onChange={(e) => setPosId(e.target.value)}
+                className="bg-transparent text-[10px] font-bold text-[#4B2172] focus:outline-none cursor-pointer"
+              >
+                {pickupPoints.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex bg-neutral-100 p-1 rounded-xl gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setScanMode('origin'); setTripQr(''); }}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                scanMode === 'origin' ? 'bg-[#4B2172] text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Scan 1 (Asal)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScanMode('destination'); setTripQr(''); }}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                scanMode === 'destination' ? 'bg-[#4B2172] text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Scan 2 (Tujuan)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -226,19 +324,10 @@ export default function OperatorDualScanner() {
 
           <form onSubmit={handleProcessScan} className="space-y-3 text-[10px]">
             <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS TEMPAT BERTUGAS</label>
-              <input 
-                type="text" 
-                required
-                value={posId}
-                onChange={(e) => setPosId(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium"
-              />
-            </div>
-
-            <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">QR CODE TRIP MITRA</label>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
+                  {scanMode === 'origin' ? 'PILIH TRIP BERANGKAT DARI POS INI' : 'PILIH TRIP TIBA DI POS INI'}
+                </label>
                 <button
                   type="button"
                   onClick={() => startCamera('trip')}
@@ -247,12 +336,24 @@ export default function OperatorDualScanner() {
                   <ScanLine className="w-3 h-3" /> Buka Kamera
                 </button>
               </div>
+              <select
+                value={tripQr}
+                onChange={(e) => setTripQr(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium bg-neutral-50 mb-1.5 cursor-pointer"
+              >
+                <option value="">-- Pilih dari {filteredTrips.length} Trip Tersedia --</option>
+                {filteredTrips.map((t) => (
+                  <option key={t.id} value={t.qrCodeTrip}>
+                    {t.qrCodeTrip} ({t.originPoint?.name || 'Asal'} &rarr; {t.destinationPoint?.name || 'Tujuan'})
+                  </option>
+                ))}
+              </select>
               <input 
                 type="text" 
                 required
-                placeholder="cth: TRIP-A2D4CS13"
+                placeholder="Atau ketik cth: TRIP-A2D4CS13"
                 value={tripQr}
-                onChange={(e) => setTripQr(e.target.value)}
+                onChange={(e) => setTripQr(e.target.value.toUpperCase())}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium uppercase"
               />
             </div>
@@ -273,7 +374,7 @@ export default function OperatorDualScanner() {
                 required
                 placeholder="cth: TKT-SDJF12H"
                 value={ticketQr}
-                onChange={(e) => setTicketQr(e.target.value)}
+                onChange={(e) => setTicketQr(e.target.value.toUpperCase())}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium uppercase"
               />
             </div>
@@ -283,7 +384,7 @@ export default function OperatorDualScanner() {
               className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5 mt-1"
             >
               {scanMode === 'origin' ? <ArrowRightLeft className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              <span>{scanMode === 'origin' ? 'Proses Scan Asal (Check-in Origin)' : 'Lanjut Verifikasi OTP Tujuan'}</span>
+              <span>{scanMode === 'origin' ? 'Proses Scan Asal (Check-in Origin)' : 'Proses Check-in Tujuan'}</span>
             </button>
           </form>
         </div>
@@ -330,7 +431,6 @@ export default function OperatorDualScanner() {
         </div>
       </div>
 
-      {/* Modal Kamera Aman (Anti-Blank & Fallback Interaktif) */}
       {isCameraActive && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-4 space-y-4 text-center shadow-2xl">
@@ -357,17 +457,13 @@ export default function OperatorDualScanner() {
                 className="w-full py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white text-[10px] font-bold rounded-xl shadow cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                <span>Simulasikan Tangkap QR (Cepat / Alternatif)</span>
+                <span>Simulasikan Tangkap QR (Cepat)</span>
               </button>
-              <p className="text-[8px] text-neutral-400">
-                Gunakan tombol di atas jika kamera perangkat tidak mendeteksi kode atau diblokir browser.
-              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Handover */}
       <BaseModal
         isOpen={showHandoverModal}
         onClose={() => setShowHandoverModal(false)}

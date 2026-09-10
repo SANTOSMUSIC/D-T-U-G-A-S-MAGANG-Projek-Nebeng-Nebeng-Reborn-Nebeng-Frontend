@@ -1,45 +1,85 @@
-import { useState } from 'react';
-import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, History, Eye, EyeOff, Pencil, Clock3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Wallet, Lock, ArrowUpRight, Building2, CheckCircle2, Eye, EyeOff, Pencil } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
-import { useMitraData } from '../../../context/MitraDataContext';
-
-const STATUS_LABEL = { 'Aktif': 'Menunggu Keberangkatan', 'In Transit': 'Dalam Perjalanan (Escrow Hold)' };
+import apiClient from '../../../services/apiClient';
 
 export default function MitraBalance() {
   const toast = useToast();
-  const {
-    trips,
-    availableBalance,
-    escrowHold,
-    walletHistory,
-    bankInfo,
-    setBankInfo,
-    requestWithdrawal,
-  } = useMitraData();
 
+  const [walletData, setWalletData] = useState({ balance: 0, heldEscrowBalance: 0, transactions: [] });
+  const [trips, setTrips] = useState([]);
+  const [bankInfo, setBankInfo] = useState({ bankName: '', accountNumber: '', accountHolder: '' });
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [showAccountPii, setShowAccountPii] = useState(false);
   const [isEditingBank, setIsEditingBank] = useState(false);
-  const [bankDraft, setBankDraft] = useState(bankInfo);
+  const [bankDraft, setBankDraft] = useState({ bankName: '', accountNumber: '', accountHolder: '' });
   const MIN_WITHDRAWAL = 50000;
 
-  const escrowTransactions = trips.filter((t) => t.status === 'Aktif' || t.status === 'In Transit');
+  // Ambil data dompet, profil rekening, dan trip aktif langsung dari backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBalanceData = async () => {
+      setIsLoading(true);
+      try {
+        const [walletRes, userRes, tripsRes] = await Promise.all([
+          apiClient.get('/wallets/me'),
+          apiClient.get('/auth/me'),
+          apiClient.get('/trips')
+        ]);
+
+        if (!isMounted) return;
+
+        setWalletData(walletRes.data || { balance: 0, heldEscrowBalance: 0, transactions: [] });
+
+        const profile = userRes.data?.profile || {};
+        const initialBank = {
+          bankName: profile.bankName || '',
+          accountNumber: profile.bankAccountNumber || '',
+          accountHolder: profile.bankAccountHolder || userRes.data?.name || ''
+        };
+        setBankInfo(initialBank);
+        setBankDraft(initialBank);
+
+        const currentUserId = String(userRes.data?.id);
+        const allTrips = tripsRes.data?.data || tripsRes.data || [];
+        const myTrips = allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId);
+        setTrips(myTrips);
+
+      } catch (err) {
+        console.error('Gagal memuat data keuangan mitra:', err);
+        toast.error('Gagal mengambil data saldo dari server.', { title: 'Error' });
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchBalanceData();
+    return () => { isMounted = false; };
+  }, [toast]);
+
+  const availableBalance = Number(walletData.balance || 0);
+  const escrowHold = Number(walletData.heldEscrowBalance || 0);
+
+  // Filter trip yang masih menahan dana escrow
+  const escrowTransactions = trips.filter((t) => t.status === 'scheduled' || t.status === 'in_transit');
 
   const maskAccountNumber = (accNum) => {
     if (!accNum || accNum.length < 6) return accNum;
     return `${accNum.slice(0, 3)}****${accNum.slice(-3)}`;
   };
 
-  const handleWithdraw = (e) => {
+  const handleWithdraw = async (e) => {
     e.preventDefault();
     const amount = Number(withdrawAmount);
 
     if (!amount || amount < MIN_WITHDRAWAL) {
-      toast.warning(`Minimum penarikan saldo adalah Rp ${MIN_WITHDRAWAL.toLocaleString('id-ID')}.`, { title: 'Batas Minimum Penarikan' });
+      toast.warning(`Minimum penarikan saldo adalah Rp ${MIN_WITHDRAWAL.toLocaleString('id-ID')}.`, { title: 'Batas Minimum' });
       return;
     }
     if (amount > availableBalance) {
@@ -47,14 +87,18 @@ export default function MitraBalance() {
       return;
     }
 
-    const result = requestWithdrawal(amount);
-    if (!result.ok) {
-      toast.warning('Penarikan gagal diproses. Silakan coba lagi.', { title: 'Gagal' });
-      return;
-    }
+    try {
+      await apiClient.post('/wallets/withdraw', { amount });
+      
+      // Refresh ulang data wallet setelah withdraw berhasil
+      const walletRes = await apiClient.get('/wallets/me');
+      setWalletData(walletRes.data);
 
-    setWithdrawAmount('');
-    setIsSuccessModalOpen(true);
+      setWithdrawAmount('');
+      setIsSuccessModalOpen(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Penarikan gagal diproses.', { title: 'Gagal' });
+    }
   };
 
   const handleStartEditBank = () => {
@@ -62,15 +106,26 @@ export default function MitraBalance() {
     setIsEditingBank(true);
   };
 
-  const handleSaveBank = (e) => {
+  const handleSaveBank = async (e) => {
     e.preventDefault();
     if (!bankDraft.bankName.trim() || !bankDraft.accountNumber.trim() || !bankDraft.accountHolder.trim()) {
       toast.warning('Semua field rekening bank wajib diisi.', { title: 'Data Tidak Lengkap' });
       return;
     }
-    setBankInfo(bankDraft);
-    setIsEditingBank(false);
-    toast.success('Rekening bank berhasil diperbarui.', { title: 'Rekening Diperbarui' });
+
+    try {
+      await apiClient.patch('/users/me/profile', {
+        bankName: bankDraft.bankName.trim(),
+        bankAccountNumber: bankDraft.accountNumber.trim(),
+        bankAccountHolder: bankDraft.accountHolder.trim()
+      });
+
+      setBankInfo(bankDraft);
+      setIsEditingBank(false);
+      toast.success('Rekening bank berhasil diperbarui.', { title: 'Rekening Diperbarui' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gagal memperbarui rekening bank.', { title: 'Gagal' });
+    }
   };
 
   return (
@@ -122,9 +177,9 @@ export default function MitraBalance() {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-neutral-800">
-                      {bankInfo.bankName} - {showAccountPii ? bankInfo.accountNumber : maskAccountNumber(bankInfo.accountNumber)}
+                      {bankInfo.bankName ? `${bankInfo.bankName} - ${showAccountPii ? bankInfo.accountNumber : maskAccountNumber(bankInfo.accountNumber)}` : 'Belum ada rekening terdaftar'}
                     </p>
-                    <p className="text-[8px] text-neutral-400 font-medium">{bankInfo.accountHolder}</p>
+                    <p className="text-[8px] text-neutral-400 font-medium">{bankInfo.accountHolder || 'Silakan lengkapi rekening'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -132,7 +187,7 @@ export default function MitraBalance() {
                     type="button"
                     onClick={() => setShowAccountPii(!showAccountPii)}
                     className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
-                    title={showAccountPii ? "Sembunyikan Nomor Rekening" : "Tampilkan Nomor Rekening"}
+                    title={showAccountPii ? "Sembunyikan" : "Tampilkan"}
                   >
                     {showAccountPii ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
@@ -140,7 +195,7 @@ export default function MitraBalance() {
                     type="button"
                     onClick={handleStartEditBank}
                     className="p-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
-                    title="Ubah Rekening Bank"
+                    title="Ubah Rekening"
                   >
                     <Pencil size={13} />
                   </button>
@@ -203,7 +258,7 @@ export default function MitraBalance() {
                 inputMode="numeric"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value.replace(/\D/g, ''))}
-                placeholder="Contoh: 1000000"
+                placeholder="Contoh: 100000"
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-[10px] font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               />
               <span className="text-[8px] text-neutral-400 mt-1 block">Min. Rp 50.000 | Maks. Rp {availableBalance.toLocaleString('id-ID')}</span>
@@ -211,7 +266,7 @@ export default function MitraBalance() {
 
             <button
               type="submit"
-              disabled={isEditingBank}
+              disabled={isEditingBank || isLoading}
               className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer"
             >
               Cairkan ke Rekening Bank
@@ -227,10 +282,10 @@ export default function MitraBalance() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-neutral-100 text-[#9px] text-neutral-400 uppercase font-semibold">
+                  <tr className="border-b border-neutral-100 text-[9px] text-neutral-400 uppercase font-semibold">
                     <th className="py-3 px-3">ID Trip</th>
                     <th className="py-3 px-3">Trip Terkait</th>
-                    <th className="py-3 px-3">Nominal Escrow</th>
+                    <th className="py-3 px-3">Tarif Trip</th>
                     <th className="py-3 px-3">Status Sistem</th>
                   </tr>
                 </thead>
@@ -241,45 +296,16 @@ export default function MitraBalance() {
                     </tr>
                   ) : escrowTransactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-neutral-50/60 transition">
-                      <td className="py-3.5 px-3 font-bold text-neutral-800 font-mono">{tx.id}</td>
-                      <td className="py-3.5 px-3 font-semibold text-neutral-700">{tx.origin} - {tx.destination}</td>
-                      <td className="py-3.5 px-3 font-bold text-neutral-800">Rp {tx.escrowAmount.toLocaleString('id-ID')}</td>
+                      <td className="py-3.5 px-3 font-bold text-neutral-800 font-mono">TRIP-{tx.id}</td>
+                      <td className="py-3.5 px-3 font-semibold text-neutral-700">{tx.originPoint?.name} &rarr; {tx.destinationPoint?.name}</td>
+                      <td className="py-3.5 px-3 font-bold text-neutral-800">Rp {Number(tx.price || 0).toLocaleString('id-ID')}</td>
                       <td className="py-3.5 px-3">
-                        <StatusBadge variant="amber">{STATUS_LABEL[tx.status] ?? tx.status}</StatusBadge>
+                        <StatusBadge variant="amber">{tx.status}</StatusBadge>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-neutral-100">
-            <h3 className="text-[14px] font-bold text-neutral-800 mb-3 flex items-center gap-1.5">
-              <History className="w-3.5 h-3.5 text-[#4B2172]" /> Riwayat Mutasi Dompet Mitra
-            </h3>
-            <div className="space-y-2">
-              {walletHistory.map((item) => (
-                <div key={item.id} className="p-3 bg-neutral-50/70 border border-neutral-100 rounded-xl flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold text-neutral-800 flex items-center gap-1.5">
-                      {item.type}
-                      {item.status === 'processing' && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-600 text-[8px] font-bold">
-                          <Clock3 className="w-2.5 h-2.5" /> Diproses
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[8px] text-neutral-400">{item.date} • {item.id}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-[10px] font-bold ${item.amount < 0 ? 'text-neutral-800' : 'text-emerald-600'}`}>
-                      {item.amount < 0 ? `- Rp ${Math.abs(item.amount).toLocaleString('id-ID')}` : `+ Rp ${item.amount.toLocaleString('id-ID')}`}
-                    </p>
-                    <p className="text-[8px] text-neutral-400 font-medium">{item.statusLabel}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -296,7 +322,7 @@ export default function MitraBalance() {
           <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-5 h-5" />
           </div>
-          <p className="text-neutral-500">Dana Anda sedang diproses oleh Payment Gateway dan akan masuk ke rekening dalam 1x24 jam. Status akan berubah menjadi "Berhasil" setelah bank mengonfirmasi.</p>
+          <p className="text-neutral-500">Dana Anda sedang diproses oleh Payment Gateway dan akan masuk ke rekening dalam 1x24 jam.</p>
           <button
             onClick={() => setIsSuccessModalOpen(false)}
             className="w-full py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white font-bold rounded-xl transition cursor-pointer"

@@ -21,14 +21,13 @@ export default function MitraTripManagement() {
     date: '',
     time: '08:00',
     vehicleId: '',
-    serviceType: 'penumpang', // Opsi baru: 'penumpang' atau 'barang'
+    serviceType: 'penumpang',
     price: 50000,
     totalSeats: 4,
     maxWeightCapacityKg: 50,
   });
 
   const [cancelConfirmTarget, setCancelConfirmTarget] = useState(null);
-
   const todayISO = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -77,18 +76,15 @@ export default function MitraTripManagement() {
         if (!isMounted) return;
         setTrips(myTrips);
       } catch (err) {
-        console.error('Gagal memuat data dari server:', err);
-        toast.error('Gagal menyambungkan data backend.', { title: 'Error' });
+        console.error('Gagal memuat data trip:', err);
+        toast.error('Gagal menyambungkan data ke server.', { title: 'Error' });
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
     fetchData();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [toast]);
 
   const handleChange = (e) => {
@@ -141,6 +137,7 @@ export default function MitraTripManagement() {
     try {
       const departureDateTime = new Date(`${formData.date}T${formData.time}:00Z`).toISOString();
 
+      // DIPERBAIKI: Memastikan payload angka dikirim murni bertipe number agar lolos validasi DTO NestJS
       await apiClient.post('/trips', {
         vehicleId: String(formData.vehicleId),
         originPointId: String(formData.originPointId),
@@ -200,7 +197,7 @@ export default function MitraTripManagement() {
             Create & Manage Trip
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Buat jadwal perjalanan baru, tentukan tipe layanan (Penumpang / Barang), dan kelola trip Anda.
+            Buat jadwal perjalanan baru, tentukan tipe layanan (Penumpang / Barang), dan kelola trip Anda dengan mudah.
           </p>
         </div>
       </div>

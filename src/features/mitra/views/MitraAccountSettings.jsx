@@ -21,7 +21,6 @@ const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 
-// Helper untuk menormalkan path foto agar menyertakan domain backend
 const getFullFileUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('blob:') || path.startsWith('data:')) return path;
@@ -44,8 +43,6 @@ export default function MitraAccountSettings() {
     email: '',
     phone: '',
     address: '',
-    vehicleType: 'motor',
-    plateNumber: '',
   });
 
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -67,7 +64,6 @@ export default function MitraAccountSettings() {
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showLogoutSessionsModal, setShowLogoutSessionsModal] = useState(false);
 
-  // Ambil data asli langsung dari /auth/me di backend
   useEffect(() => {
     let isMounted = true;
     const fetchUserData = async () => {
@@ -80,8 +76,6 @@ export default function MitraAccountSettings() {
             email: res.data.email || '',
             phone: res.data.phone || '',
             address: res.data.profile?.addressKtp || '',
-            vehicleType: 'motor',
-            plateNumber: '',
           });
           if (res.data.avatar) {
             setAvatarPreview(getFullFileUrl(res.data.avatar));
@@ -120,7 +114,6 @@ export default function MitraAccountSettings() {
       if (selectedAvatarFile) {
         const formDataObj = new FormData();
         formDataObj.append('file', selectedAvatarFile);
-        formDataObj.append('destination', 'uploads/avatars');
 
         const uploadRes = await apiClient.post('/users/me/avatar', formDataObj, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -182,9 +175,12 @@ export default function MitraAccountSettings() {
     }
 
     try {
-      await apiClient.patch('/users/me', {
-        password: passwordForm.next
+      // DIPERBAIKI: Mengarah ke endpoint autentikasi backend yang benar (/auth/change-password)
+      await apiClient.patch('/auth/change-password', {
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
       });
+
       setPasswordForm({ current: '', next: '', confirm: '' });
       toast.success('Kata sandi berhasil diperbarui.', { title: 'Kata Sandi Diperbarui' });
     } catch (error) {
@@ -235,7 +231,7 @@ export default function MitraAccountSettings() {
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Pengaturan Akun</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Ubah data profil & kendaraan, keamanan login, preferensi notifikasi, dan sesi aktif akun mitra Anda.
+            Ubah data profil, keamanan login, preferensi notifikasi, dan sesi aktif akun mitra Anda.
           </p>
         </div>
       </div>
@@ -243,7 +239,7 @@ export default function MitraAccountSettings() {
       <div className="space-y-5">
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
-            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil & Kendaraan
+            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil Pengguna
           </h3>
 
           <div className="flex items-center gap-4">
@@ -307,7 +303,7 @@ export default function MitraAccountSettings() {
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Email</label>
                 <input
                   type="email"
@@ -316,35 +312,6 @@ export default function MitraAccountSettings() {
                   onChange={(e) => handleProfileFieldChange('email', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
-                <select
-                  value={profileDraft.vehicleType}
-                  onChange={(e) => handleProfileFieldChange('vehicleType', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                >
-                  <option value="motor">Sepeda Motor</option>
-                  <option value="mobil">Mobil / Minibus</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Plat</label>
-                <input
-                  type="text"
-                  value={profileDraft.plateNumber}
-                  onChange={(e) => handleProfileFieldChange('plateNumber', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Alamat Domisili</label>
-                <textarea
-                  rows="2"
-                  value={profileDraft.address}
-                  onChange={(e) => handleProfileFieldChange('address', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] resize-none"
-                ></textarea>
               </div>
             </div>
             <div className="flex justify-end">
