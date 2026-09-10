@@ -19,19 +19,26 @@ export default function OperatorDashboard() {
       try {
         if (isMounted) setIsLoadingTrips(true);
         
-        // Memanggil operatorService untuk mendapatkan daftar trip
         const rawData = await operatorService.getTrips();
 
-        const formatted = rawData.map((t, index) => ({
-          id: String(t.id || `TRIP-${index + 9080}`),
-          type: index % 2 === 0 ? 'Masuk' : 'Keluar',
-          partnerName: t.driver?.name || t.mitraName || 'Driver Mitra',
-          service: t.serviceType || 'Ride / Transportasi',
-          plateNumber: t.vehicle?.plateNumber || 'AD 1234 XY',
-          time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : '09:30 WIB',
-          status: t.status === 'in_transit' ? 'Dalam Perjalanan' : 'Tiba di Pos',
-          notes: t.notes || 'Aktivitas operasional pos'
-        }));
+        const formatted = rawData.map((t, index) => {
+          // Ambil jam dari departureTime atau fallback ke createdAt
+          const timeSource = t.departureTime || t.createdAt;
+          const formattedTime = timeSource 
+            ? new Date(timeSource).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' 
+            : '-';
+
+          return {
+            id: String(t.id || `TRIP-${index + 9080}`),
+            type: index % 2 === 0 ? 'Masuk' : 'Keluar',
+            partnerName: t.driver?.name || t.mitra?.name || t.mitraName || 'Mitra Pos',
+            service: t.serviceType || (t.totalSeats > 0 ? 'Nebeng Penumpang' : 'Nebeng Barang'),
+            plateNumber: t.vehicle?.plateNumber || '-',
+            time: formattedTime,
+            status: t.status === 'in_transit' ? 'Dalam Perjalanan' : 'Tiba di Pos',
+            notes: t.notes || 'Aktivitas operasional pos'
+          };
+        });
 
         if (isMounted) {
           setTripsSchedule(formatted);

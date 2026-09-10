@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Calendar, MapPin, Car, Bike, Plus, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, MapPin, Car, Bike, Plus, XCircle, Users, Package } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
@@ -21,94 +21,51 @@ export default function MitraTripManagement() {
     date: '',
     time: '08:00',
     vehicleId: '',
+    serviceType: 'penumpang', // Opsi baru: 'penumpang' atau 'barang'
     price: 50000,
-    totalSeats: 1,
-    maxWeightCapacityKg: 15,
+    totalSeats: 4,
+    maxWeightCapacityKg: 50,
   });
 
-  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
   const [cancelConfirmTarget, setCancelConfirmTarget] = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
-  // Memuat data dari backend secara bersih tanpa dependensi state form yang memicu cascading render
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // 1. Ambil daftar Pos Resmi dari GET /api/pickup-points
-      const resPoints = await apiClient.get('/pickup-points');
-      const allPoints = resPoints.data?.data || resPoints.data || [];
-      setPoints(allPoints);
-
-      setFormData(prev => {
-        if (allPoints.length >= 2 && !prev.originPointId) {
-          return {
-            ...prev,
-            originPointId: String(allPoints[0].id),
-            destinationPointId: String(allPoints[1].id),
-          };
-        }
-        return prev;
-      });
-
-      // 2. Ambil daftar kendaraan mitra dari GET /api/vehicles/me
-      const resVehicles = await apiClient.get('/vehicles/me').catch(() => ({ data: [] }));
-      const myVehicles = resVehicles.data?.data || resVehicles.data || [];
-      setVehicles(myVehicles);
-
-      setFormData(prev => {
-        if (myVehicles.length > 0 && !prev.vehicleId) {
-          return { ...prev, vehicleId: String(myVehicles[0].id) };
-        }
-        return prev;
-      });
-
-      // 3. Ambil daftar trip publik/milik sendiri dari GET /api/trips
-      const userRes = await apiClient.get('/auth/me');
-      const currentUserId = String(userRes.data?.id);
-
-      const resTrips = await apiClient.get('/trips');
-      const allTrips = resTrips.data?.data || resTrips.data || [];
-      const myTrips = allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId);
-      setTrips(myTrips);
-    } catch (err) {
-      console.error('Gagal memuat data dari server:', err);
-      toast.error('Gagal menyambungkan data backend.', { title: 'Error' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
-
-  // Memuat data dari backend saat komponen pertama kali dimuat
   useEffect(() => {
+    let isMounted = true;
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
         const resPoints = await apiClient.get('/pickup-points');
         const allPoints = resPoints.data?.data || resPoints.data || [];
+        
+        if (!isMounted) return;
         setPoints(allPoints);
 
-        setFormData(prev => {
-          if (allPoints.length >= 2 && !prev.originPointId) {
-            return {
-              ...prev,
-              originPointId: String(allPoints[0].id),
-              destinationPointId: String(allPoints[1].id),
-            };
-          }
-          return prev;
-        });
+        if (allPoints.length >= 2) {
+          setFormData(prev => ({
+            ...prev,
+            originPointId: prev.originPointId || String(allPoints[0].id),
+            destinationPointId: prev.destinationPointId || String(allPoints[1].id),
+          }));
+        }
 
         const resVehicles = await apiClient.get('/vehicles/me').catch(() => ({ data: [] }));
         const myVehicles = resVehicles.data?.data || resVehicles.data || [];
+        
+        if (!isMounted) return;
         setVehicles(myVehicles);
 
-        setFormData(prev => {
-          if (myVehicles.length > 0 && !prev.vehicleId) {
-            return { ...prev, vehicleId: String(myVehicles[0].id) };
-          }
-          return prev;
-        });
+        if (myVehicles.length > 0) {
+          const firstVeh = myVehicles[0];
+          setFormData(prev => ({ 
+            ...prev, 
+            vehicleId: prev.vehicleId || String(firstVeh.id),
+            totalSeats: firstVeh.capacitySeats || 4,
+            maxWeightCapacityKg: Number(firstVeh.maxWeightCapacityKg) || 100,
+          }));
+        }
 
         const userRes = await apiClient.get('/auth/me');
         const currentUserId = String(userRes.data?.id);
@@ -116,16 +73,22 @@ export default function MitraTripManagement() {
         const resTrips = await apiClient.get('/trips');
         const allTrips = resTrips.data?.data || resTrips.data || [];
         const myTrips = allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId);
+        
+        if (!isMounted) return;
         setTrips(myTrips);
       } catch (err) {
         console.error('Gagal memuat data dari server:', err);
         toast.error('Gagal menyambungkan data backend.', { title: 'Error' });
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [toast]);
 
   const handleChange = (e) => {
@@ -140,8 +103,8 @@ export default function MitraTripManagement() {
       setFormData(prev => ({
         ...prev,
         vehicleId: vId,
-        totalSeats: selectedVeh.type === 'motor' ? 1 : (selectedVeh.capacitySeats || 4),
-        maxWeightCapacityKg: selectedVeh.type === 'motor' ? 15 : (Number(selectedVeh.maxWeightCapacityKg) || 100),
+        totalSeats: selectedVeh.capacitySeats || 4,
+        maxWeightCapacityKg: Number(selectedVeh.maxWeightCapacityKg) || 100,
       }));
     }
   };
@@ -149,16 +112,12 @@ export default function MitraTripManagement() {
   const isSameOriginDestination = formData.originPointId && formData.destinationPointId && formData.originPointId === formData.destinationPointId;
   const isPastDate = Boolean(formData.date) && formData.date < todayISO;
 
-  const isScheduleConflict = useMemo(() => {
-    if (!formData.date || !formData.vehicleId) return false;
-    return trips.some((t) =>
-      (t.status === 'scheduled' || t.status === 'in_transit') &&
-      String(t.vehicleId) === String(formData.vehicleId) &&
-      t.departureDate?.split('T')[0] === formData.date
-    );
-  }, [trips, formData.date, formData.vehicleId]);
+  const isScheduleConflict = trips.some((t) =>
+    (t.status === 'scheduled' || t.status === 'in_transit') &&
+    String(t.vehicleId) === String(formData.vehicleId) &&
+    t.departureDate?.split('T')[0] === formData.date
+  );
 
-  // Submit buat trip baru ke POST /api/trips
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSameOriginDestination) {
@@ -189,37 +148,22 @@ export default function MitraTripManagement() {
         departureDate: departureDateTime,
         departureTime: departureDateTime,
         price: Number(formData.price),
-        totalSeats: Number(formData.totalSeats),
-        maxWeightCapacityKg: Number(formData.maxWeightCapacityKg),
+        totalSeats: formData.serviceType === 'penumpang' ? Number(formData.totalSeats) : 0,
+        maxWeightCapacityKg: formData.serviceType === 'barang' ? Number(formData.maxWeightCapacityKg) : 0,
       });
 
       toast.success('Trip baru berhasil dibuat dan dipublikasikan!', { title: 'Sukses' });
       setFormData(prev => ({ ...prev, date: '', price: 50000 }));
-      fetchData();
+      
+      const resTrips = await apiClient.get('/trips');
+      const userRes = await apiClient.get('/auth/me');
+      const currentUserId = String(userRes.data?.id);
+      const allTrips = resTrips.data?.data || resTrips.data || [];
+      setTrips(allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal membuat trip baru.', { title: 'Gagal' });
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleRequestStatusChange = (trip) => {
-    if (trip.status === 'completed' || trip.status === 'cancelled') return;
-    const nextStatus = trip.status === 'scheduled' ? 'in_transit' : 'completed';
-    setStatusConfirmTarget({ tripId: trip.id, nextStatus });
-  };
-
-  // Update status trip ke PATCH /api/trips/{id}
-  const handleConfirmStatusChange = async () => {
-    if (!statusConfirmTarget) return;
-    const { tripId, nextStatus } = statusConfirmTarget;
-    try {
-      await apiClient.patch(`/trips/${tripId}`, { status: nextStatus });
-      toast.success(`Status trip berhasil diperbarui menjadi "${nextStatus}".`, { title: 'Sukses' });
-      setStatusConfirmTarget(null);
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Gagal memperbarui status trip.', { title: 'Gagal' });
     }
   };
 
@@ -229,7 +173,12 @@ export default function MitraTripManagement() {
       await apiClient.patch(`/trips/${cancelConfirmTarget}`, { status: 'cancelled' });
       toast.success('Trip berhasil dibatalkan.', { title: 'Sukses' });
       setCancelConfirmTarget(null);
-      fetchData();
+      
+      const resTrips = await apiClient.get('/trips');
+      const userRes = await apiClient.get('/auth/me');
+      const currentUserId = String(userRes.data?.id);
+      const allTrips = resTrips.data?.data || resTrips.data || [];
+      setTrips(allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal membatalkan trip.', { title: 'Gagal' });
     }
@@ -251,7 +200,7 @@ export default function MitraTripManagement() {
             Create & Manage Trip
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Buat jadwal perjalanan baru menggunakan data Pos Resmi (/pickup-points) dan Kendaraan Anda (/vehicles/me).
+            Buat jadwal perjalanan baru, tentukan tipe layanan (Penumpang / Barang), dan kelola trip Anda.
           </p>
         </div>
       </div>
@@ -263,6 +212,34 @@ export default function MitraTripManagement() {
           </h2>
           
           <form onSubmit={handleSubmit} className="space-y-3.5 text-[10px]">
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Tipe Layanan Trip</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, serviceType: 'penumpang' }))}
+                  className={`py-2 px-3 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                    formData.serviceType === 'penumpang' 
+                      ? 'bg-[#4B2172] text-white shadow-sm' 
+                      : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                  }`}
+                >
+                  <Users className="w-3 h-3" /> Penumpang
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, serviceType: 'barang' }))}
+                  className={`py-2 px-3 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                    formData.serviceType === 'barang' 
+                      ? 'bg-[#4B2172] text-white shadow-sm' 
+                      : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                  }`}
+                >
+                  <Package className="w-3 h-3" /> Barang
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pos Asal</label>
               <select 
@@ -330,7 +307,7 @@ export default function MitraTripManagement() {
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               >
                 {vehicles.length === 0 ? (
-                  <option value="">Belum ada kendaraan terdaftar (/vehicles/me)</option>
+                  <option value="">Belum ada kendaraan terdaftar</option>
                 ) : (
                   vehicles.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -340,6 +317,34 @@ export default function MitraTripManagement() {
                 )}
               </select>
             </div>
+
+            {formData.serviceType === 'penumpang' ? (
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Kapasitas Kursi</label>
+                <input 
+                  type="number" 
+                  name="totalSeats" 
+                  min={1}
+                  required
+                  value={formData.totalSeats} 
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Kapasitas Bagasi (Kg)</label>
+                <input 
+                  type="number" 
+                  name="maxWeightCapacityKg" 
+                  min={1}
+                  required
+                  value={formData.maxWeightCapacityKg} 
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Tarif Trip (Rp)</label>
@@ -395,22 +400,15 @@ export default function MitraTripManagement() {
                 description="Publikasikan trip pertama Anda lewat form di sebelah kiri."
               />
             ) : visibleTrips.map((trip) => (
-              <div key={trip.id} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/60 hover:bg-neutral-100/60 transition space-y-3">
+              <div key={trip.id} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/65 hover:bg-neutral-100/60 transition space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-[10px] text-neutral-800 font-mono">TRIP-{trip.id}</span>
                       
-                      <button 
-                        onClick={() => handleRequestStatusChange(trip)}
-                        disabled={trip.status === 'completed'}
-                        className="cursor-pointer"
-                        title="Klik untuk ubah status"
-                      >
-                        <StatusBadge variant={trip.status === 'completed' ? 'emerald' : trip.status === 'in_transit' ? 'amber' : 'purple'}>
-                          Status: {trip.status}
-                        </StatusBadge>
-                      </button>
+                      <StatusBadge variant={trip.status === 'completed' ? 'emerald' : trip.status === 'in_transit' ? 'amber' : 'purple'}>
+                        Status: {trip.status}
+                      </StatusBadge>
 
                       <span className="bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-1">
                         {trip.vehicle?.type === 'motor' ? <Bike className="w-2.5 h-2.5" /> : <Car className="w-2.5 h-2.5" />} {trip.vehicle?.model || 'Kendaraan'}
@@ -448,36 +446,6 @@ export default function MitraTripManagement() {
           </div>
         </div>
       </div>
-
-      <BaseModal
-        isOpen={Boolean(statusConfirmTarget)}
-        onClose={() => setStatusConfirmTarget(null)}
-        title="Konfirmasi Perubahan Status"
-        subtitle={`Trip ID: ${statusConfirmTarget?.tripId}`}
-        maxWidth="max-w-sm"
-      >
-        <div className="space-y-3 text-[10px]">
-          <p className="text-neutral-600">
-            {statusConfirmTarget?.nextStatus === 'completed'
-              ? `Tandai trip ${statusConfirmTarget?.tripId} sebagai SELESAI?`
-              : `Ubah status trip ${statusConfirmTarget?.tripId} menjadi "In Transit"?`}
-          </p>
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={() => setStatusConfirmTarget(null)}
-              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-full font-bold cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleConfirmStatusChange}
-              className="flex-1 py-2 bg-[#4B2172] text-white rounded-full font-bold cursor-pointer shadow-sm"
-            >
-              Ya, Lanjutkan
-            </button>
-          </div>
-        </div>
-      </BaseModal>
 
       <BaseModal
         isOpen={Boolean(cancelConfirmTarget)}

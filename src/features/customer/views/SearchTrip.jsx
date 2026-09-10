@@ -34,6 +34,7 @@ export default function SearchTrip() {
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [bookingStep, setBookingStep] = useState('form');
   const [pin, setPin] = useState(['', '', '', '', '', '']);
+  const [paymentGateway, setPaymentGateway] = useState('QRIS');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const [seatCount, setSeatCount] = useState(1);
@@ -57,24 +58,24 @@ export default function SearchTrip() {
     { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  // 1. Ambil daftar Pos Resmi (Pickup Points) dari backend[cite: 22]
   useEffect(() => {
+    let isMounted = true;
     const fetchPickupPoints = async () => {
       setIsLoadingPoints(true);
       try {
         const res = await apiClient.get('/pickup-points', { params: { onlyActive: true } });
-        setPickupPoints(res.data || []);
+        if (isMounted) setPickupPoints(res.data || []);
       } catch (err) {
         console.error('Gagal memuat daftar pos:', err);
-        toast.error('Gagal memuat daftar pos resmi.', { title: 'Error' });
+        if (isMounted) toast.error('Gagal memuat daftar pos resmi.', { title: 'Error' });
       } finally {
-        setIsLoadingPoints(false);
+        if (isMounted) setIsLoadingPoints(false);
       }
     };
     fetchPickupPoints();
+    return () => { isMounted = false; };
   }, [toast]);
 
-  // 2. Ambil daftar trip secara fleksibel (hanya kirim parameter jika diisi)[cite: 22]
   useEffect(() => {
     let isMounted = true;
     const fetchTrips = async () => {
@@ -83,8 +84,9 @@ export default function SearchTrip() {
         const params = {};
         if (origin) params.originPointId = origin;
         if (destination) params.destinationPointId = destination;
-        if (date) params.date = date;
-        // Jangan memaksa filter vehicleType jika ingin melihat semua jenis kendaraan yang tersedia
+        
+        params.date = date || TODAY_ISO;
+        
         if (serviceType === 'penumpang') {
           params.vehicleType = 'mobil';
         } else {
@@ -94,11 +96,15 @@ export default function SearchTrip() {
         const res = await apiClient.get('/trips', { params });
         if (isMounted) {
           const list = res.data?.data || res.data || [];
-          setTrips(list);
+          const activeList = list.filter(t => {
+            const tripDateStr = t.departureDate?.split('T')[0];
+            return tripDateStr >= TODAY_ISO;
+          });
+          setTrips(activeList);
         }
       } catch (err) {
         console.error('Gagal memuat daftar trip:', err);
-        toast.error('Gagal mengambil data trip dari server.', { title: 'Error' });
+        if (isMounted) toast.error('Gagal mengambil data trip dari server.', { title: 'Error' });
       } finally {
         if (isMounted) setIsLoadingTrips(false);
       }
@@ -139,6 +145,7 @@ export default function SearchTrip() {
     setSelectedTrip(trip);
     setBookingStep('form');
     setPin(['', '', '', '', '', '']);
+    setPaymentGateway('QRIS');
     setIsCheckingOut(false);
     setSeatCount(1);
     setPassengerName('');
@@ -192,9 +199,6 @@ export default function SearchTrip() {
     setIsCheckingOut(true);
 
     try {
-      const pinString = pin.join('');
-      await apiClient.post('/users/me/pin/verify', { pin: pinString }); //[cite: 22]
-
       const orderPayload = {
         tripId: String(selectedTrip.id),
         type: serviceType === 'penumpang' ? 'passenger' : 'parcel',
@@ -213,11 +217,19 @@ export default function SearchTrip() {
         })
       };
 
-      const res = await apiClient.post('/orders', orderPayload); //[cite: 22]
-      const createdOrder = res.data;
+      const resOrder = await apiClient.post('/orders', orderPayload);
+      const createdOrder = resOrder.data;
+      const orderIdStr = String(createdOrder.id);
+
+      const pinString = pin.join('');
+      await apiClient.post('/payments/checkout', {
+        orderId: orderIdStr,
+        paymentGateway: paymentGateway,
+        pin: pinString
+      });
 
       addTicket({
-        id: createdOrder.id,
+        id: orderIdStr,
         type: serviceType,
         title: serviceType === 'barang' ? `Nebeng Barang (${itemCategory})` : 'Nebeng Penumpang',
         from: selectedTrip.originPoint?.name || 'Pos Asal',
@@ -241,9 +253,9 @@ export default function SearchTrip() {
       });
 
       setBookingStep('success');
-      toast.success('Pesanan berhasil dibuat dan dana diamankan di Escrow.', { title: 'Sukses' });
+      toast.success('Pembayaran sukses dan dana telah diamankan di Escrow.', { title: 'Sukses' });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'PIN salah atau gagal memproses pesanan.', { title: 'Gagal' });
+      toast.error(error.response?.data?.message || 'PIN salah atau gagal memproses pembayaran.', { title: 'Gagal' });
     } finally {
       setIsCheckingOut(false);
     }
@@ -268,7 +280,6 @@ export default function SearchTrip() {
         </div>
       </div>
 
-      {/* FILTER PENCARIAN */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-[10px]">
           <div>
@@ -411,8 +422,8 @@ export default function SearchTrip() {
           <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm">
             <EmptyState
               icon={Search}
-              title="Trip Tidak Ditemukan"
-              description="Tidak ada trip yang sesuai dengan filter pencarian Anda."
+              title="Trip Aktif Tidak Ditemukan"
+              description="Tidak ada trip aktif atau mendatang yang sesuai dengan filter pencarian Anda."
             />
           </div>
         )}
@@ -423,9 +434,9 @@ export default function SearchTrip() {
         onClose={() => setSelectedTrip(null)}
         title={
           bookingStep === 'form' ? (serviceType === 'penumpang' ? 'Formulir Nebeng Penumpang' : 'Formulir Nebeng Barang') :
-          bookingStep === 'pin' ? 'Keamanan Transaksi & Checkout' : 'Konfirmasi Selesai'
+          bookingStep === 'pin' ? 'Checkout & Escrow Payment' : 'Konfirmasi Selesai'
         }
-        subtitle="Booking Engine & Checkout"
+        subtitle="Booking Engine & Payment"
         maxWidth="max-w-md"
       >
         {bookingStep === 'form' && (
@@ -594,7 +605,7 @@ export default function SearchTrip() {
                     : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
                 }`}
               >
-                Lanjut ke PIN
+                Lanjut ke Pembayaran & PIN
               </button>
             </div>
           </form>
@@ -605,12 +616,26 @@ export default function SearchTrip() {
             <div className="w-9 h-9 bg-purple-50 text-[#4B2172] rounded-xl flex items-center justify-center mx-auto border border-purple-100">
               <Lock className="w-4 h-4" />
             </div>
+
+            <div className="text-left space-y-1">
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Metode Pembayaran (Gateway)</label>
+              <select
+                value={paymentGateway}
+                onChange={(e) => setPaymentGateway(e.target.value)}
+                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+              >
+                <option value="QRIS">QRIS (Instant)</option>
+                <option value="BANK_TRANSFER">Transfer Bank (Virtual Account)</option>
+                <option value="MANUAL_SIMULATION">Simulasi Pembayaran Manual</option>
+              </select>
+            </div>
+
             <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl flex items-center justify-center gap-2">
               <Wallet className="w-3.5 h-3.5 text-[#4B2172]" />
               <span className="text-neutral-500">Total Pembayaran (Escrow):</span>
               <span className="font-bold text-[#4B2172] text-[12px]">{formatRupiah(totalPrice)}</span>
             </div>
-            <p className="text-[9px] text-neutral-400">Masukkan PIN transaksi rahasia Anda 6-digit.</p>
+            <p className="text-[9px] text-neutral-400">Masukkan PIN transaksi rahasia Anda 6-digit untuk konfirmasi Escrow.</p>
 
             <div className="flex justify-center gap-1.5">
               {pin.map((digit, index) => (
@@ -646,7 +671,7 @@ export default function SearchTrip() {
                     : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
                 }`}
               >
-                {isCheckingOut ? 'Memproses...' : 'Konfirmasi'}
+                {isCheckingOut ? 'Memproses Escrow...' : 'Konfirmasi & Bayar'}
               </button>
             </div>
           </div>
@@ -657,7 +682,8 @@ export default function SearchTrip() {
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h4 className="text-[14px] font-bold text-neutral-800">Booking Berhasil!</h4>
+            <h4 className="text-[14px] font-bold text-neutral-800">Pembayaran & Booking Berhasil!</h4>
+            <p className="text-neutral-500">Dana Anda telah berhasil ditahan oleh sistem Escrow sampai paket/penumpang tiba di Pos Tujuan.</p>
             <div className="flex gap-2 justify-center pt-2">
               <button
                 onClick={() => setSelectedTrip(null)}
@@ -672,7 +698,7 @@ export default function SearchTrip() {
                 }}
                 className="py-2.5 px-3.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold shadow-sm cursor-pointer"
               >
-                Lihat Tiket
+                Lihat Tiket Saya
               </button>
             </div>
           </div>
