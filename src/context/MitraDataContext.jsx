@@ -100,7 +100,15 @@ export function MitraDataProvider({ children }) {
   }, [trips]);
 
   const requestWithdrawal = useCallback((amount) => {
-    if (!amount || amount > availableBalance) {
+    // BUG FIX (guard berlapis): sebelumnya hanya `!amount || amount >
+    // availableBalance` yang dicek. Nilai negatif (mis. -100) lolos dari
+    // kedua kondisi itu (truthy, dan tidak lebih besar dari saldo), lalu
+    // `setAvailableBalance((bal) => bal + amount)` di bawah justru MENGURANGI
+    // saldo dengan angka negatif = balance bertambah alih-alih berkurang.
+    // UI (MitraBalance.jsx) memang sudah membatasi input hanya digit, tapi
+    // requestWithdrawal juga dipakai langsung sebagai satu-satunya sumber
+    // kebenaran saldo, jadi validasi harus tetap ketat di sini juga.
+    if (!amount || amount <= 0 || amount > availableBalance) {
       return { ok: false, reason: 'insufficient' };
     }
     setAvailableBalance((prev) => prev - amount);

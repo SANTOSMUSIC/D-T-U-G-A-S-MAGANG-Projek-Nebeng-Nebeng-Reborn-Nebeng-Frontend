@@ -97,10 +97,23 @@ export default function PosMitraManagement() {
           ? userRes.data 
           : (userRes.data?.data || userRes.data?.users || []);
 
+        // FIX (revisi): cek role di frontend (op.role === 'operator') dihapus.
+        // Terbukti dari response network /users?role=operator, backend SUDAH
+        // menyaring role dengan benar (semua user yang balik memang operator),
+        // jadi cek role tambahan di frontend hanya menebak nama field yang
+        // salah dan malah membuang semua operator asli.
+        //
+        // FIX (bug: operator dengan regionId belum di-set ikut hilang dari
+        // dropdown): sebelumnya operator wajib punya regionId yang PERSIS
+        // sama dengan wilayah aktif (opRegion === String(regId)). Padahal ada
+        // operator seperti "JAY" (operatorsolo@gmail.com) yang regionId-nya
+        // masih null karena belum di-assign ke wilayah manapun. Sekarang
+        // disamakan dengan pola formatAndScopePos: operator tanpa regionId
+        // tetap ditampilkan, hanya operator yang JELAS beda wilayah disaring.
         const validOperators = rawUsers.filter(op => {
           const opRegion = getRegionId(op);
-          if (!regId) return op.status === 'active';
-          return opRegion === String(regId) && op.status === 'active';
+          if (op.status !== 'active') return false;
+          return !regId || !opRegion || opRegion === String(regId);
         });
 
         if (isMounted) {

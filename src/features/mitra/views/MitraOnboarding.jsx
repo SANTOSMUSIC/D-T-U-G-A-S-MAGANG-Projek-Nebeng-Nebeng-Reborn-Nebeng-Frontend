@@ -113,6 +113,19 @@ export default function MitraOnboarding() {
     }
   };
 
+  // FIX (bug: kamera tetap menyala di background): sebelumnya tidak ada
+  // cleanup untuk streamRef saat komponen unmount, jadi kalau user membuka
+  // kamera lalu pindah/tutup halaman tanpa klik "Ambil Wajah", track kamera
+  // tidak pernah di-stop() dan lampu kamera tetap aktif.
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getVideoTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
   const startCamera = async () => {
     setErrorMessage('');
     setIsScanning(true);
@@ -176,7 +189,13 @@ export default function MitraOnboarding() {
       });
       return response.data.filePath || response.data.url;
     } catch (err) {
+      // FIX (bug: error upload ditelan diam-diam): sebelumnya cuma di-console.error
+      // lalu return undefined, jadi handleSubmit menganggap upload berhasil dan
+      // lanjut submitVerification dengan filePath undefined + tetap setSubmitted(true).
+      // Sekarang error dilempar ulang supaya handleSubmit masuk ke catch dan
+      // menampilkan errorMessage ke user, tanpa menganggap submit berhasil.
       console.error('Gagal upload file fisik:', err);
+      throw err;
     }
   };
 
@@ -243,20 +262,24 @@ export default function MitraOnboarding() {
       await mitraService.submitVerification('stnk', [{ filePath: stnkPath, fileType: rawFiles.stnk.type }]);
 
       setSubmitted(true);
+
+      // FIX (bug: profil lokal ikut ter-update ke 'pending' walau submit gagal):
+      // updateMitraProfile sebelumnya dipanggil di luar try/catch, jadi tetap
+      // jalan meski salah satu request di atas gagal (masuk ke catch). Sekarang
+      // hanya dipanggil setelah seluruh proses submit di atas berhasil.
+      updateMitraProfile({
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
+        vehicleType: formData.vehicleType,
+        plateNumber: formData.plateNumber.trim(),
+        verificationStatus: 'pending',
+      });
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'Terjadi kesalahan saat memproses data.');
     } finally {
       setIsLoading(false);
     }
-
-    updateMitraProfile({
-      fullName: formData.fullName.trim(),
-      phone: formData.phone.trim(),
-      address: formData.address.trim(),
-      vehicleType: formData.vehicleType,
-      plateNumber: formData.plateNumber.trim(),
-      verificationStatus: 'pending',
-    });
   };
 
   if (isLoading) {
@@ -276,8 +299,9 @@ export default function MitraOnboarding() {
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Mitra Onboarding & Verification</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Lengkapi data diri, rekening bank, kendaraan, dan unggah berkas fisik.</p>
         </div>
-        {submitted && <StatusBadge variant="amber">Menunggu Verifikasi Admin</StatusBadge>}
-
+        {/* FIX (bug: badge status tampil dobel): badge amber hardcoded yang
+            berdiri sendiri sudah dihapus — badge di bawah ini sudah menangani
+            kedua kondisi (amber untuk pending, emerald untuk approved). */}
         {submitted && (
           <StatusBadge variant={mitraVerificationStatus === 'approved' ? 'emerald' : 'amber'}>
             {mitraVerificationStatus === 'approved' ? 'Terverifikasi' : 'Menunggu Verifikasi Admin'}

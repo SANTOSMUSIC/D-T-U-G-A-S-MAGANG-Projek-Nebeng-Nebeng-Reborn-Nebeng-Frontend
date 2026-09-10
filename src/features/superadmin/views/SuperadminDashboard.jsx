@@ -89,7 +89,7 @@ export default function SuperadminDashboard() {
     };
   }, [escrowPage]);
 
-  // Transformasi data wilayah murni dari respons backend tanpa data tiruan[cite: 37]
+  
   const regionalActivities = useMemo(() => {
     const rawList = dashboardData?.regionalSummary || [];
     if (Array.isArray(rawList) && rawList.length > 0) {
@@ -121,7 +121,7 @@ export default function SuperadminDashboard() {
 
   const [selectedChartRegion, setSelectedChartRegion] = useState('Semua');
 
-  // Target pendapatan riil dari overview backend[cite: 37]
+  
   const targetRevenueJt = useMemo(() => {
     const totalRevBackend = dashboardData?.overview?.totalRevenue;
     if (totalRevBackend !== undefined && selectedChartRegion === 'Semua') {
@@ -135,7 +135,7 @@ export default function SuperadminDashboard() {
     return reg ? reg.revenueVal / 1_000_000 : 1;
   }, [selectedChartRegion, regionalActivities, dashboardData]);
 
-  // Insight dinamis murni berdasarkan data overview backend[cite: 37]
+  
   const insights = useMemo(() => {
     const overview = dashboardData?.overview || dashboardData || {};
     const escrowSummary = escrowLedgerData?.summary || escrowLedgerData || {};
@@ -173,7 +173,7 @@ export default function SuperadminDashboard() {
   const maxOrders = regionalActivities.length > 0 ? Math.max(...regionalActivities.map((r) => r.activeOrders), 1) : 1;
   const totalOrders = regionalActivities.reduce((sum, r) => sum + r.activeOrders, 0) || 1;
 
-  // Riwayat aktivitas diambil langsung dari riwayat transaksi escrow ledger backend[cite: 37]
+  
   const recentActivity = useMemo(() => {
     const rawTx = escrowLedgerData?.recentTransactions || escrowLedgerData?.transactions || [];
     if (Array.isArray(rawTx) && rawTx.length > 0) {

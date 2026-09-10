@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, MapPin, Car, Bike, DollarSign, Plus, ShieldAlert, AlertTriangle, PhoneCall, XCircle } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -6,28 +6,75 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useMitraData } from '../../../hooks/useMitraData';
 import { estimateFare } from '../../../services/mitraPricing';
-
-// CATATAN KESESUAIAN SCHEMA (belum bisa diperbaiki penuh di sini): ini
-// masih daftar nama kota statis, bukan data asli dari model PickupPoint/
-// City di schema.prisma (yang punya id, koordinat, operator pos, dst).
-// Trip.originPointId/destinationPointId di backend butuh ID PickupPoint
-// yang valid, bukan sekadar nama string seperti ini. Ganti dengan hasil
-// fetch nyata (mis. GET /api/pickup-points) begitu endpointnya tersedia.
-const ROUTE_OPTIONS = ['Solo (Pos Pusat)', 'Yogyakarta', 'Semarang', 'Surabaya'];
+import { regionalService } from '../../../services/regionalService';
 
 export default function MitraTripManagement() {
   const toast = useToast();
-  const { trips, addTrip, cancelTrip } = useMitraData();
+  const { trips = [], addTrip, cancelTrip } = useMitraData();
+
+  const [posList, setPosList] = useState([]);
+  const [isLoadingPos, setIsLoadingPos] = useState(true);
 
   const [formData, setFormData] = useState({
-    origin: 'Solo (Pos Pusat)',
-    destination: 'Yogyakarta',
+    origin: '',
+    destination: '',
     date: '',
     time: '',
     vehicle: 'Motor',
     seats: 1,
     luggage: 15,
   });
+
+  // Ambil daftar pos aktif langsung dari regionalService
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPosData = async () => {
+      try {
+        if (isMounted) setIsLoadingPos(true);
+        const resData = await regionalService.getPickupPoints();
+        const rawList = Array.isArray(resData) ? resData : (resData?.data || resData?.pickupPoints || []);
+        
+        const formatted = rawList
+          .filter((p) => p.isActive !== false)
+          .map((p) => ({
+            id: String(p.id),
+            name: p.name,
+            cityName: p.city?.name || '',
+            displayName: p.city?.name ? `${p.name} (${p.city.name})` : p.name
+          }));
+
+        if (isMounted) {
+          setPosList(formatted);
+        }
+      } catch (error) {
+        console.error('Gagal mengambil daftar pos:', error);
+      } finally {
+        if (isMounted) setIsLoadingPos(false);
+      }
+    };
+
+    fetchPosData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sinkronisasi pilihan Pos Asal & Tujuan begitu data pos dari server berhasil dimuat
+  useEffect(() => {
+    if (posList.length > 0) {
+      setFormData((prev) => {
+        const validOrigin = posList.some((p) => p.name === prev.origin) ? prev.origin : posList[0].name;
+        const validDestination = posList.some((p) => p.name === prev.destination) ? prev.destination : (posList[1]?.name || posList[0].name);
+        return {
+          ...prev,
+          origin: validOrigin,
+          destination: validDestination,
+        };
+      });
+    }
+  }, [posList]);
 
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [selectedEmergencyTrip, setSelectedEmergencyTrip] = useState(null);
@@ -37,8 +84,6 @@ export default function MitraTripManagement() {
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
-  // Tarif dihitung ulang secara live berdasarkan rute & kendaraan yang dipilih,
-  // bukan angka tetap per jenis kendaraan seperti sebelumnya.
   const estimatedEarnings = useMemo(
     () => estimateFare(formData.origin, formData.destination, formData.vehicle),
     [formData.origin, formData.destination, formData.vehicle]
@@ -46,29 +91,28 @@ export default function MitraTripManagement() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleVehicleChange = (e) => {
     const vehicle = e.target.value;
     if (vehicle === 'Motor') {
-      setFormData(prev => ({ ...prev, vehicle, seats: 1, luggage: 15 }));
+      setFormData((prev) => ({ ...prev, vehicle, seats: 1, luggage: 15 }));
     } else {
-      setFormData(prev => ({ ...prev, vehicle, seats: 4, luggage: 40 }));
+      setFormData((prev) => ({ ...prev, vehicle, seats: 4, luggage: 40 }));
     }
   };
 
-  const isSameOriginDestination = formData.origin === formData.destination;
+  const isSameOriginDestination = Boolean(formData.origin && formData.destination && formData.origin === formData.destination);
 
-  // Cek bentrok jadwal: kendaraan yang sama tidak boleh punya trip aktif lain
-  // di tanggal & jam yang persis sama.
   const isScheduleConflict = useMemo(() => {
     if (!formData.date || !formData.time) return false;
-    return trips.some((t) =>
-      (t.status === 'Aktif' || t.status === 'In Transit') &&
-      t.date === formData.date &&
-      t.time === formData.time &&
-      t.vehicle === formData.vehicle
+    return trips.some(
+      (t) =>
+        (t.status === 'Aktif' || t.status === 'In Transit') &&
+        t.date === formData.date &&
+        t.time === formData.time &&
+        t.vehicle === formData.vehicle
     );
   }, [trips, formData.date, formData.time, formData.vehicle]);
 
@@ -76,6 +120,10 @@ export default function MitraTripManagement() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (posList.length === 0) {
+      toast.warning('Belum ada pos terdaftar di sistem.', { title: 'Pos Tidak Tersedia' });
+      return;
+    }
     if (isSameOriginDestination) {
       toast.warning('Pos Asal dan Pos Tujuan tidak boleh sama. Silakan pilih rute yang berbeda.', { title: 'Rute Tidak Valid' });
       return;
@@ -92,8 +140,8 @@ export default function MitraTripManagement() {
     addTrip({ ...formData });
 
     setFormData({
-      origin: 'Solo (Pos Pusat)',
-      destination: 'Yogyakarta',
+      origin: posList[0]?.name || '',
+      destination: posList[1]?.name || posList[0]?.name || '',
       date: '',
       time: '',
       vehicle: 'Motor',
@@ -168,9 +216,18 @@ export default function MitraTripManagement() {
                 name="origin" 
                 value={formData.origin} 
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                disabled={isLoadingPos || posList.length === 0}
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer disabled:bg-neutral-100 disabled:text-neutral-400 disabled:cursor-not-allowed"
               >
-                {ROUTE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                {isLoadingPos ? (
+                  <option value="">Memuat data pos...</option>
+                ) : posList.length === 0 ? (
+                  <option value="">-- Belum ada pos terdaftar --</option>
+                ) : (
+                  posList.map((pos) => (
+                    <option key={pos.id} value={pos.name}>{pos.displayName}</option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -180,9 +237,18 @@ export default function MitraTripManagement() {
                 name="destination" 
                 value={formData.destination} 
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                disabled={isLoadingPos || posList.length === 0}
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer disabled:bg-neutral-100 disabled:text-neutral-400 disabled:cursor-not-allowed"
               >
-                {ROUTE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                {isLoadingPos ? (
+                  <option value="">Memuat data pos...</option>
+                ) : posList.length === 0 ? (
+                  <option value="">-- Belum ada pos terdaftar --</option>
+                ) : (
+                  posList.map((pos) => (
+                    <option key={pos.id} value={pos.name}>{pos.displayName}</option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -218,7 +284,7 @@ export default function MitraTripManagement() {
                 name="vehicle" 
                 value={formData.vehicle} 
                 onChange={handleVehicleChange}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] cursor-pointer"
               >
                 <option value="Motor">Sepeda Motor</option>
                 <option value="Mobil">Mobil</option>
@@ -267,6 +333,9 @@ export default function MitraTripManagement() {
               <DollarSign className="w-6 h-6 text-purple-200" />
             </div>
 
+            {!isLoadingPos && posList.length === 0 && (
+              <p className="text-[8px] text-amber-600 font-bold -mt-1">⚠️ Tambahkan pos terlebih dahulu di Manajemen Pos Mitra.</p>
+            )}
             {isSameOriginDestination && (
               <p className="text-[8px] text-rose-600 font-bold -mt-1">⚠️ Pos Asal dan Pos Tujuan tidak boleh sama.</p>
             )}
@@ -279,9 +348,9 @@ export default function MitraTripManagement() {
 
             <button 
               type="submit"
-              disabled={isSameOriginDestination || isPastDate || isScheduleConflict}
+              disabled={isLoadingPos || posList.length === 0 || isSameOriginDestination || isPastDate || isScheduleConflict}
               className={`w-full py-3 rounded-xl text-[10px] font-bold transition shadow-sm ${
-                isSameOriginDestination || isPastDate || isScheduleConflict
+                isLoadingPos || posList.length === 0 || isSameOriginDestination || isPastDate || isScheduleConflict
                   ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
                   : 'bg-[#4B2172] hover:bg-[#3a1a59] text-white cursor-pointer'
               }`}
@@ -315,17 +384,6 @@ export default function MitraTripManagement() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-[10px] text-neutral-800 font-mono">{trip.id}</span>
                       
-                      {/* BUG FIX (wewenang antar role Mitra vs Operator Pos): status
-                          trip di sini SEBELUMNYA bisa diklik langsung oleh Mitra untuk
-                          mengubah "Aktif -> In Transit -> Selesai", dan begitu "Selesai"
-                          escrow otomatis cair ke saldo Mitra (lihat updateTripStatus di
-                          MitraDataContext.jsx). Itu artinya Mitra bisa "menyetujui
-                          sendiri" pencairan dana miliknya sendiri, padahal sesuai alur
-                          bisnis (lihat Operator Pos: dual QR scan checkpoint), yang
-                          berwenang memicu IN_TRANSIT/ARRIVED + pelepasan escrow adalah
-                          Operator Pos lewat scan QR di pos asal/tujuan, BUKAN Mitra.
-                          Sekarang status di sini murni tampilan (read-only) — tidak ada
-                          lagi tombol/onClick untuk mengubahnya dari sisi Mitra. */}
                       <StatusBadge variant={getTripBadgeVariant(trip.status)}>
                         Status: {trip.status}
                       </StatusBadge>

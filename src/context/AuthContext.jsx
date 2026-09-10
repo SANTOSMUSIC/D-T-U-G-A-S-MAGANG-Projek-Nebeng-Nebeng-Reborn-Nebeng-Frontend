@@ -211,6 +211,18 @@ export function AuthProvider({ children }) {
     adminProfile: session?.adminProfile ?? null,
     mitraProfile: session?.mitraProfile ?? null,
     superadminProfile: session?.superadminProfile ?? null,
+    // BUG FIX: MitraDashboard.jsx dan MitraOnboarding.jsx sudah lama membaca
+    // `mitraVerificationStatus` dari useAuth() untuk menampilkan status
+    // approved/pending/rejected/unverified, tapi field ini tidak pernah
+    // di-expose di sini — hanya `mitraProfile` (object) yang ada. Akibatnya
+    // mitraVerificationStatus selalu undefined dan badge status di kedua
+    // halaman itu selalu jatuh ke default "Belum Verifikasi", walau mitra
+    // sudah disetujui Admin Regional (mitraProfile.verificationStatus sudah
+    // benar berisi 'approved', lihat updateMitraProfile di MitraOnboarding.jsx
+    // dan pengecekan yang sudah benar di MitraLayout.jsx). Sekarang
+    // diturunkan langsung dari mitraProfile.verificationStatus supaya kedua
+    // sumber selalu sinkron.
+    mitraVerificationStatus: session?.mitraProfile?.verificationStatus ?? 'unverified',
     login,
     logout,
     markCustomerVerified,

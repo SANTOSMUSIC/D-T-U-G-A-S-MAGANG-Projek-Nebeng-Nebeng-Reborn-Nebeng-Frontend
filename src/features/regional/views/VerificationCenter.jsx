@@ -339,7 +339,14 @@ export default function VerificationCenterPage() {
             </div>
 
             {/* Informasi Rekening Bank (Hanya Ditampilkan Jika Role Mitra) */}
-            {selectedVerification.role === 'mitra' && (
+            {/* BUG FIX: item.role selalu disimpan dalam bentuk UPPERCASE (lihat
+                formatting di atas: item.user.role.toUpperCase()), tapi
+                pengecekan di sini sebelumnya membandingkan dengan 'mitra'
+                (lowercase), sehingga section ini TIDAK PERNAH tampil untuk
+                mitra manapun — Admin Regional jadi tidak bisa meninjau
+                rekening bank pencairan escrow mitra dari panel ini. Sekarang
+                dibandingkan case-insensitive. */}
+            {selectedVerification.role?.toLowerCase() === 'mitra' && (
               <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
                 <span className="text-[9px] font-bold text-neutral-500 uppercase flex items-center gap-1">
                   <CreditCard className="w-3 h-3 text-[#4B2172]" /> Informasi Rekening Bank (Pencairan)
@@ -353,7 +360,10 @@ export default function VerificationCenterPage() {
             )}
 
             {/* Informasi Kendaraan Terdaftar (Hanya Ditampilkan Jika Role Mitra) */}
-            {selectedVerification.role === 'mitra' && (
+            {/* BUG FIX: sama seperti section rekening bank di atas — bandingkan
+                case-insensitive supaya section ini benar-benar tampil untuk
+                mitra. */}
+            {selectedVerification.role?.toLowerCase() === 'mitra' && (
               <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
                 <span className="text-[9px] font-bold text-neutral-500 uppercase flex items-center gap-1">
                   <Truck className="w-3 h-3 text-[#4B2172]" /> Informasi Kendaraan Terdaftar

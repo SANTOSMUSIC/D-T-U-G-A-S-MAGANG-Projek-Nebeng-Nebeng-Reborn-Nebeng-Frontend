@@ -25,10 +25,36 @@ export default function OperatorDashboard() {
         // dikirim posId milik operator yang login (lihat user.posId di
         // authService.js) supaya backend bisa menyaringnya.
         const rawData = await operatorService.getTrips(user?.posId ? { posId: user.posId } : {});
+        const myPosId = user?.posId ? String(user.posId) : null;
+
+        // BUG FIX (statistik Trip Masuk/Keluar tidak berdasar data asli):
+        // sebelumnya `type` ditentukan dari paritas index array hasil fetch
+        // (index % 2), bukan dari data trip sesungguhnya — jadi kartu
+        // "TOTAL TRIP MASUK POS" / "TOTAL TRIP KELUAR POS" pada dasarnya
+        // menampilkan angka acak yang berubah kalau urutan data dari
+        // backend berubah, bukan mencerminkan kondisi pos yang sebenarnya.
+        // Sekarang arah trip ditentukan dari perbandingan posId pos tempat
+        // operator bertugas terhadap origin/destination pickup point trip:
+        // trip "Keluar" (berangkat dari pos ini) kalau posId ini adalah
+        // pos asal trip, "Masuk" (tiba di pos ini) kalau posId ini adalah
+        // pos tujuan trip.
+        const getPointId = (point) => (point?.id !== undefined && point?.id !== null ? String(point.id) : null);
+        const getTripDirection = (t) => {
+          const originId = getPointId(t.originPickupPoint) ?? (t.originPointId != null ? String(t.originPointId) : null);
+          const destinationId = getPointId(t.destinationPickupPoint) ?? (t.destinationPointId != null ? String(t.destinationPointId) : null);
+
+          if (myPosId && originId === myPosId) return 'Keluar';
+          if (myPosId && destinationId === myPosId) return 'Masuk';
+          // Fallback kalau posId operator belum diketahui atau data trip
+          // tidak membawa origin/destination — pakai status sebagai sinyal
+          // terbaik berikutnya (trip yang sudah 'in_transit' dianggap baru
+          // saja berangkat/Keluar dari pos ini, sisanya dianggap Masuk).
+          return t.status === 'in_transit' ? 'Keluar' : 'Masuk';
+        };
 
         const formatted = rawData.map((t, index) => ({
           id: String(t.id || `TRIP-${index + 9080}`),
-          type: index % 2 === 0 ? 'Masuk' : 'Keluar',
+          type: getTripDirection(t),
           partnerName: t.driver?.name || t.mitraName || 'Driver Mitra',
           service: t.serviceType || 'Ride / Transportasi',
           plateNumber: t.vehicle?.plateNumber || 'AD 1234 XY',
