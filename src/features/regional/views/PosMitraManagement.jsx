@@ -7,6 +7,13 @@ import BaseModal from '../../../components/ui/BaseModal';
 import { regionalService } from '../../../services/regionalService';
 import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../services/apiClient';
+import { getRegionId } from '../../../utils/regionId';
+import wilayahIndonesia from '../../../features/regional/wilayah-indonesia.json';
+
+const toTitleCase = (str) =>
+  String(str || '')
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 
 export default function PosMitraManagement() {
   const toast = useToast();
@@ -32,8 +39,30 @@ export default function PosMitraManagement() {
   });
 
   const [cityFormData, setCityFormData] = useState({
-    name: '', province: ''
+    provinceId: '', provinceName: '', regencyId: '', regencyName: ''
   });
+  const [provinceList, setProvinceList] = useState([]);
+  const [regencyList, setRegencyList] = useState([]);
+  const formatAndScopePos = (rawPos, regId) => {
+    const list = Array.isArray(rawPos) ? rawPos : (rawPos?.data || []);
+    return list
+      .map(p => ({
+        id: String(p.id),
+        name: p.name,
+        address: p.address,
+        lat: String(p.latitude),
+        long: String(p.longitude),
+        cityId: p.cityId ? String(p.cityId) : '',
+        cityName: p.city?.name || '-',
+        regionId: getRegionId(p) || getRegionId(p.city),
+        operatorId: p.operatorId ? String(p.operatorId) : '',
+        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
+        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
+        qrCodePos: p.qrCodePos
+      }))
+
+      .filter(p => !regId || !p.regionId || p.regionId === String(regId));
+  };
 
   // useEffect yang diperbarui: Tanpa guard ketat agar request tetap terkirim dan mudah dipantau
   useEffect(() => {
@@ -56,20 +85,7 @@ export default function PosMitraManagement() {
           })
         ]);
 
-        const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
-        const formattedPos = rawPos.map(p => ({
-          id: String(p.id),
-          name: p.name,
-          address: p.address,
-          lat: String(p.latitude),
-          long: String(p.longitude),
-          cityId: p.cityId ? String(p.cityId) : '',
-          cityName: p.city?.name || '-',
-          operatorId: p.operatorId ? String(p.operatorId) : '',
-          operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
-          status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
-          qrCodePos: p.qrCodePos
-        }));
+        const formattedPos = formatAndScopePos(posData, regId);
 
         const citiesData = Array.isArray(cityRes.data) ? cityRes.data : (cityRes.data?.data || []);
 
@@ -78,9 +94,9 @@ export default function PosMitraManagement() {
           : (userRes.data?.data || userRes.data?.users || []);
 
         const validOperators = rawUsers.filter(op => {
-          const opRegion = op.regionId ? String(op.regionId) : null;
-          if (!regId) return op.status === 'active';
-          return opRegion === String(regId) && op.status === 'active';
+          const opRegion = getRegionId(op);
+          if (op.status !== 'active') return false;
+          return !regId || !opRegion || opRegion === String(regId);
         });
 
         if (isMounted) {
@@ -106,7 +122,48 @@ export default function PosMitraManagement() {
     return () => {
       isMounted = false;
     };
+
   }, [user?.regionId]);
+  useEffect(() => {
+    if (!isCityModalOpen || provinceList.length > 0) return;
+    setProvinceList(Array.isArray(wilayahIndonesia?.provinces) ? wilayahIndonesia.provinces : []);
+  }, [isCityModalOpen, provinceList.length]);
+
+  const handleProvinceChange = (e) => {
+    const provinceId = e.target.value;
+    const province = provinceList.find((p) => p.id === provinceId);
+
+    setCityFormData({
+      provinceId,
+      provinceName: province ? toTitleCase(province.name) : '',
+      regencyId: '',
+      regencyName: ''
+    });
+
+    if (!provinceId) {
+      setRegencyList([]);
+      return;
+    }
+
+    const regencies = wilayahIndonesia?.regenciesByProvince?.[provinceId];
+    setRegencyList(Array.isArray(regencies) ? regencies : []);
+  };
+
+  const handleRegencyChange = (e) => {
+    const regencyId = e.target.value;
+    const regency = regencyList.find((r) => r.id === regencyId);
+    setCityFormData((prev) => ({
+      ...prev,
+      regencyId,
+      regencyName: regency ? toTitleCase(regency.name) : ''
+    }));
+  };
+
+  const resetCityModal = () => {
+    setIsCityModalOpen(false);
+    setCityFormData({ provinceId: '', provinceName: '', regencyId: '', regencyName: '' });
+    setRegencyList([]);
+  };
 
   const handleOpenAdd = () => {
     setIsEditing(false);
@@ -143,20 +200,29 @@ export default function PosMitraManagement() {
 
   const handleSaveCity = async (e) => {
     e.preventDefault();
-    if (!cityFormData.name || !cityFormData.province) {
-      toast.warning('Nama kota dan provinsi wajib diisi!', { title: 'Form Belum Lengkap' });
+    if (!cityFormData.provinceId || !cityFormData.regencyId) {
+      toast.warning('Pilih provinsi dan kota/kabupaten resmi terlebih dahulu!', { title: 'Form Belum Lengkap' });
+      return;
+    }
+
+    const normalizedName = cityFormData.regencyName.trim().toLowerCase();
+    const duplicate = cityList.find((c) => String(c.name).trim().toLowerCase() === normalizedName);
+
+    if (duplicate) {
+      toast.warning(`${cityFormData.regencyName} sudah terdaftar di sistem.`, { title: 'Kota Sudah Ada' });
+      setFormData((prev) => ({ ...prev, cityId: String(duplicate.id) }));
+      resetCityModal();
       return;
     }
 
     try {
       const response = await apiClient.post('/cities', {
-        name: cityFormData.name.trim(),
-        province: cityFormData.province.trim()
+        name: cityFormData.regencyName,
+        province: cityFormData.provinceName
       });
       
-      toast.success(`Kota ${cityFormData.name} berhasil ditambahkan!`, { title: 'Berhasil' });
-      setIsCityModalOpen(false);
-      setCityFormData({ name: '', province: '' });
+      toast.success(`Kota ${cityFormData.regencyName} berhasil ditambahkan!`, { title: 'Berhasil' });
+      resetCityModal();
       
       const cityRes = await apiClient.get('/cities');
       setCityList(Array.isArray(cityRes.data) ? cityRes.data : (cityRes.data?.data || []));
@@ -201,21 +267,7 @@ export default function PosMitraManagement() {
       setIsModalOpen(false);
       
       const posData = await regionalService.getPickupPoints(regId);
-      const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
-      const formattedPos = rawPos.map(p => ({
-        id: String(p.id),
-        name: p.name,
-        address: p.address,
-        lat: String(p.latitude),
-        long: String(p.longitude),
-        cityId: p.cityId ? String(p.cityId) : '',
-        cityName: p.city?.name || '-',
-        operatorId: p.operatorId ? String(p.operatorId) : '',
-        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
-        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
-        qrCodePos: p.qrCodePos
-      }));
-      setPosList(formattedPos);
+      setPosList(formatAndScopePos(posData, regId));
 
     } catch (error) {
       console.error('Gagal menyimpan pos:', error);
@@ -232,21 +284,7 @@ export default function PosMitraManagement() {
       
       const regId = activeRegionId || user?.regionId;
       const posData = await regionalService.getPickupPoints(regId);
-      const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
-      const formattedPos = rawPos.map(p => ({
-        id: String(p.id),
-        name: p.name,
-        address: p.address,
-        lat: String(p.latitude),
-        long: String(p.longitude),
-        cityId: p.cityId ? String(p.cityId) : '',
-        cityName: p.city?.name || '-',
-        operatorId: p.operatorId ? String(p.operatorId) : '',
-        operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
-        status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
-        qrCodePos: p.qrCodePos
-      }));
-      setPosList(formattedPos);
+      setPosList(formatAndScopePos(posData, regId));
     } catch (error) {
       toast.error('Gagal menghapus pos.', { title: error });
     }
@@ -439,23 +477,55 @@ export default function PosMitraManagement() {
       {/* Modal Tambah Kota */}
       <BaseModal
         isOpen={isCityModalOpen}
-        onClose={() => setIsCityModalOpen(false)}
+        onClose={resetCityModal}
         title="Tambah Kota Baru"
         subtitle="Master Data Wilayah"
         maxWidth="max-w-sm"
       >
         <form onSubmit={handleSaveCity} className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Kota / Kabupaten</label>
-            <input type="text" required placeholder="Contoh: Surakarta" value={cityFormData.name} onChange={(e) => setCityFormData({...cityFormData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
-          </div>
-          <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Provinsi</label>
-            <input type="text" required placeholder="Contoh: Jawa Tengah" value={cityFormData.province} onChange={(e) => setCityFormData({...cityFormData, province: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <select
+              required
+              value={cityFormData.provinceId}
+              onChange={handleProvinceChange}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
+            >
+              <option value="">
+                {provinceList.length === 0 ? 'Data provinsi tidak tersedia' : '-- Pilih Provinsi --'}
+              </option>
+              {provinceList.map((p) => (
+                <option key={p.id} value={p.id}>{toTitleCase(p.name)}</option>
+              ))}
+            </select>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Kota / Kabupaten</label>
+            <select
+              required
+              value={cityFormData.regencyId}
+              onChange={handleRegencyChange}
+              disabled={!cityFormData.provinceId}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {cityFormData.provinceId
+                  ? '-- Pilih Kota/Kabupaten --'
+                  : 'Pilih provinsi terlebih dahulu'}
+              </option>
+              {regencyList.map((r) => (
+                <option key={r.id} value={r.id}>{toTitleCase(r.name)}</option>
+              ))}
+            </select>
+            <p className="text-[8px] text-neutral-400 pt-0.5">
+              Daftar resmi 514 kab/kota Indonesia (Kemendagri/BPS) — mencegah nama ganda atau tidak baku.
+            </p>
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-3">
-            <button type="button" onClick={() => setIsCityModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
-            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm">Simpan Kota</button>
+            <button type="button" onClick={resetCityModal} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
+            <button type="submit" disabled={!cityFormData.regencyId} className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">Simpan Kota</button>
           </div>
         </form>
       </BaseModal>

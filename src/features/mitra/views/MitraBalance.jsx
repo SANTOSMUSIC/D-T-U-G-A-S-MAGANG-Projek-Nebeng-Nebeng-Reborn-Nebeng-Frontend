@@ -227,7 +227,7 @@ export default function MitraBalance() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-neutral-100 text-[#9px] text-neutral-400 uppercase font-semibold">
+                  <tr className="border-b border-neutral-100 text-[9px] text-neutral-400 uppercase font-semibold">
                     <th className="py-3 px-3">ID Trip</th>
                     <th className="py-3 px-3">Trip Terkait</th>
                     <th className="py-3 px-3">Nominal Escrow</th>

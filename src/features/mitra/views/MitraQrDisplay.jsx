@@ -3,36 +3,54 @@ import QRCode from 'qrcode';
 import { Smartphone, RefreshCw, ShieldCheck, QrCode, AlertCircle } from 'lucide-react';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import EmptyState from '../../../components/ui/EmptyState';
-import { useMitraData } from '../../../context/MitraDataContext';
-
-// NOTE: butuh `npm install qrcode` di project ini. QR kini digenerate
-// sepenuhnya di client (canvas), tidak lagi mengirim data rute/kendaraan
-// ke layanan pihak ketiga (api.qrserver.com) dan tidak lagi bergantung
-// pada koneksi ke server eksternal untuk menampilkan QR.
+import apiClient from '../../../services/apiClient';
+import { useToast } from '../../../context/ToastContext';
 
 export default function MitraQrDisplay() {
-  const { trips } = useMitraData();
-  const activeTrips = trips.filter((t) => t.status === 'Aktif' || t.status === 'In Transit');
-
-  const [selectedTripId, setSelectedTripId] = useState(activeTrips[0]?.id ?? null);
-  const [dynamicToken, setDynamicToken] = useState(`TOKEN-${Math.floor(1000 + Math.random() * 9000)}`);
+  const toast = useToast();
+  const [trips, setTrips] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [dynamicToken, setDynamicToken] = useState('TOKEN-1234');
   const [countdown, setCountdown] = useState(30);
   const [qrError, setQrError] = useState(false);
   const canvasRef = useRef(null);
 
-  // Kalau trip yang sebelumnya dipilih hilang (mis. dibatalkan/selesai),
-  // otomatis pindah ke trip aktif pertama yang tersedia.
+  // Ambil daftar trip milik mitra secara aman di dalam useEffect
   useEffect(() => {
-    const stillExists = activeTrips.some((t) => t.id === selectedTripId);
-    if (!stillExists) {
-      setSelectedTripId(activeTrips[0]?.id ?? null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTrips.map((t) => t.id).join(',')]);
+    const fetchMitraTrips = async () => {
+      setIsLoading(true);
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        const currentUserId = String(userRes.data?.id);
 
-  const current = activeTrips.find((t) => t.id === selectedTripId);
+        const resTrips = await apiClient.get('/trips');
+        const allTrips = resTrips.data?.data || resTrips.data || [];
+        
+        const myActiveTrips = allTrips.filter((t) => {
+          const isOwner = String(t.mitraId || t.mitra?.id) === currentUserId;
+          const isActive = t.status === 'scheduled' || t.status === 'in_origin_pos' || t.status === 'in_transit';
+          return isOwner && isActive;
+        });
 
-  // Auto-refresh token dinamis setiap 30 detik untuk keamanan.
+        setTrips(myActiveTrips);
+        if (myActiveTrips.length > 0 && !selectedTripId) {
+          setSelectedTripId(myActiveTrips[0].id);
+        }
+      } catch (err) {
+        console.error('Gagal memuat trip aktif:', err);
+        toast.error('Gagal menyambungkan data QR ke server.', { title: 'Error' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMitraTrips();
+  }, [toast, selectedTripId]);
+
+  const current = trips.find((t) => String(t.id) === String(selectedTripId));
+
+  // Auto-refresh token dinamis setiap 30 detik untuk keamanan QR
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -47,10 +65,10 @@ export default function MitraQrDisplay() {
     return () => clearInterval(timer);
   }, [selectedTripId]);
 
-  // Render QR ke canvas secara lokal setiap kali trip/token berubah.
+  // Render QR ke canvas secara lokal
   useEffect(() => {
     if (!current || !canvasRef.current) return;
-    const qrPayload = `ID:${current.id}|Rute:${current.origin}->${current.destination}|Kendaraan:${current.vehicle}|TS:${dynamicToken}`;
+    const qrPayload = `TRIP-${current.id}|Route:${current.originPoint?.name}->${current.destinationPoint?.name}|TS:${dynamicToken}`;
 
     QRCode.toCanvas(canvasRef.current, qrPayload, { width: 160, margin: 1 }, (err) => {
       setQrError(Boolean(err));
@@ -81,7 +99,11 @@ export default function MitraQrDisplay() {
         </div>
       </div>
 
-      {activeTrips.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 text-center text-[10px] text-neutral-400">
+          Memuat data QR trip...
+        </div>
+      ) : trips.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8">
           <EmptyState
             icon={QrCode}
@@ -96,7 +118,7 @@ export default function MitraQrDisplay() {
               <QrCode className="w-3.5 h-3.5 text-[#4B2172]" /> Pilih Trip Aktif
             </h2>
             <div className="space-y-2">
-              {activeTrips.map((trip) => (
+              {trips.map((trip) => (
                 <button
                   key={trip.id}
                   onClick={() => {
@@ -104,17 +126,17 @@ export default function MitraQrDisplay() {
                     handleManualRefresh();
                   }}
                   className={`w-full text-left p-3.5 rounded-xl border transition cursor-pointer ${
-                    selectedTripId === trip.id 
+                    String(selectedTripId) === String(trip.id)
                       ? 'border-[#4B2172] bg-purple-50/50 shadow-sm' 
                       : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-[10px] text-neutral-800 font-mono">{trip.id}</span>
-                    <StatusBadge variant={trip.status === 'In Transit' ? 'amber' : 'purple'}>{trip.status}</StatusBadge>
+                    <span className="font-bold text-[10px] text-neutral-800 font-mono">TRIP-{trip.id}</span>
+                    <StatusBadge variant={trip.status === 'in_transit' ? 'amber' : 'purple'}>{trip.status}</StatusBadge>
                   </div>
-                  <p className="text-[10px] font-bold text-neutral-700">{trip.origin} &rarr; {trip.destination}</p>
-                  <p className="text-[8px] text-neutral-400 mt-0.5">{trip.vehicle} • {trip.date} {trip.time} WIB</p>
+                  <p className="text-[10px] font-bold text-neutral-700">{trip.originPoint?.name} &rarr; {trip.destinationPoint?.name}</p>
+                  <p className="text-[8px] text-neutral-400 mt-0.5">{trip.vehicle?.model} • {trip.departureDate?.split('T')[0]} WIB</p>
                 </button>
               ))}
             </div>
@@ -138,8 +160,8 @@ export default function MitraQrDisplay() {
                     <canvas ref={canvasRef} className="w-full h-full object-contain" />
                   )}
                 </div>
-                <p className="text-neutral-900 font-bold text-[12px] font-mono mt-2">{current?.id}</p>
-                <p className="text-neutral-400 text-[9px] font-medium">{current?.origin} &rarr; {current?.destination}</p>
+                <p className="text-neutral-900 font-bold text-[12px] font-mono mt-2">TRIP-{current?.id}</p>
+                <p className="text-neutral-400 text-[9px] font-medium">{current?.originPoint?.name} &rarr; {current?.destinationPoint?.name}</p>
               </div>
 
               <div className="mt-3 bg-white/10 p-2.5 rounded-lg border border-white/10 text-left space-y-1">
@@ -147,8 +169,8 @@ export default function MitraQrDisplay() {
                   <p className="text-[8px] text-purple-200 font-bold uppercase">Token Keamanan:</p>
                   <span className="text-[8px] font-mono font-bold text-emerald-400">{dynamicToken}</span>
                 </div>
-                <p className="text-[10px] text-white font-semibold">{current?.date} • {current?.time} WIB</p>
-                <p className="text-[9px] text-neutral-300">{current?.vehicle}</p>
+                <p className="text-[10px] text-white font-semibold">{current?.departureDate?.split('T')[0]} • Sesuai Jadwal</p>
+                <p className="text-[9px] text-neutral-300">{current?.vehicle?.model} ({current?.vehicle?.plateNumber})</p>
               </div>
 
               <div className="mt-3 flex items-center justify-between text-[8px] text-emerald-400 font-bold bg-emerald-500/10 py-1.5 px-3 rounded-lg border border-emerald-500/20">

@@ -17,13 +17,21 @@ export default function OperatorFinancial() {
         if (isMounted) setIsLoadingTransactions(true);
         const responseData = await operatorService.getPayments();
 
-        const formatted = responseData.map((trx, index) => ({
-          id: String(trx.id || `TRX-${String(index + 1).padStart(3, '0')}`),
-          amount: Number(trx.amount || 0),
-          type: trx.paymentGateway || 'Gateway Pembayaran',
-          method: trx.status === 'success' ? 'Sukses / Lunas' : 'Pending',
-          time: trx.createdAt ? new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : 'Hari ini'
-        }));
+        const formatted = responseData.map((trx, index) => {
+          const gateway = trx.paymentGateway || 'MANUAL_SIMULATION';
+          let readableMethod = 'Tunai / Manual';
+          if (gateway === 'QRIS') readableMethod = 'QRIS Instant';
+          else if (gateway === 'BANK_TRANSFER') readableMethod = 'Virtual Account Bank';
+
+          return {
+            id: String(trx.id || `TRX-${String(index + 1).padStart(3, '0')}`),
+            amount: Number(trx.amount || 0),
+            type: gateway,
+            method: readableMethod,
+            status: trx.status || 'success',
+            time: trx.createdAt ? new Date(trx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : 'Hari ini'
+          };
+        });
 
         if (isMounted) {
           setDailyTransactions(formatted);
@@ -45,8 +53,13 @@ export default function OperatorFinancial() {
   }, []);
 
   const totalRevenue = dailyTransactions.reduce((acc, curr) => acc + curr.amount, 0);
-  const cashTotal = Math.round(totalRevenue * 0.6);
-  const qrisTotal = totalRevenue - cashTotal;
+  
+  // Kalkulasi dinamis berdasarkan jenis gateway pembayaran aktual
+  const qrisRevenue = dailyTransactions
+    .filter(t => t.type === 'QRIS')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+    
+  const otherRevenue = totalRevenue - qrisRevenue;
   const regionalCommission = Math.round(totalRevenue * 0.15);
 
   return (
@@ -90,9 +103,9 @@ export default function OperatorFinancial() {
           icon={DollarSign}
         />
         <StatCard
-          title="KAS FISIK DI LACI (TUNAI)"
-          value={`Rp ${cashTotal.toLocaleString('id-ID')}`}
-          subtitle={`QRIS Non-Tunai: Rp ${qrisTotal.toLocaleString('id-ID')}`}
+          title="PENDAPATAN QRIS"
+          value={`Rp ${qrisRevenue.toLocaleString('id-ID')}`}
+          subtitle={`Non-QRIS / Lainnya: Rp ${otherRevenue.toLocaleString('id-ID')}`}
           icon={Wallet}
         />
         <StatCard
@@ -137,7 +150,7 @@ export default function OperatorFinancial() {
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-neutral-700">{trx.type}</td>
                     <td className="py-3.5 px-4">
-                      <StatusBadge variant="emerald">
+                      <StatusBadge variant={trx.status === 'success' ? 'emerald' : 'amber'}>
                         <Wallet size={10} className="mr-1 inline" /> {trx.method}
                       </StatusBadge>
                     </td>

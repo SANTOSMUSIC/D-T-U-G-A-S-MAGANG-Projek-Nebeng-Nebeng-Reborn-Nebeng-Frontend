@@ -24,21 +24,28 @@ export default function FleetCourierPage() {
 
         const userRes = await regionalService.getUsersByRole('mitra', currentRegionId).catch(() => []);
         const rawUsers = Array.isArray(userRes) ? userRes : (userRes?.data || []);
+        const mitraOnly = rawUsers.filter(u => (u.role || '').toLowerCase() === 'mitra');
 
-        const formatted = rawUsers
-          .filter(u => {
-            const isMitra = u.role && String(u.role).toLowerCase() === 'mitra';
-            if (!isMitra) return false;
-            if (!currentRegionId) return true;
-            return u.regionId ? String(u.regionId) === currentRegionId : true;
-          })
-          .map(u => ({
+        if (mitraOnly.length !== rawUsers.length) {
+          console.warn(
+            `[Armada] Backend mengembalikan ${rawUsers.length} user untuk role=mitra, tapi hanya ${mitraOnly.length} yang benar-benar ber-role mitra. Kemungkinan backend endpoint /users mengabaikan filter role.`
+          );
+        }
+
+        const formatted = mitraOnly.map(u => {
+          const vehicle = u.vehicles?.[0] || null;
+          return {
             id: String(u.id),
             name: u.name,
             email: u.email,
             phone: u.phone || '-',
-            statusVerification: u.statusVerification || 'pending'
-          }));
+            status: u.status === 'active' ? 'Aktif' : 'Nonaktif',
+            hasVehicle: Boolean(vehicle),
+            vehicleType: vehicle?.type || '-',
+            vehicleModel: vehicle?.model || '-',
+            plateNumber: vehicle?.plateNumber || '-'
+          };
+        });
 
         if (isMounted) {
           setMitraFleetList(formatted);
@@ -108,13 +115,15 @@ export default function FleetCourierPage() {
               <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
                 <th className="py-3 px-5">ID & Nama Mitra Pemilik</th>
                 <th className="py-3 px-5">Email Akun</th>
-                <th className="py-3 px-5">Nomor Telepon</th>
-                <th className="py-3 px-5">Status Verifikasi Akun</th>
+                <th className="py-3 px-5">Kendaraan</th>
+                <th className="py-3 px-5">Plat Nomor</th>
+                <th className="py-3 px-5">Status Kendaraan</th>
+                <th className="py-3 px-5">Status Akun</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoading ? (
-                <SkeletonTableRows rows={4} columns={4} />
+                <SkeletonTableRows rows={4} columns={6} />
               ) : filteredData.length > 0 ? (
                 filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition">
@@ -123,21 +132,33 @@ export default function FleetCourierPage() {
                       <div className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {item.id}</div>
                     </td>
                     <td className="py-3.5 px-5 font-semibold text-neutral-700">{item.email}</td>
-                    <td className="py-3.5 px-5 font-mono text-neutral-800">{item.phone}</td>
+                    <td className="py-3.5 px-5 font-bold text-neutral-800">
+                      {item.hasVehicle ? `${item.vehicleType} - ${item.vehicleModel}` : '-'}
+                    </td>
+                    <td className="py-3.5 px-5 font-mono text-neutral-800">{item.hasVehicle ? item.plateNumber : '-'}</td>
                     <td className="py-3.5 px-5">
                       <span className={`px-2.5 py-1 rounded-full text-[8px] font-bold ${
-                        item.statusVerification === 'approved' 
+                        item.hasVehicle
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-neutral-100 text-neutral-500 border border-neutral-200'
+                      }`}>
+                        {item.hasVehicle ? 'TERDAFTAR' : 'BELUM TERDAFTAR'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span className={`px-2.5 py-1 rounded-full text-[8px] font-bold ${
+                        item.status === 'Aktif' 
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}>
-                        {item.statusVerification.toUpperCase()}
+                        {item.status.toUpperCase()}
                       </span>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4">
+                  <td colSpan="6">
                     <EmptyState icon={Truck} title="Tidak Ada Mitra" description="Belum ada akun ber-role mitra di database wilayah ini." />
                   </td>
                 </tr>

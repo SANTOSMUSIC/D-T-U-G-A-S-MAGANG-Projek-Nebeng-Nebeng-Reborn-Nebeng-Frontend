@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck, AlertCircle, X, CreditCard } from 'lucide-react';
+import { User, FileText, Upload, Camera, CheckCircle2, ShieldCheck, AlertCircle, X, CreditCard, RefreshCw } from 'lucide-react';
 import StatusBadge from '../../../components/ui/StatusBadge';
-import { mitraService } from '../../../services/mitraService';
 import apiClient from '../../../services/apiClient';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -11,8 +12,10 @@ const SKCK_TYPES = [...IMAGE_TYPES, 'application/pdf'];
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 
 export default function MitraOnboarding() {
-  const { user } = useAuth();
-  const { mitraVerificationStatus, updateMitraProfile } = useAuth();
+  const { user, checkAuthStatus } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
     phone: user?.phone || '',
@@ -41,28 +44,68 @@ export default function MitraOnboarding() {
   const streamRef = useRef(null);
 
   const [submitted, setSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [verificationStatusDetail, setVerificationStatusDetail] = useState('pending');
 
   useEffect(() => {
     let isMounted = true;
-    async function checkVerificationStatus() {
+    const checkLiveStatus = async () => {
       try {
-        const response = await apiClient.get('/verifications/my-status');
-        const verifications = response.data?.data || response.data || [];
-        if (verifications.length > 0) {
-          const hasActive = verifications.some(v => v.status === 'pending' || v.status === 'approved');
-          if (hasActive && isMounted) setSubmitted(true);
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res.data) {
+          if (res.data.statusVerification === 'approved') {
+            navigate('/mitra/dashboard', { replace: true });
+            return;
+          }
+        }
+        const statusRes = await apiClient.get('/verifications/my-status');
+        const verifications = statusRes.data?.data || statusRes.data || [];
+        if (verifications.length > 0 && isMounted) {
+          const latest = verifications[0];
+          setVerificationStatusDetail(latest.status);
+          if (latest.status === 'pending' || latest.status === 'approved') {
+            setSubmitted(true);
+          }
         }
       } catch (err) {
-        console.log('Belum ada riwayat verifikasi:', err.message);
-      } finally {
-        if (isMounted) setIsLoading(false);
+        console.error('Gagal mengambil status verifikasi mitra:', err);
       }
-    }
-    checkVerificationStatus();
+    };
+    checkLiveStatus();
     return () => { isMounted = false; };
-  }, []);
+  }, [navigate]);
+
+  const handleManualCheckStatus = async () => {
+    if (isCheckingStatus) return;
+    setIsCheckingStatus(true);
+    try {
+      if (checkAuthStatus) await checkAuthStatus();
+      const res = await apiClient.get('/auth/me');
+      if (res.data?.statusVerification === 'approved') {
+        toast.success('Verifikasi Anda telah disetujui!', { title: 'Sukses' });
+        navigate('/mitra/dashboard', { replace: true });
+        return;
+      }
+      const statusRes = await apiClient.get('/verifications/my-status');
+      const verifications = statusRes.data?.data || statusRes.data || [];
+      if (verifications.length > 0) {
+        const latest = verifications[0];
+        setVerificationStatusDetail(latest.status);
+        if (latest.status === 'pending') {
+          toast.info('Status pengajuan Anda masih dalam peninjauan Admin.', { title: 'Menunggu' });
+        } else if (latest.status === 'rejected') {
+          toast.error(`Pengajuan ditolak. Alasan: ${latest.rejectionReason || 'Periksa dokumen.'}`, { title: 'Ditolak' });
+          setSubmitted(false);
+        }
+      }
+    } catch {
+      toast.error('Gagal memperbarui status dari server.', { title: 'Error' });
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -148,12 +191,11 @@ export default function MitraOnboarding() {
     startCamera();
   };
 
-  // Fungsi memastikan upload file mengarah dan tercatat di folder uploads/verifications
   const uploadFileToServer = async (fileObj) => {
     if (!fileObj) return '';
     const formDataObj = new FormData();
     formDataObj.append('file', fileObj);
-    formDataObj.append('destination', 'uploads/verifications'); // Memastikan backend menangkap ke folder tujuan verifikasi
+    formDataObj.append('destination', 'uploads/verifications');
     try {
       const response = await apiClient.post('/uploads/file', formDataObj, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -161,6 +203,7 @@ export default function MitraOnboarding() {
       return response.data.filePath || response.data.url;
     } catch (err) {
       console.error('Gagal upload file fisik:', err);
+      return '';
     }
   };
 
@@ -189,63 +232,71 @@ export default function MitraOnboarding() {
     setErrorMessage('');
 
     try {
-      // 1. Unggah file Face ID ke server (uploads/verifications)
       let facePath = '';
       if (rawFiles.face) {
         facePath = await uploadFileToServer(rawFiles.face);
       }
 
-      // 2. Perbarui profil dengan path face image fisik dan data rekening
       await apiClient.patch('/users/me/profile', {
         ktpNumber: formData.nik,
         fullNameKtp: formData.fullName,
         addressKtp: formData.address,
-        faceImageUrl: facePath || 'https://storage.nebeng.com/faces/default-face.jpg',
+        faceImageUrl: facePath || '/uploads/verifications/default-face.jpg',
         bankName: formData.bankName,
         bankAccountNumber: formData.bankAccountNumber,
         bankAccountHolder: formData.bankAccountHolder,
       });
 
-      // 3. Daftarkan kendaraan
       await apiClient.post('/vehicles', {
         type: formData.vehicleType,
         model: formData.vehicleModel,
-        plateNumber: formData.plateNumber,
+        plateNumber: formData.plateNumber.trim(),
         color: formData.vehicleColor,
         capacitySeats: formData.vehicleType === 'mobil' ? 4 : 1,
         maxWeightCapacityKg: formData.vehicleType === 'mobil' ? 100 : 15,
       });
 
-      // 4. Unggah berkas fisik (SIM, SKCK, STNK) ke uploads/verifications
       const simPath = await uploadFileToServer(rawFiles.sim);
       const skckPath = await uploadFileToServer(rawFiles.skck);
       const stnkPath = await uploadFileToServer(rawFiles.stnk);
 
-      // 5. Submit verifikasi ke backend
-      await mitraService.submitVerification('sim', [{ filePath: simPath, fileType: rawFiles.sim.type }]);
-      await mitraService.submitVerification('skck', [{ filePath: skckPath, fileType: rawFiles.skck.type }]);
-      await mitraService.submitVerification('stnk', [{ filePath: stnkPath, fileType: rawFiles.stnk.type }]);
+      await apiClient.post('/verifications/submit', {
+        type: 'sim',
+        ktpNumber: formData.nik,
+        fullNameKtp: formData.fullName,
+        addressKtp: formData.address,
+        faceImageUrl: facePath || '/uploads/verifications/default-face.jpg',
+        files: [{ filePath: simPath, fileType: rawFiles.sim.type }]
+      });
+
+      await apiClient.post('/verifications/submit', {
+        type: 'skck',
+        ktpNumber: formData.nik,
+        fullNameKtp: formData.fullName,
+        addressKtp: formData.address,
+        faceImageUrl: facePath || '/uploads/verifications/default-face.jpg',
+        files: [{ filePath: skckPath, fileType: rawFiles.skck.type }]
+      });
+
+      await apiClient.post('/verifications/submit', {
+        type: 'stnk',
+        ktpNumber: formData.nik,
+        fullNameKtp: formData.fullName,
+        addressKtp: formData.address,
+        faceImageUrl: facePath || '/uploads/verifications/default-face.jpg',
+        files: [{ filePath: stnkPath, fileType: rawFiles.stnk.type }]
+      });
 
       setSubmitted(true);
+      setVerificationStatusDetail('pending');
+      if (checkAuthStatus) await checkAuthStatus();
+      toast.success('Dokumen verifikasi berhasil dikirim.', { title: 'Terkirim' });
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'Terjadi kesalahan saat memproses data.');
     } finally {
       setIsLoading(false);
     }
-
-    updateMitraProfile({
-      fullName: formData.fullName.trim(),
-      phone: formData.phone.trim(),
-      address: formData.address.trim(),
-      vehicleType: formData.vehicleType,
-      plateNumber: formData.plateNumber.trim(),
-      verificationStatus: 'pending',
-    });
   };
-
-  if (isLoading) {
-    return <div className="max-w-7xl mx-auto p-8 text-center text-neutral-500 text-[11px]">Memuat status verifikasi...</div>;
-  }
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -260,11 +311,9 @@ export default function MitraOnboarding() {
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Mitra Onboarding & Verification</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Lengkapi data diri, rekening bank, kendaraan, dan unggah berkas fisik.</p>
         </div>
-        {submitted && <StatusBadge variant="amber">Menunggu Verifikasi Admin</StatusBadge>}
-
         {submitted && (
-          <StatusBadge variant={mitraVerificationStatus === 'approved' ? 'emerald' : 'amber'}>
-            {mitraVerificationStatus === 'approved' ? 'Terverifikasi' : 'Menunggu Verifikasi Admin'}
+          <StatusBadge variant={verificationStatusDetail === 'approved' ? 'emerald' : 'amber'}>
+            {verificationStatusDetail === 'approved' ? 'Terverifikasi' : 'Menunggu Verifikasi Admin'}
           </StatusBadge>
         )}
       </div>
@@ -293,15 +342,6 @@ export default function MitraOnboarding() {
                 <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]">
                   <option value="motor">Sepeda Motor</option>
                   <option value="mobil">Mobil / Minibus</option>
-                </select>
-                <select 
-                  name="vehicleType"
-                  value={formData.vehicleType}
-                  onChange={handleInputChange}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
-                >
-                  <option value="Motor">Sepeda Motor</option>
-                  <option value="Mobil">Mobil / Minibus</option>
                 </select>
               </div>
               <div>
@@ -415,29 +455,22 @@ export default function MitraOnboarding() {
           </div>
         </form>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 text-center space-y-3">
-          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center">
-            <CheckCircle2 className="w-7 h-7" />
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 text-center space-y-4 max-w-xl mx-auto">
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
-          <h2 className="text-[18px] font-bold text-neutral-800">Pendaftaran Berhasil Dikirim!</h2>
-          <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">Berkas fisik berhasil diunggah ke folder server dan data Anda masuk ke antrean admin.</p>
-
-          <h2 className="text-[18px] font-bold text-neutral-800">
-            {mitraVerificationStatus === 'approved' ? 'Akun Anda Sudah Terverifikasi!' : 'Pendaftaran Berhasil Dikirim!'}
-          </h2>
-          <p className="text-[10px] text-neutral-400 max-w-sm mx-auto">
-            {mitraVerificationStatus === 'approved'
-              ? 'Data dan dokumen Anda sudah disetujui oleh tim verifikasi regional. Anda sekarang bisa membuat trip baru.'
-              : 'Dokumen dan data Face ID Anda sedang ditinjau oleh tim verifikasi regional. Akun Anda akan diaktifkan setelah proses validasi selesai.'}
+          <h2 className="text-[16px] font-bold text-neutral-800">Verifikasi Mitra Sedang Ditinjau</h2>
+          <p className="text-[11px] text-neutral-500">
+            Dokumen dan data kendaraan Anda telah dikirim ke pusat verifikasi. Dashboard Mitra akan terbuka otomatis setelah Admin menyetujui pengajuan Anda.
           </p>
-          {mitraVerificationStatus !== 'approved' && (
-            <button 
-              onClick={() => updateMitraProfile({ verificationStatus: 'unverified' })}
-              className="mt-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-bold rounded-xl transition cursor-pointer"
-            >
-              Ulangi / Edit Data
-            </button>
-          )}
+          <button
+            onClick={handleManualCheckStatus}
+            disabled={isCheckingStatus}
+            className="py-2.5 px-5 bg-[#4B2172] text-white rounded-xl text-[10px] font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5 mx-auto"
+          >
+            <RefreshCw className={`w-3 h-3 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+            <span>{isCheckingStatus ? 'Memeriksa...' : 'Cek Status Verifikasi'}</span>
+          </button>
         </div>
       )}
     </div>

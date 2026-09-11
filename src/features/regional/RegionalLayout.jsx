@@ -15,7 +15,7 @@ const REGIONAL_MENU_PATH = {
 const ROLE_LABELS = {
   regional_admin: 'Admin Regional',
   admin_regional: 'Admin Regional',
-  operator_pos: 'Operator Pos',
+  operator: 'Operator Pos',
 };
 
 function formatRoleLabel(role) {
@@ -37,14 +37,6 @@ export default function RegionalLayout() {
     return currentPath.endsWith(`/regional/${slug}`) || currentPath.includes(`/regional/${slug}/`);
   }) || 'Dashboard Wilayah';
 
-  // Data profil admin regional diambil dari adminProfile (bisa diedit lewat
-  // Pengaturan Akun) dengan fallback ke field bawaan sesi login.
-  // FIX: photoDataUrl sebelumnya tidak ikut disertakan di sini, jadi foto
-  // yang sudah tersimpan lewat updateAdminProfile di halaman Pengaturan
-  // Akun tidak pernah sampai ke RegionalTopbar/UserProfileModal (selalu
-  // tampil inisial). FIX juga: fallback sebelumnya berupa data contoh yang
-  // terlihat asli ("Admin Regional Surakarta" dkk) — diganti ke placeholder
-  // netral, konsisten dengan RegionalAccountSettings.
   const currentUser = {
     name: adminProfile?.name || session?.name || '',
     email: adminProfile?.email || session?.email || '',
@@ -70,10 +62,6 @@ export default function RegionalLayout() {
         }}
       />
 
-      {/* Profil Saya dibuka sebagai modal langsung di dalam RegionalTopbar
-          (tidak berpindah halaman), sama seperti pola MitraTopbar.
-          Pengaturan Akun berpindah ke halaman penuh lewat route
-          /regional/profile/pengaturan. */}
       <div className="flex-1 lg:ml-64 min-h-screen">
         <RegionalTopbar
           user={currentUser}

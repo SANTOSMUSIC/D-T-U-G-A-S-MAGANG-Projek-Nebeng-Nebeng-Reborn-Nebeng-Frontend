@@ -33,11 +33,15 @@ export default function Register({ onSwitchToLogin }) {
         const response = await apiClient.get('/regions?onlyActive=true');
         const regionData = response.data?.data || response.data || [];
         setRegions(regionData);
-        
-        // Set default region pertama jika ada data
-        if (regionData.length > 0) {
-          setForm(prev => ({ ...prev, regionId: String(regionData[0].id) }));
-        }
+
+        // FIX: sebelumnya wilayah pertama dari daftar otomatis terpilih
+        // begitu data selesai dimuat. Kalau user tidak sadar mengubahnya
+        // (mis. langsung klik "Daftar" tanpa memperhatikan dropdown),
+        // akun akan tersimpan di wilayah yang salah tanpa disadari — ini
+        // yang menyebabkan mitra yang seharusnya terdaftar di Solo malah
+        // muncul di wilayah lain (Yogyakarta/Sleman, wilayah pertama di
+        // daftar). Sekarang dropdown dibiarkan kosong dan user WAJIB
+        // memilih wilayahnya sendiri secara eksplisit sebelum submit.
       } catch (err) {
         console.error('Gagal memuat daftar region', err);
         toast.error('Gagal memuat daftar wilayah operasional. Silakan muat ulang halaman.', {
@@ -191,11 +195,14 @@ export default function Register({ onSwitchToLogin }) {
               ) : regions.length === 0 ? (
                 <option value="">Tidak ada wilayah aktif</option>
               ) : (
-                regions.map((reg) => (
+                <>
+                <option value="" disabled>-- Pilih wilayah operasional Anda --</option>
+                {regions.map((reg) => (
                   <option key={reg.id} value={reg.id}>
                     {reg.name} ({reg.code})
                   </option>
-                ))
+                ))}
+                </>
               )}
             </select>
             <MapPin className="pointer-events-none absolute inset-y-0 right-4 my-auto w-4.5 h-4.5 text-zinc-500" />

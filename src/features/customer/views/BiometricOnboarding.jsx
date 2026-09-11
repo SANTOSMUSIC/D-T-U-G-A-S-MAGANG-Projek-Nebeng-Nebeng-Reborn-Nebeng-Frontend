@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Upload, CheckCircle2, ShieldCheck, Camera, ArrowRight, ArrowLeft, Clock } from 'lucide-react';
+import { Upload, CheckCircle2, ShieldCheck, Camera, ArrowRight, ArrowLeft, Clock, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import apiClient from '../../../services/apiClient';
@@ -9,30 +10,85 @@ const ALLOWED_KTP_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 
 export default function BiometricOnboarding() {
-  const { checkAuthStatus } = useAuth();
+  const { user, checkAuthStatus } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isSubmittedPending, setIsSubmittedPending] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: '',
+    fullName: user?.name || '',
     nik: '',
     addressKtp: '',
-    phone: ''
+    phone: user?.phone || ''
   });
   
   const [ktpFile, setKtpFile] = useState(null);
   const [ktpPreview, setKtpPreview] = useState(null);
 
-  // State Kamera & Face ID Capture
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [faceFile, setFaceFile] = useState(null);
   const [facePreview, setFacePreview] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Jika sudah approved, langsung disable / redirect dari onboarding ke booking
+  useEffect(() => {
+    let isMounted = true;
+    const checkLiveApproval = async () => {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res.data && res.data.statusVerification === 'approved') {
+          navigate('/customer/booking', { replace: true });
+        }
+      } catch (err) {
+        console.error('Gagal memeriksa status verifikasi:', err);
+      }
+    };
+    checkLiveApproval();
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
+
+  const handleManualCheckStatus = async () => {
+    if (isCheckingStatus) return;
+    setIsCheckingStatus(true);
+    try {
+      if (checkAuthStatus) await checkAuthStatus();
+      const res = await apiClient.get('/auth/me');
+      
+      if (res.data && res.data.statusVerification === 'approved') {
+        toast.success('Verifikasi Anda telah disetujui!', { title: 'Sukses' });
+        navigate('/customer/booking', { replace: true });
+        return;
+      } else {
+        const statusRes = await apiClient.get('/verifications/my-status');
+        if (statusRes.data && Array.isArray(statusRes.data) && statusRes.data.length > 0) {
+          const latest = statusRes.data[0];
+          if (latest.status === 'pending') {
+            toast.info('Status pengajuan Anda masih dalam antrean peninjauan Admin.', { title: 'Menunggu' });
+            setIsSubmittedPending(true);
+          } else if (latest.status === 'rejected') {
+            toast.error(`Pengajuan ditolak. Alasan: ${latest.rejectionReason || 'Periksa kembali dokumen.'}`, { title: 'Ditolak' });
+            setIsSubmittedPending(false);
+          }
+        }
+      }
+    } catch (err) {
+      if (err.response?.status === 429) {
+        toast.warning('Terlalu banyak permintaan. Mohon tunggu sebentar.', { title: 'Peringatan' });
+      } else {
+        toast.error('Gagal memperbarui status dari server.', { title: 'Error' });
+      }
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
 
   const isPhoneValid = PHONE_REGEX.test(formData.phone.trim());
 
@@ -58,9 +114,7 @@ export default function BiometricOnboarding() {
   };
 
   useEffect(() => {
-    // Menyalin current ref ke dalam variabel lokal di dalam effect sesuai aturan React lint
     const currentVideoRef = videoRef.current;
-
     return () => {
       if (ktpPreview) URL.revokeObjectURL(ktpPreview);
       if (facePreview) URL.revokeObjectURL(facePreview);
@@ -148,15 +202,12 @@ export default function BiometricOnboarding() {
         faceFilePath = await uploadFileToServer(faceFile);
       }
 
-      await apiClient.patch('/users/me/profile', {
+      await apiClient.post('/verifications/submit', {
+        type: 'ktp',
         ktpNumber: formData.nik.trim(),
         fullNameKtp: formData.fullName.trim(),
         addressKtp: formData.addressKtp.trim() || 'Alamat sesuai KTP',
-        faceImageUrl: faceFilePath
-      });
-
-      await apiClient.post('/verifications/submit', {
-        type: 'ktp',
+        faceImageUrl: faceFilePath,
         files: [
           { filePath: ktpFilePath, fileType: ktpFile?.type || 'image/jpeg' },
           { filePath: faceFilePath, fileType: 'image/jpeg' }
@@ -186,10 +237,12 @@ export default function BiometricOnboarding() {
           Dokumen KTP dan Face ID Anda telah berhasil dikirim ke pusat verifikasi. Menu transaksi akan terbuka otomatis setelah Admin menyetujui pengajuan Anda.
         </p>
         <button
-          onClick={() => window.location.reload()}
-          className="py-2.5 px-5 bg-[#4B2172] text-white rounded-xl text-[10px] font-bold cursor-pointer"
+          onClick={handleManualCheckStatus}
+          disabled={isCheckingStatus}
+          className="py-2.5 px-5 bg-[#4B2172] text-white rounded-xl text-[10px] font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5 mx-auto"
         >
-          Cek Status Verifikasi
+          <RefreshCw className={`w-3 h-3 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+          <span>{isCheckingStatus ? 'Memeriksa...' : 'Cek Status Verifikasi'}</span>
         </button>
       </div>
     );
@@ -249,6 +302,7 @@ export default function BiometricOnboarding() {
                 type="text" 
                 maxLength={16}
                 value={formData.nik}
+                placeholder="16 digit nomor NIK KTP"
                 onChange={(e) => setFormData({...formData, nik: e.target.value.replace(/\D/g, '')})}
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
               />
@@ -257,6 +311,7 @@ export default function BiometricOnboarding() {
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Alamat Sesuai KTP</label>
               <input 
                 type="text" 
+                placeholder="Contoh: Jl. Merdeka No. 12"
                 value={formData.addressKtp}
                 onChange={(e) => setFormData({...formData, addressKtp: e.target.value})}
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
