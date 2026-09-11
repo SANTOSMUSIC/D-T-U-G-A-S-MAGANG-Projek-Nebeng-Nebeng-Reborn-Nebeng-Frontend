@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
 
-export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSelect, onLogout }) {
+export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSelect, onLogout, isVerified = false }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -91,6 +91,15 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
                 {menuItems.map((item) => {
                   const IconComponent = item.icon;
                   const isActive = activeMenu === item.name;
+
+                  // Akun yang sudah diverifikasi Admin Regional tidak lagi
+                  // perlu membuka menu Onboarding & Verifikasi — sembunyikan
+                  // menu ini sepenuhnya dari sidebar (bukan lagi ditampilkan
+                  // sebagai badge status).
+                  if (item.name === 'Onboarding & Verifikasi' && isVerified) {
+                    return null;
+                  }
+
                   return (
                     <button
                       key={item.name}

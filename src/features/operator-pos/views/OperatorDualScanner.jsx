@@ -5,22 +5,14 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import apiClient from '../../../services/apiClient';
-import { useAuth } from '../../../context/AuthContext';
 
 export default function OperatorDualScanner() {
   const toast = useToast();
-  const { user } = useAuth();
   const [scanMode, setScanMode] = useState('origin');
   
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  // BUG FIX (batas wewenang antar role): posId dulu selalu mulai dari '1'
-  // dan bisa diketik bebas ke pos manapun. Sekarang dikunci ke pos resmi
-  // operator yang login (user.posId, lihat authService.js + utils/posId.js).
-  // Jika akun operator belum ditugaskan ke pos manapun, field tetap bisa
-  // diisi manual sebagai fallback supaya operator tidak terjebak buntu.
-  const [posId, setPosId] = useState(user?.posId || '');
-  const isPosLocked = Boolean(user?.posId);
+  const [posId, setPosId] = useState('1');
   
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [currentHandoverData, setCurrentHandoverData] = useState({ trip: '', ticket: '' });
@@ -234,24 +226,14 @@ export default function OperatorDualScanner() {
 
           <form onSubmit={handleProcessScan} className="space-y-3 text-[10px]">
             <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS TEMPAT BERTUGAS {isPosLocked && <span className="text-emerald-600 normal-case">({user?.posName || 'Terkunci ke akun Anda'})</span>}
-              </label>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS TEMPAT BERTUGAS</label>
               <input 
                 type="text" 
                 required
-                readOnly={isPosLocked}
                 value={posId}
-                onChange={(e) => !isPosLocked && setPosId(e.target.value)}
-                className={`w-full px-3.5 py-2 rounded-xl border font-mono text-[10px] font-medium ${
-                  isPosLocked
-                    ? 'border-neutral-200 bg-neutral-100 text-neutral-600 cursor-not-allowed'
-                    : 'border-neutral-200 focus:outline-none focus:border-[#4B2172]'
-                }`}
+                onChange={(e) => setPosId(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px] font-medium"
               />
-              {!isPosLocked && (
-                <p className="text-[8px] text-amber-600 mt-1">Akun ini belum ditugaskan ke pos manapun oleh Admin Regional — isi ID pos secara manual sementara.</p>
-              )}
             </div>
 
             <div>

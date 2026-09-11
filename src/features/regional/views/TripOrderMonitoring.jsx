@@ -59,14 +59,6 @@ export default function RegionalTripMonitoringPage() {
         const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
         
         const formatted = rawData.map(t => {
-          // BUG FIX (monitoring Regional menampilkan status keliru): sebelumnya
-          // status apa pun selain 'in_transit'/'completed' (mis. trip yang baru
-          // 'scheduled'/terjadwal atau 'cancelled'/dibatalkan) selalu jatuh ke
-          // fallback "Sedang Berjalan", sehingga Admin Regional bisa melihat
-          // trip yang belum berangkat (atau sudah dibatalkan) seolah-olah
-          // sedang berjalan di jalan. Sekarang setiap status dipetakan
-          // eksplisit, dan status yang belum dikenal ditampilkan apa adanya
-          // (bukan disamaratakan jadi "Sedang Berjalan").
           const STATUS_MAP = {
             scheduled: 'Terjadwal',
             pending: 'Terjadwal',

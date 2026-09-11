@@ -8,6 +8,12 @@ import { regionalService } from '../../../services/regionalService';
 import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../services/apiClient';
 import { getRegionId } from '../../../utils/regionId';
+import wilayahIndonesia from '../../../features/regional/wilayah-indonesia.json';
+
+const toTitleCase = (str) =>
+  String(str || '')
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 
 export default function PosMitraManagement() {
   const toast = useToast();
@@ -33,15 +39,10 @@ export default function PosMitraManagement() {
   });
 
   const [cityFormData, setCityFormData] = useState({
-    name: '', province: ''
+    provinceId: '', provinceName: '', regencyId: '', regencyName: ''
   });
-
-  // FIX: dipusatkan di satu tempat supaya format + filter wilayah selalu
-  // konsisten di setiap titik yang memuat ulang daftar pos (load awal,
-  // setelah simpan/edit, setelah hapus) — sebelumnya logic ini disalin
-  // 3x terpisah dan hanya melakukan format tanpa penyaringan wilayah,
-  // sehingga pos dari region lain tetap tampil kalau backend tidak
-  // menyaring berdasarkan query `regionId`.
+  const [provinceList, setProvinceList] = useState([]);
+  const [regencyList, setRegencyList] = useState([]);
   const formatAndScopePos = (rawPos, regId) => {
     const list = Array.isArray(rawPos) ? rawPos : (rawPos?.data || []);
     return list
@@ -53,18 +54,13 @@ export default function PosMitraManagement() {
         long: String(p.longitude),
         cityId: p.cityId ? String(p.cityId) : '',
         cityName: p.city?.name || '-',
-        // FIX: sertakan regionId asli milik pos (pakai getRegionId supaya
-        // tetap kebaca walau bentuk field dari backend berbeda-beda).
         regionId: getRegionId(p) || getRegionId(p.city),
         operatorId: p.operatorId ? String(p.operatorId) : '',
         operatorName: p.operator ? p.operator.name : 'Belum Ditugaskan',
         status: p.isActive !== false ? 'Aktif' : 'Nonaktif',
         qrCodePos: p.qrCodePos
       }))
-      // Lapisan pengaman kedua di frontend: hanya tampilkan pos yang
-      // regionId-nya cocok dengan wilayah admin yang login. Pos tanpa
-      // regionId (data lama) tetap ditampilkan supaya tidak tiba-tiba
-      // hilang, tapi pos yang JELAS berbeda wilayah selalu disaring.
+
       .filter(p => !regId || !p.regionId || p.regionId === String(regId));
   };
 
@@ -97,19 +93,6 @@ export default function PosMitraManagement() {
           ? userRes.data 
           : (userRes.data?.data || userRes.data?.users || []);
 
-        // FIX (revisi): cek role di frontend (op.role === 'operator') dihapus.
-        // Terbukti dari response network /users?role=operator, backend SUDAH
-        // menyaring role dengan benar (semua user yang balik memang operator),
-        // jadi cek role tambahan di frontend hanya menebak nama field yang
-        // salah dan malah membuang semua operator asli.
-        //
-        // FIX (bug: operator dengan regionId belum di-set ikut hilang dari
-        // dropdown): sebelumnya operator wajib punya regionId yang PERSIS
-        // sama dengan wilayah aktif (opRegion === String(regId)). Padahal ada
-        // operator seperti "JAY" (operatorsolo@gmail.com) yang regionId-nya
-        // masih null karena belum di-assign ke wilayah manapun. Sekarang
-        // disamakan dengan pola formatAndScopePos: operator tanpa regionId
-        // tetap ditampilkan, hanya operator yang JELAS beda wilayah disaring.
         const validOperators = rawUsers.filter(op => {
           const opRegion = getRegionId(op);
           if (op.status !== 'active') return false;
@@ -139,7 +122,48 @@ export default function PosMitraManagement() {
     return () => {
       isMounted = false;
     };
+
   }, [user?.regionId]);
+  useEffect(() => {
+    if (!isCityModalOpen || provinceList.length > 0) return;
+    setProvinceList(Array.isArray(wilayahIndonesia?.provinces) ? wilayahIndonesia.provinces : []);
+  }, [isCityModalOpen, provinceList.length]);
+
+  const handleProvinceChange = (e) => {
+    const provinceId = e.target.value;
+    const province = provinceList.find((p) => p.id === provinceId);
+
+    setCityFormData({
+      provinceId,
+      provinceName: province ? toTitleCase(province.name) : '',
+      regencyId: '',
+      regencyName: ''
+    });
+
+    if (!provinceId) {
+      setRegencyList([]);
+      return;
+    }
+
+    const regencies = wilayahIndonesia?.regenciesByProvince?.[provinceId];
+    setRegencyList(Array.isArray(regencies) ? regencies : []);
+  };
+
+  const handleRegencyChange = (e) => {
+    const regencyId = e.target.value;
+    const regency = regencyList.find((r) => r.id === regencyId);
+    setCityFormData((prev) => ({
+      ...prev,
+      regencyId,
+      regencyName: regency ? toTitleCase(regency.name) : ''
+    }));
+  };
+
+  const resetCityModal = () => {
+    setIsCityModalOpen(false);
+    setCityFormData({ provinceId: '', provinceName: '', regencyId: '', regencyName: '' });
+    setRegencyList([]);
+  };
 
   const handleOpenAdd = () => {
     setIsEditing(false);
@@ -176,20 +200,29 @@ export default function PosMitraManagement() {
 
   const handleSaveCity = async (e) => {
     e.preventDefault();
-    if (!cityFormData.name || !cityFormData.province) {
-      toast.warning('Nama kota dan provinsi wajib diisi!', { title: 'Form Belum Lengkap' });
+    if (!cityFormData.provinceId || !cityFormData.regencyId) {
+      toast.warning('Pilih provinsi dan kota/kabupaten resmi terlebih dahulu!', { title: 'Form Belum Lengkap' });
+      return;
+    }
+
+    const normalizedName = cityFormData.regencyName.trim().toLowerCase();
+    const duplicate = cityList.find((c) => String(c.name).trim().toLowerCase() === normalizedName);
+
+    if (duplicate) {
+      toast.warning(`${cityFormData.regencyName} sudah terdaftar di sistem.`, { title: 'Kota Sudah Ada' });
+      setFormData((prev) => ({ ...prev, cityId: String(duplicate.id) }));
+      resetCityModal();
       return;
     }
 
     try {
       const response = await apiClient.post('/cities', {
-        name: cityFormData.name.trim(),
-        province: cityFormData.province.trim()
+        name: cityFormData.regencyName,
+        province: cityFormData.provinceName
       });
       
-      toast.success(`Kota ${cityFormData.name} berhasil ditambahkan!`, { title: 'Berhasil' });
-      setIsCityModalOpen(false);
-      setCityFormData({ name: '', province: '' });
+      toast.success(`Kota ${cityFormData.regencyName} berhasil ditambahkan!`, { title: 'Berhasil' });
+      resetCityModal();
       
       const cityRes = await apiClient.get('/cities');
       setCityList(Array.isArray(cityRes.data) ? cityRes.data : (cityRes.data?.data || []));
@@ -444,23 +477,55 @@ export default function PosMitraManagement() {
       {/* Modal Tambah Kota */}
       <BaseModal
         isOpen={isCityModalOpen}
-        onClose={() => setIsCityModalOpen(false)}
+        onClose={resetCityModal}
         title="Tambah Kota Baru"
         subtitle="Master Data Wilayah"
         maxWidth="max-w-sm"
       >
         <form onSubmit={handleSaveCity} className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Kota / Kabupaten</label>
-            <input type="text" required placeholder="Contoh: Surakarta" value={cityFormData.name} onChange={(e) => setCityFormData({...cityFormData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
-          </div>
-          <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Provinsi</label>
-            <input type="text" required placeholder="Contoh: Jawa Tengah" value={cityFormData.province} onChange={(e) => setCityFormData({...cityFormData, province: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <select
+              required
+              value={cityFormData.provinceId}
+              onChange={handleProvinceChange}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
+            >
+              <option value="">
+                {provinceList.length === 0 ? 'Data provinsi tidak tersedia' : '-- Pilih Provinsi --'}
+              </option>
+              {provinceList.map((p) => (
+                <option key={p.id} value={p.id}>{toTitleCase(p.name)}</option>
+              ))}
+            </select>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Kota / Kabupaten</label>
+            <select
+              required
+              value={cityFormData.regencyId}
+              onChange={handleRegencyChange}
+              disabled={!cityFormData.provinceId}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {cityFormData.provinceId
+                  ? '-- Pilih Kota/Kabupaten --'
+                  : 'Pilih provinsi terlebih dahulu'}
+              </option>
+              {regencyList.map((r) => (
+                <option key={r.id} value={r.id}>{toTitleCase(r.name)}</option>
+              ))}
+            </select>
+            <p className="text-[8px] text-neutral-400 pt-0.5">
+              Daftar resmi 514 kab/kota Indonesia (Kemendagri/BPS) — mencegah nama ganda atau tidak baku.
+            </p>
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-3">
-            <button type="button" onClick={() => setIsCityModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
-            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm">Simpan Kota</button>
+            <button type="button" onClick={resetCityModal} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
+            <button type="submit" disabled={!cityFormData.regencyId} className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">Simpan Kota</button>
           </div>
         </form>
       </BaseModal>

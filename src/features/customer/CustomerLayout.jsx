@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import CustomerSidebar from './components/CustomerSidebar';
 import CustomerProfileModal from './components/CustomerProfileModal';
 import { useAuth } from '../../context/AuthContext';
+import apiClient from '../../services/apiClient';
 
 const CUSTOMER_MENU_PATH = {
   'Onboarding Biometrik': 'onboarding',
@@ -11,17 +12,41 @@ const CUSTOMER_MENU_PATH = {
   'Profil Saya': 'profile',
 };
 
-// Routes that require the customer to have completed biometric verification first.
-// "profile" ikut dimasukkan karena sekarang menaungi halaman Pengaturan Akun
-// (/customer/profile/pengaturan) yang mengubah data identitas — sama seperti
-// booking/tickets, tidak masuk akal diakses sebelum verifikasi selesai.
 const VERIFIED_ONLY_SLUGS = ['booking', 'tickets', 'profile'];
 
 export default function CustomerLayout() {
   const navigate = useNavigate();
-  const { logout, isCustomerVerified, customerProfile } = useAuth();
+  const { logout, customerProfile } = useAuth();
   const location = useLocation();
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // State status verifikasi langsung berdasarkan respons akurat dari /auth/me
+  const [isVerified, setIsVerified] = useState(false);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+
+  // Ambil data status verifikasi secara langsung dari backend saat layout dimuat
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveStatus = async () => {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (isMounted && res.data) {
+          // Berdasarkan respons backend: "statusVerification": "approved"
+          const approved = res.data.statusVerification === 'approved';
+          setIsVerified(approved);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil status live user:', err);
+      } finally {
+        if (isMounted) setIsLoadingStatus(false);
+      }
+    };
+
+    fetchLiveStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const currentPath = location.pathname.replace(/\/$/, '');
 
@@ -32,27 +57,23 @@ export default function CustomerLayout() {
 
   const activeSlug = activeMenu ? CUSTOMER_MENU_PATH[activeMenu] : null;
 
-  // Guard: block access to booking/tickets/profile until onboarding is complete
+  // Guard: block access to booking/tickets/profile until loading finishes and verified is true
   useEffect(() => {
-    if (!isCustomerVerified && VERIFIED_ONLY_SLUGS.includes(activeSlug)) {
+    if (!isLoadingStatus && !isVerified && VERIFIED_ONLY_SLUGS.includes(activeSlug)) {
       navigate('/customer/onboarding', { replace: true });
     }
-  }, [isCustomerVerified, activeSlug, navigate]);
+  }, [isLoadingStatus, isVerified, activeSlug, navigate]);
 
   return (
     <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
       <CustomerSidebar
         activeMenu={activeMenu || 'Onboarding Biometrik'}
-        isCustomerVerified={isCustomerVerified}
+        isCustomerVerified={isVerified}
         customerProfile={customerProfile}
         onMenuSelect={(name) => {
           const slug = CUSTOMER_MENU_PATH[name];
-          if (!isCustomerVerified && VERIFIED_ONLY_SLUGS.includes(slug)) return;
+          if (!isVerified && VERIFIED_ONLY_SLUGS.includes(slug)) return;
 
-          // "Profil Saya" membuka modal ringkasan langsung di tempat (tidak
-          // berpindah halaman), sama seperti pola "Profil Saya" di panel
-          // Mitra. Pengaturan Akun (edit data) tetap halaman penuh, diakses
-          // lewat tombol di footer modal.
           if (name === 'Profil Saya') {
             setShowProfileModal(true);
             return;
@@ -73,7 +94,7 @@ export default function CustomerLayout() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         profile={customerProfile}
-        isVerified={isCustomerVerified}
+        isVerified={isVerified}
         onSettingsClick={() => navigate('/customer/profile/pengaturan')}
       />
     </div>

@@ -6,7 +6,6 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
 import { regionalService } from '../../../services/regionalService';
-import { getRegionId } from '../../../utils/regionId';
 
 export default function KurirPage() {
   const toast = useToast();
@@ -27,15 +26,15 @@ export default function KurirPage() {
 
         const userRes = await regionalService.getUsersByRole('mitra', currentRegionId).catch(() => []);
         const rawUsers = Array.isArray(userRes) ? userRes : (userRes?.data || []);
+        const mitraOnly = rawUsers.filter(u => (u.role || '').toLowerCase() === 'mitra');
 
-        const formatted = rawUsers
-          .filter(u => {
-            const isMitraRole = u.role && String(u.role).toLowerCase() === 'mitra';
-            if (!isMitraRole) return false;
+        if (mitraOnly.length !== rawUsers.length) {
+          console.warn(
+            `[Kurir] Backend mengembalikan ${rawUsers.length} user untuk role=mitra, tapi hanya ${mitraOnly.length} yang benar-benar ber-role mitra. Kemungkinan backend endpoint /users mengabaikan filter role.`
+          );
+        }
 
-            if (!currentRegionId) return true;
-            return getRegionId(u) === currentRegionId;
-          })
+        const formatted = mitraOnly
           .map(u => ({
             id: String(u.id),
             name: u.name,
@@ -133,7 +132,11 @@ export default function KurirPage() {
                     <td className="py-3.5 px-5 font-bold text-neutral-800">{item.pos}</td>
                     <td className="py-3.5 px-5 font-bold text-blue-600">{item.activeShipments} Trip</td>
                     <td className="py-3.5 px-5">
-                      <span className="px-2 py-0.5 text-[8px] font-bold rounded-full bg-emerald-50 text-emerald-700">
+                      <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full ${
+                        item.status === 'Aktif'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-neutral-100 text-neutral-500'
+                      }`}>
                         {item.status}
                       </span>
                     </td>

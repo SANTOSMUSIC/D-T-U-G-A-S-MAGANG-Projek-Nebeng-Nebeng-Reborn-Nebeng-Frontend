@@ -1,25 +1,6 @@
 import { createPortal } from 'react-dom';
 import { Mail, Phone, MapPin, ShieldCheck, Settings, X } from 'lucide-react';
 
-/**
- * UserProfileModal
- * Kartu profil READ-ONLY. Sebelumnya modal ini punya mode edit inline yang
- * bikin layout "loncat" (label vs input berbeda tinggi, error text ikut
- * mendorong tombol footer, dsb) — sumber kesan "ngebug". Sekarang modal
- * ini murni untuk melihat data, dan mengedit diarahkan ke halaman penuh
- * Pengaturan Akun (/regional/profile/pengaturan) lewat tombol di footer —
- * mengikuti pola yang sama dengan MitraProfileModal.
- *
- * FIX (backdrop ter-crop): modal ini dirender di dalam RegionalTopbar,
- * yang wrapper-nya pakai class `backdrop-blur-sm` (backdrop-filter).
- * Elemen dengan filter/backdrop-filter/transform membentuk "containing
- * block" baru untuk anak `position: fixed`, jadi `fixed inset-0` di sini
- * jadi terkunci ke ukuran kotak topbar, bukan ke seluruh viewport —
- * backdrop & modal jadi cuma menutupi strip tipis di atas layar.
- * Solusinya: render modal lewat createPortal langsung ke document.body,
- * supaya selalu keluar dari DOM tree parent manapun dan `fixed` selalu
- * relatif ke viewport asli, apapun style ancestor-nya.
- */
 export default function UserProfileModal({ isOpen, onClose, user, onSettingsClick }) {
   if (!isOpen) return null;
 

@@ -19,49 +19,26 @@ export default function OperatorDashboard() {
       try {
         if (isMounted) setIsLoadingTrips(true);
         
-        // BUG FIX (kebocoran data lintas pos): sebelumnya dipanggil tanpa
-        // parameter sama sekali, jadi operator berpotensi melihat trip
-        // dari SEMUA pos, bukan cuma pos tempat dia ditugaskan. Sekarang
-        // dikirim posId milik operator yang login (lihat user.posId di
-        // authService.js) supaya backend bisa menyaringnya.
-        const rawData = await operatorService.getTrips(user?.posId ? { posId: user.posId } : {});
-        const myPosId = user?.posId ? String(user.posId) : null;
+        const rawData = await operatorService.getTrips();
 
-        // BUG FIX (statistik Trip Masuk/Keluar tidak berdasar data asli):
-        // sebelumnya `type` ditentukan dari paritas index array hasil fetch
-        // (index % 2), bukan dari data trip sesungguhnya — jadi kartu
-        // "TOTAL TRIP MASUK POS" / "TOTAL TRIP KELUAR POS" pada dasarnya
-        // menampilkan angka acak yang berubah kalau urutan data dari
-        // backend berubah, bukan mencerminkan kondisi pos yang sebenarnya.
-        // Sekarang arah trip ditentukan dari perbandingan posId pos tempat
-        // operator bertugas terhadap origin/destination pickup point trip:
-        // trip "Keluar" (berangkat dari pos ini) kalau posId ini adalah
-        // pos asal trip, "Masuk" (tiba di pos ini) kalau posId ini adalah
-        // pos tujuan trip.
-        const getPointId = (point) => (point?.id !== undefined && point?.id !== null ? String(point.id) : null);
-        const getTripDirection = (t) => {
-          const originId = getPointId(t.originPickupPoint) ?? (t.originPointId != null ? String(t.originPointId) : null);
-          const destinationId = getPointId(t.destinationPickupPoint) ?? (t.destinationPointId != null ? String(t.destinationPointId) : null);
+        const formatted = rawData.map((t, index) => {
+          // Ambil jam dari departureTime atau fallback ke createdAt
+          const timeSource = t.departureTime || t.createdAt;
+          const formattedTime = timeSource 
+            ? new Date(timeSource).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' 
+            : '-';
 
-          if (myPosId && originId === myPosId) return 'Keluar';
-          if (myPosId && destinationId === myPosId) return 'Masuk';
-          // Fallback kalau posId operator belum diketahui atau data trip
-          // tidak membawa origin/destination — pakai status sebagai sinyal
-          // terbaik berikutnya (trip yang sudah 'in_transit' dianggap baru
-          // saja berangkat/Keluar dari pos ini, sisanya dianggap Masuk).
-          return t.status === 'in_transit' ? 'Keluar' : 'Masuk';
-        };
-
-        const formatted = rawData.map((t, index) => ({
-          id: String(t.id || `TRIP-${index + 9080}`),
-          type: getTripDirection(t),
-          partnerName: t.driver?.name || t.mitraName || 'Driver Mitra',
-          service: t.serviceType || 'Ride / Transportasi',
-          plateNumber: t.vehicle?.plateNumber || 'AD 1234 XY',
-          time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : '09:30 WIB',
-          status: t.status === 'in_transit' ? 'Dalam Perjalanan' : 'Tiba di Pos',
-          notes: t.notes || 'Aktivitas operasional pos'
-        }));
+          return {
+            id: String(t.id || `TRIP-${index + 9080}`),
+            type: index % 2 === 0 ? 'Masuk' : 'Keluar',
+            partnerName: t.driver?.name || t.mitra?.name || t.mitraName || 'Mitra Pos',
+            service: t.serviceType || (t.totalSeats > 0 ? 'Nebeng Penumpang' : 'Nebeng Barang'),
+            plateNumber: t.vehicle?.plateNumber || '-',
+            time: formattedTime,
+            status: t.status === 'in_transit' ? 'Dalam Perjalanan' : 'Tiba di Pos',
+            notes: t.notes || 'Aktivitas operasional pos'
+          };
+        });
 
         if (isMounted) {
           setTripsSchedule(formatted);
@@ -81,7 +58,7 @@ export default function OperatorDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [user?.posId]);
+  }, []);
 
   const incomingCount = tripsSchedule.filter((trip) => trip.type === 'Masuk').length;
   const outgoingCount = tripsSchedule.filter((trip) => trip.type === 'Keluar').length;

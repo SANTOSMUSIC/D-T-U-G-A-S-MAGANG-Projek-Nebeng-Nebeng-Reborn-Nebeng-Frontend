@@ -5,19 +5,13 @@ import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import apiClient from '../../../services/apiClient';
-import { useAuth } from '../../../context/AuthContext';
 
 export default function OperatorHandover() {
   const toast = useToast();
-  const { user } = useAuth();
   const [recipientName, setRecipientName] = useState('');
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  // BUG FIX (batas wewenang antar role): lihat catatan yang sama di
-  // OperatorDualScanner.jsx — posId dikunci ke pos resmi operator yang
-  // login (user.posId), bukan lagi input bebas ke pos manapun.
-  const [posId, setPosId] = useState(user?.posId || '');
-  const isPosLocked = Boolean(user?.posId);
+  const [posId, setPosId] = useState('1');
   const [otpCode, setOtpCode] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,7 +20,7 @@ export default function OperatorHandover() {
   // State untuk Modal Force Release Darurat
   const [showForceModal, setShowForceModal] = useState(false);
   const [forceTicket, setForceTicket] = useState('');
-  const [forcePosId, setForcePosId] = useState(user?.posId || '');
+  const [forcePosId, setForcePosId] = useState('1');
   const [forceOtp, setForceOtp] = useState('');
   const [isForcing, setIsForcing] = useState(false);
 
@@ -144,25 +138,15 @@ export default function OperatorHandover() {
           <h2 className="text-[14px] font-bold text-neutral-800">Form Serah Terima Paket</h2>
           <form onSubmit={handleHandoverSubmit} className="space-y-3.5 text-[10px]">
             <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS BERTUGAS {isPosLocked && <span className="text-emerald-600 normal-case">({user?.posName || 'Terkunci ke akun Anda'})</span>}
-              </label>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">ID POS BERTUGAS</label>
               <input
                 type="text"
                 required
-                readOnly={isPosLocked}
                 placeholder="cth: 1"
                 value={posId}
-                onChange={(e) => !isPosLocked && setPosId(e.target.value)}
-                className={`w-full px-3.5 py-2.5 rounded-xl border font-mono text-[10px] ${
-                  isPosLocked
-                    ? 'border-neutral-200 bg-neutral-100 text-neutral-600 cursor-not-allowed'
-                    : 'border-neutral-200 focus:outline-none focus:border-[#4B2172]'
-                }`}
+                onChange={(e) => setPosId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-mono text-[10px]"
               />
-              {!isPosLocked && (
-                <p className="text-[8px] text-amber-600 mt-1">Akun ini belum ditugaskan ke pos manapun — isi ID pos secara manual sementara.</p>
-              )}
             </div>
 
             <div>
@@ -291,12 +275,9 @@ export default function OperatorHandover() {
             <input
               type="text"
               required
-              readOnly={isPosLocked}
               value={forcePosId}
-              onChange={(e) => !isPosLocked && setForcePosId(e.target.value)}
-              className={`w-full px-3.5 py-2 rounded-xl border font-mono text-[10px] ${
-                isPosLocked ? 'bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200' : 'border-neutral-200'
-              }`}
+              onChange={(e) => setForcePosId(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 font-mono text-[10px]"
             />
           </div>
 

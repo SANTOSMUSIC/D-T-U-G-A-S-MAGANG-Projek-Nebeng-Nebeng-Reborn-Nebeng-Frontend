@@ -3,19 +3,14 @@ import { PackageCheck, Camera, QrCode, X as XIcon } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import { operatorService } from '../../../services/operatorService';
-import { useAuth } from '../../../context/AuthContext';
 
 export default function OperatorInspection() {
   const toast = useToast();
-  const { user } = useAuth();
-  const isPosLocked = Boolean(user?.posId);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     qrCodeTrip: '',
     qrCodeTicket: '',
-    // BUG FIX (batas wewenang antar role): lihat catatan yang sama di
-    // OperatorDualScanner.jsx — dikunci ke pos resmi operator yang login.
-    posId: user?.posId || '',
+    posId: '',
     securitySealQr: ''
   });
 
@@ -121,7 +116,7 @@ export default function OperatorInspection() {
         date: 'Baru saja'
       });
 
-      setFormData({ qrCodeTrip: '', qrCodeTicket: '', posId: user?.posId || '', securitySealQr: '' });
+      setFormData({ qrCodeTrip: '', qrCodeTicket: '', posId: '', securitySealQr: '' });
       handlePhotoFileChange(null);
       toast.success(response.message || 'Check-in Pos Asal dan Segel QR berhasil dicatat ke database!', { title: 'Berhasil' });
     } catch (error) {
@@ -185,24 +180,16 @@ export default function OperatorInspection() {
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS TEMPAT BERTUGAS {isPosLocked && <span className="text-emerald-600 normal-case">({user?.posName || 'Terkunci ke akun Anda'})</span>}
+                ID POS TEMPAT BERTUGAS
               </label>
               <input 
                 type="text" 
                 required
-                readOnly={isPosLocked}
                 placeholder="cth: 1"
                 value={formData.posId}
-                onChange={(e) => !isPosLocked && setFormData({...formData, posId: e.target.value})}
-                className={`w-full px-3.5 py-2.5 rounded-xl border font-medium text-[10px] font-mono ${
-                  isPosLocked
-                    ? 'border-neutral-200 bg-neutral-100 text-neutral-600 cursor-not-allowed'
-                    : 'border-neutral-200 focus:outline-none focus:border-[#4B2172]'
-                }`}
+                onChange={(e) => setFormData({...formData, posId: e.target.value})}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:border-[#4B2172] font-medium text-[10px] font-mono"
               />
-              {!isPosLocked && (
-                <p className="text-[8px] text-amber-600 mt-1">Akun ini belum ditugaskan ke pos manapun — isi ID pos secara manual sementara.</p>
-              )}
             </div>
 
             <div>

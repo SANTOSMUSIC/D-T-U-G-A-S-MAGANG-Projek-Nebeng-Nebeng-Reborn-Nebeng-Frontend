@@ -12,17 +12,9 @@ const REGIONAL_MENU_PATH = {
   'Laporan Keuangan': 'laporan',
 };
 
-// BUG FIX: key sebelumnya 'operator_pos' tidak pernah cocok dengan role
-// asli yang dikirim backend ('operator', setelah rename admin_wilayah ->
-// regional / operator_pos -> operator). Meski RegionalLayout ini secara
-// praktis hanya dirender untuk role 'regional' (lihat ProtectedRoute di
-// App.jsx), key yang salah ini tetap berpotensi menyesatkan kalau
-// formatRoleLabel dipakai ulang di tempat lain nanti — jadi diperbaiki
-// supaya konsisten dengan penamaan role yang sudah di-rename.
 const ROLE_LABELS = {
   regional_admin: 'Admin Regional',
   admin_regional: 'Admin Regional',
-  regional: 'Admin Regional',
   operator: 'Operator Pos',
 };
 
@@ -45,14 +37,6 @@ export default function RegionalLayout() {
     return currentPath.endsWith(`/regional/${slug}`) || currentPath.includes(`/regional/${slug}/`);
   }) || 'Dashboard Wilayah';
 
-  // Data profil admin regional diambil dari adminProfile (bisa diedit lewat
-  // Pengaturan Akun) dengan fallback ke field bawaan sesi login.
-  // FIX: photoDataUrl sebelumnya tidak ikut disertakan di sini, jadi foto
-  // yang sudah tersimpan lewat updateAdminProfile di halaman Pengaturan
-  // Akun tidak pernah sampai ke RegionalTopbar/UserProfileModal (selalu
-  // tampil inisial). FIX juga: fallback sebelumnya berupa data contoh yang
-  // terlihat asli ("Admin Regional Surakarta" dkk) — diganti ke placeholder
-  // netral, konsisten dengan RegionalAccountSettings.
   const currentUser = {
     name: adminProfile?.name || session?.name || '',
     email: adminProfile?.email || session?.email || '',
@@ -78,10 +62,6 @@ export default function RegionalLayout() {
         }}
       />
 
-      {/* Profil Saya dibuka sebagai modal langsung di dalam RegionalTopbar
-          (tidak berpindah halaman), sama seperti pola MitraTopbar.
-          Pengaturan Akun berpindah ke halaman penuh lewat route
-          /regional/profile/pengaturan. */}
       <div className="flex-1 lg:ml-64 min-h-screen">
         <RegionalTopbar
           user={currentUser}
