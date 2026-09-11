@@ -71,10 +71,8 @@ export default function MitraDashboard() {
   const escrowHold = Number(wallet.heldEscrowBalance || 0);
   const totalWallet = availableBalance + escrowHold;
 
-  // DIPERBAIKI: Mengambil data rating langsung dari respons dinamis backend (/auth/me)
   const ratingValue = mitraProfile?.rating;
   const totalReviews = mitraProfile?.totalReviews || 0;
-  
   const ratingDisplay = ratingValue !== null && ratingValue !== undefined ? `${ratingValue} / 5.0` : "Belum ada rating";
   const ratingSubtitle = totalReviews > 0 ? `Berdasarkan ${totalReviews} ulasan perjalanan` : "Belum ada ulasan perjalanan";
 

@@ -29,7 +29,6 @@ export default function OperatorDualScanner() {
   const [activeTargetField, setActiveTargetField] = useState(null);
   const videoRef = useRef(null);
 
-  // Auto-detect Pos ID, Ambil Daftar Pos, dan Ambil Daftar Trip Aktif dari Backend
   useEffect(() => {
     let isMounted = true;
     const fetchOperatorData = async () => {
@@ -63,7 +62,6 @@ export default function OperatorDualScanner() {
     return () => { isMounted = false; };
   }, []);
 
-  // PERBAIKAN: Filter daftar trip lebih fleksibel dengan mencocokkan berbagai kemungkinan nama properti ID pos
   const filteredTrips = availableTrips.filter(t => {
     if (!posId) return true;
     
@@ -72,10 +70,9 @@ export default function OperatorDualScanner() {
     const activePos = String(posId);
 
     if (scanMode === 'origin') {
-      // Jika originPoint cocok, atau jika data backend belum lengkap, tampilkan semua trip aktif agar operator tetap bisa memilih
-      return originId === activePos || originId === '' || true; 
+      return originId === activePos || originId === ''; 
     } else {
-      return destId === activePos || destId === '' || true;
+      return destId === activePos || destId === '';
     }
   });
 

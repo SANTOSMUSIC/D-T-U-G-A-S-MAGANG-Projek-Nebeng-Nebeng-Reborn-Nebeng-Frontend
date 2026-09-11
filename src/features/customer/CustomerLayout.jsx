@@ -20,18 +20,15 @@ export default function CustomerLayout() {
   const location = useLocation();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // State status verifikasi langsung berdasarkan respons akurat dari /auth/me
   const [isVerified, setIsVerified] = useState(false);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
-  // Ambil data status verifikasi secara langsung dari backend saat layout dimuat
   useEffect(() => {
     let isMounted = true;
     const fetchLiveStatus = async () => {
       try {
         const res = await apiClient.get('/auth/me');
         if (isMounted && res.data) {
-          // Berdasarkan respons backend: "statusVerification": "approved"
           const approved = res.data.statusVerification === 'approved';
           setIsVerified(approved);
         }
@@ -57,7 +54,6 @@ export default function CustomerLayout() {
 
   const activeSlug = activeMenu ? CUSTOMER_MENU_PATH[activeMenu] : null;
 
-  // Guard: block access to booking/tickets/profile until loading finishes and verified is true
   useEffect(() => {
     if (!isLoadingStatus && !isVerified && VERIFIED_ONLY_SLUGS.includes(activeSlug)) {
       navigate('/customer/onboarding', { replace: true });

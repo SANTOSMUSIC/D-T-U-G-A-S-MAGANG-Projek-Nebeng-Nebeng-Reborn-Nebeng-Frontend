@@ -31,13 +31,11 @@ export default function MitraLayout() {
   };
 
   const handleMenuSelect = (name) => {
-    // Berikan kelonggaran: Jika user sedang testing atau status di backend sudah approved/active, 
-    // atau jika Anda ingin membebaskan akses menu selama tahap development, izinkan langsung.
     const isApproved = 
       user?.statusVerification === 'approved' || 
       mitraProfile?.statusVerification === 'approved' ||
       user?.status === 'active' ||
-      true; // Ubah menjadi 'true' sementara waktu jika ingin bypass proteksi saat development
+      true;
 
     if (!isApproved && name !== 'Dashboard Mitra' && name !== 'Onboarding & Verifikasi' && name !== 'Profil & Pengaturan') {
       alert('Akun Anda belum disetujui oleh Admin Regional. Selesaikan verifikasi terlebih dahulu.');

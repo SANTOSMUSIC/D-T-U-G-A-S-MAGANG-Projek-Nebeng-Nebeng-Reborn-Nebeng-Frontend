@@ -52,7 +52,6 @@ export default function MitraQrDisplay() {
 
   const current = trips.find((t) => String(t.id) === String(selectedTripId));
 
-  // Auto-refresh token dinamis setiap 30 detik untuk keamanan anti-spoofing
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {

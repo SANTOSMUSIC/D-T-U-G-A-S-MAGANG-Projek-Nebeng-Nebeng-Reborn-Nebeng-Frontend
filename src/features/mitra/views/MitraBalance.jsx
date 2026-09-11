@@ -21,7 +21,6 @@ export default function MitraBalance() {
   const [bankDraft, setBankDraft] = useState({ bankName: '', accountNumber: '', accountHolder: '' });
   const MIN_WITHDRAWAL = 50000;
 
-  // Ambil data dompet, profil rekening, dan trip aktif langsung dari backend
   useEffect(() => {
     let isMounted = true;
     const fetchBalanceData = async () => {
@@ -65,8 +64,6 @@ export default function MitraBalance() {
 
   const availableBalance = Number(walletData.balance || 0);
   const escrowHold = Number(walletData.heldEscrowBalance || 0);
-
-  // Filter trip yang masih menahan dana escrow
   const escrowTransactions = trips.filter((t) => t.status === 'scheduled' || t.status === 'in_transit');
 
   const maskAccountNumber = (accNum) => {
@@ -89,8 +86,6 @@ export default function MitraBalance() {
 
     try {
       await apiClient.post('/wallets/withdraw', { amount });
-      
-      // Refresh ulang data wallet setelah withdraw berhasil
       const walletRes = await apiClient.get('/wallets/me');
       setWalletData(walletRes.data);
 

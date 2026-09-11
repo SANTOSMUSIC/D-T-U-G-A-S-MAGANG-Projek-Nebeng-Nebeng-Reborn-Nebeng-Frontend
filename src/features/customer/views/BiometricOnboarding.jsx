@@ -36,7 +36,6 @@ export default function BiometricOnboarding() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Jika sudah approved, langsung disable / redirect dari onboarding ke booking
   useEffect(() => {
     let isMounted = true;
     const checkLiveApproval = async () => {
@@ -327,6 +326,7 @@ export default function BiometricOnboarding() {
               />
             </div>
             <button 
+              type="button"
               onClick={() => setStep(2)}
               disabled={!formData.fullName.trim() || formData.nik.length !== 16 || !isPhoneValid}
               className="w-full py-3 bg-[#4B2172] text-white rounded-xl text-[10px] font-bold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
@@ -357,6 +357,7 @@ export default function BiometricOnboarding() {
             </label>
             <div className="flex gap-2">
               <button 
+                type="button"
                 onClick={() => setStep(1)} 
                 className="w-1/3 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold cursor-pointer flex items-center justify-center gap-1"
               >
@@ -364,6 +365,7 @@ export default function BiometricOnboarding() {
                 <span>Kembali</span>
               </button>
               <button 
+                type="button"
                 onClick={() => setStep(3)} 
                 disabled={!ktpPreview} 
                 className="w-2/3 py-2.5 bg-[#4B2172] text-white rounded-xl font-bold disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
@@ -393,6 +395,7 @@ export default function BiometricOnboarding() {
 
                 {!isCameraActive ? (
                   <button
+                    type="button"
                     onClick={startCamera}
                     className="py-2 px-4 bg-purple-100 text-[#4B2172] font-bold rounded-xl cursor-pointer flex items-center gap-1 mx-auto"
                   >
@@ -400,6 +403,7 @@ export default function BiometricOnboarding() {
                   </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={captureFaceImage}
                     disabled={isScanning}
                     className="w-full py-3 bg-[#4B2172] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 shadow-sm"
@@ -410,6 +414,7 @@ export default function BiometricOnboarding() {
                 
                 <div className="pt-2">
                   <button 
+                    type="button"
                     onClick={() => setStep(2)} 
                     className="py-1.5 px-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold cursor-pointer"
                   >
@@ -426,6 +431,7 @@ export default function BiometricOnboarding() {
                   <CheckCircle2 className="w-3.5 h-3.5" /> Wajah Berhasil Direkam!
                 </div>
                 <button
+                  type="button"
                   onClick={handleSubmitVerification}
                   disabled={isLoading}
                   className="w-full py-3 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 shadow-sm"

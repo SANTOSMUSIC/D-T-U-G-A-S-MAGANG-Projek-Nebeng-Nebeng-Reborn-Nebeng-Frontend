@@ -24,7 +24,6 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
   const [userData, setUserData] = useState(profile || null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ambil data langsung dari /auth/me saat modal dibuka agar tidak pernah kosong (-)
   useEffect(() => {
     if (!isOpen) return;
     let isMounted = true;

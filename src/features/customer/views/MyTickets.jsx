@@ -323,7 +323,6 @@ export default function MyTickets() {
     }
   };
 
-  // DIPERBAIKI: Mengirim ulasan langsung ke backend `/reviews` dengan parameter tripId dan revieweeId
   const submitReview = async (e) => {
     e.preventDefault();
     if (!selectedTicket || isSubmittingReview) return;
@@ -385,6 +384,7 @@ export default function MyTickets() {
 
       <div className="flex flex-wrap gap-2">
         <button
+          type="button"
           onClick={() => setActiveTab('aktif')}
           className={`px-3.5 py-1.5 rounded-xl text-[10px] font-bold transition cursor-pointer ${
             activeTab === 'aktif' ? 'bg-[#4B2172] text-white shadow-sm' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
@@ -393,6 +393,7 @@ export default function MyTickets() {
           Tiket Aktif ({tickets.filter(t => t.status === 'Aktif').length})
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('riwayat')}
           className={`px-3.5 py-1.5 rounded-xl text-[10px] font-bold transition cursor-pointer ${
             activeTab === 'riwayat' ? 'bg-[#4B2172] text-white shadow-sm' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
@@ -401,6 +402,7 @@ export default function MyTickets() {
           Riwayat Perjalanan ({tickets.filter(t => t.status !== 'Aktif').length})
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('reward')}
           className={`px-3.5 py-1.5 rounded-xl text-[10px] font-bold transition cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'reward' ? 'bg-[#4B2172] text-white shadow-sm' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
@@ -462,6 +464,7 @@ export default function MyTickets() {
                           {showOtpMap[ticket.id] ? ticket.otp : '******'}
                         </span>
                         <button
+                          type="button"
                           onClick={() => toggleOtpVisibility(ticket.id)}
                           className="text-[#4B2172] hover:text-[#3a1a59] cursor-pointer"
                         >
@@ -480,6 +483,7 @@ export default function MyTickets() {
 
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <button
+                        type="button"
                         onClick={() => openModal(ticket, 'detail')}
                         className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-[9px] font-bold transition cursor-pointer"
                       >
@@ -488,6 +492,7 @@ export default function MyTickets() {
 
                       {ticket.status === 'Aktif' && (
                         <button
+                          type="button"
                           onClick={() => openModal(ticket, 'chat')}
                           className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-[#4B2172] border border-purple-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer"
                         >
@@ -498,6 +503,7 @@ export default function MyTickets() {
 
                       {ticket.status === 'Aktif' && ticket.currentStatusText === CANCELLABLE_STATUS_TEXT && (
                         <button
+                          type="button"
                           onClick={() => openModal(ticket, 'cancel')}
                           className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer"
                         >
@@ -508,6 +514,7 @@ export default function MyTickets() {
 
                       {ticket.status === 'Aktif' && (
                         <button
+                          type="button"
                           onClick={() => openModal(ticket, 'qr')}
                           className="px-2.5 py-1.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
                         >
@@ -518,6 +525,7 @@ export default function MyTickets() {
 
                       {ticket.status === 'Selesai' && (
                         <button
+                          type="button"
                           onClick={() => openModal(ticket, 'review')}
                           className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer"
                         >
@@ -654,6 +662,7 @@ export default function MyTickets() {
           </div>
 
           <button
+            type="button"
             onClick={() => setSelectedTicket(null)}
             className="w-full py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition cursor-pointer shadow-sm"
           >
@@ -698,6 +707,7 @@ export default function MyTickets() {
           </div>
 
           <button
+            type="button"
             onClick={() => setSelectedTicket(null)}
             className="w-full py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold cursor-pointer transition"
           >
@@ -777,6 +787,7 @@ export default function MyTickets() {
           </p>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() => setSelectedTicket(null)}
               disabled={isCancelling}
               className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition cursor-pointer disabled:opacity-50"
@@ -784,6 +795,7 @@ export default function MyTickets() {
               Tidak, Kembali
             </button>
             <button
+              type="button"
               onClick={handleCancelTicket}
               disabled={isCancelling}
               className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-70"

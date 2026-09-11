@@ -2,13 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, User, Settings } from 'lucide-react';
 import MitraProfileModal from './MitraProfileModal';
 
-// Dropdown profil di top bar. FIX: "Profil Saya" sekarang membuka modal
-// ringkasan (MitraProfileModal) langsung di tempat — TIDAK lagi
-// berpindah halaman — mengikuti pola visual yang sama dengan modal
-// profil Admin Regional. "Pengaturan Akun" tetap berpindah ke halaman
-// penuh lewat onSettingsClick (dioper dari MitraLayout). Logout tetap
-// lewat tombol "Log Out" di sidebar (dengan modal konfirmasinya), tidak
-// diduplikasi di sini.
 export default function MitraTopbar({ profile, onSettingsClick }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);

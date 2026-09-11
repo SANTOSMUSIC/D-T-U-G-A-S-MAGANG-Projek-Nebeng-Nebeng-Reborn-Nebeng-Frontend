@@ -1,15 +1,5 @@
 import { X, Mail, Phone, Car, MapPin, ShieldCheck, Settings } from 'lucide-react';
 
-// Modal ringkasan profil Mitra, dipicu langsung dari dropdown MitraTopbar
-// saat klik "Profil Saya" — TIDAK berpindah halaman/route. Mengikuti pola
-// visual yang sama dengan modal profil Admin Regional (header gradient +
-// avatar kotak + badge peran, lalu baris info, lalu footer Tutup /
-// Pengaturan Akun).
-//
-// Tombol "Pengaturan Akun" di footer modal ini yang benar-benar pindah
-// halaman (lewat onSettingsClick, dioper dari MitraLayout -> MitraTopbar
-// -> modal ini).
-
 const DEFAULT_PROFILE = {
   fullName: '',
   email: '',
@@ -43,7 +33,7 @@ export default function MitraProfileModal({ isOpen, onClose, profile, onSettings
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header gradient */}
-        <div className="relative bg-gradient-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
+        <div className="relative bg-linear-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
           <button
             type="button"
             onClick={onClose}

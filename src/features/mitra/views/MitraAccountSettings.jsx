@@ -43,6 +43,8 @@ export default function MitraAccountSettings() {
     email: '',
     phone: '',
     address: '',
+    vehicleType: 'motor',
+    plateNumber: '',
   });
 
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -76,6 +78,8 @@ export default function MitraAccountSettings() {
             email: res.data.email || '',
             phone: res.data.phone || '',
             address: res.data.profile?.addressKtp || '',
+            vehicleType: res.data.profile?.vehicleType || 'motor',
+            plateNumber: res.data.profile?.plateNumber || '',
           });
           if (res.data.avatar) {
             setAvatarPreview(getFullFileUrl(res.data.avatar));
@@ -114,6 +118,7 @@ export default function MitraAccountSettings() {
       if (selectedAvatarFile) {
         const formDataObj = new FormData();
         formDataObj.append('file', selectedAvatarFile);
+        formDataObj.append('destination', 'uploads/avatars');
 
         const uploadRes = await apiClient.post('/users/me/avatar', formDataObj, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -125,10 +130,25 @@ export default function MitraAccountSettings() {
         name: profileDraft.fullName.trim(),
         phone: profileDraft.phone.trim(),
         email: profileDraft.email.trim(),
+        addressKtp: profileDraft.address.trim(),
+        vehicleType: profileDraft.vehicleType,
+        plateNumber: profileDraft.plateNumber.trim(),
       });
 
       const fullAvatarUrl = getFullFileUrl(uploadedAvatarUrl);
-      setLiveUser(prev => prev ? { ...prev, name: profileDraft.fullName.trim(), phone: profileDraft.phone.trim(), email: profileDraft.email.trim(), avatar: uploadedAvatarUrl } : prev);
+      setLiveUser(prev => prev ? {
+        ...prev,
+        name: profileDraft.fullName.trim(),
+        phone: profileDraft.phone.trim(),
+        email: profileDraft.email.trim(),
+        avatar: uploadedAvatarUrl,
+        profile: {
+          ...prev.profile,
+          addressKtp: profileDraft.address.trim(),
+          vehicleType: profileDraft.vehicleType,
+          plateNumber: profileDraft.plateNumber.trim(),
+        },
+      } : prev);
       setAvatarPreview(fullAvatarUrl);
       setSelectedAvatarFile(null);
 
@@ -175,12 +195,10 @@ export default function MitraAccountSettings() {
     }
 
     try {
-      // DIPERBAIKI: Mengarah ke endpoint autentikasi backend yang benar (/auth/change-password)
       await apiClient.patch('/auth/change-password', {
         currentPassword: passwordForm.current,
         newPassword: passwordForm.next,
       });
-
       setPasswordForm({ current: '', next: '', confirm: '' });
       toast.success('Kata sandi berhasil diperbarui.', { title: 'Kata Sandi Diperbarui' });
     } catch (error) {
@@ -231,7 +249,7 @@ export default function MitraAccountSettings() {
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Pengaturan Akun</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Ubah data profil, keamanan login, preferensi notifikasi, dan sesi aktif akun mitra Anda.
+            Ubah data profil & kendaraan, keamanan login, preferensi notifikasi, dan sesi aktif akun mitra Anda.
           </p>
         </div>
       </div>
@@ -239,7 +257,7 @@ export default function MitraAccountSettings() {
       <div className="space-y-5">
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
-            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil Pengguna
+            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil & Kendaraan
           </h3>
 
           <div className="flex items-center gap-4">
@@ -303,7 +321,7 @@ export default function MitraAccountSettings() {
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
               </div>
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Email</label>
                 <input
                   type="email"
@@ -312,6 +330,35 @@ export default function MitraAccountSettings() {
                   onChange={(e) => handleProfileFieldChange('email', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
                 />
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Jenis Kendaraan</label>
+                <select
+                  value={profileDraft.vehicleType}
+                  onChange={(e) => handleProfileFieldChange('vehicleType', e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                >
+                  <option value="motor">Sepeda Motor</option>
+                  <option value="mobil">Mobil / Minibus</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Nomor Plat</label>
+                <input
+                  type="text"
+                  value={profileDraft.plateNumber}
+                  onChange={(e) => handleProfileFieldChange('plateNumber', e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Alamat Domisili</label>
+                <textarea
+                  rows="2"
+                  value={profileDraft.address}
+                  onChange={(e) => handleProfileFieldChange('address', e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172] resize-none"
+                ></textarea>
               </div>
             </div>
             <div className="flex justify-end">

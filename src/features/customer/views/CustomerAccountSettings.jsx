@@ -42,7 +42,6 @@ export default function CustomerAccountSettings() {
     nik: ''
   });
 
-  // State untuk Pengaturan PIN Keamanan Transaksi
   const [pinForm, setPinForm] = useState({ pin: '', confirmPin: '' });
   const [showPin, setShowPin] = useState(false);
   const [isSubmittingPin, setIsSubmittingPin] = useState(false);
@@ -169,7 +168,6 @@ export default function CustomerAccountSettings() {
     }
   };
 
-  // Handler untuk submit PIN ke endpoint BE (/users/me/pin)
   const handleSavePin = async (e) => {
     e.preventDefault();
     if (pinForm.pin.length !== 6 || !/^\d+$/.test(pinForm.pin)) {
@@ -235,7 +233,6 @@ export default function CustomerAccountSettings() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Informasi Profil & Edit */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -287,6 +284,7 @@ export default function CustomerAccountSettings() {
 
             {!isEditing ? (
               <button
+                type="button"
                 onClick={startEditing}
                 className="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-[9px] font-bold transition cursor-pointer flex items-center gap-1.5"
               >
@@ -296,6 +294,7 @@ export default function CustomerAccountSettings() {
             ) : (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setIsEditing(false)}
                   className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-[9px] font-bold transition cursor-pointer flex items-center gap-1"
                 >
@@ -303,6 +302,7 @@ export default function CustomerAccountSettings() {
                   <span>Batal</span>
                 </button>
                 <button
+                  type="button"
                   onClick={handleSave}
                   disabled={!canSave}
                   className={`px-3.5 py-2 rounded-xl text-[9px] font-bold transition flex items-center gap-1.5 ${
@@ -380,7 +380,6 @@ export default function CustomerAccountSettings() {
           </div>
         </div>
 
-        {/* Pengaturan PIN Keamanan Transaksi (Escrow) */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-purple-50 text-[#4B2172] rounded-xl shrink-0">

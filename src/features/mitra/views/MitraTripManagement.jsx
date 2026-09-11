@@ -137,7 +137,6 @@ export default function MitraTripManagement() {
     try {
       const departureDateTime = new Date(`${formData.date}T${formData.time}:00Z`).toISOString();
 
-      // DIPERBAIKI: Memastikan payload angka dikirim murni bertipe number agar lolos validasi DTO NestJS
       await apiClient.post('/trips', {
         vehicleId: String(formData.vehicleId),
         originPointId: String(formData.originPointId),

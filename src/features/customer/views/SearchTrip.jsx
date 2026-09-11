@@ -412,6 +412,7 @@ export default function SearchTrip() {
                     <span className="text-[14px] font-bold text-emerald-600">{formatRupiah(trip.price)}</span>
                   </div>
                   <button 
+                    type="button"
                     onClick={() => handleOpenBooking(trip)}
                     className="w-full md:w-auto py-2.5 px-4 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer"
                   >
@@ -689,12 +690,14 @@ export default function SearchTrip() {
             <p className="text-neutral-500">Dana Anda telah berhasil ditahan oleh sistem Escrow sampai paket/penumpang tiba di Pos Tujuan.</p>
             <div className="flex gap-2 justify-center pt-2">
               <button
+                type="button"
                 onClick={() => setSelectedTrip(null)}
                 className="py-2.5 px-3.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold cursor-pointer"
               >
                 Tutup
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setSelectedTrip(null);
                   navigate('/customer/tickets');

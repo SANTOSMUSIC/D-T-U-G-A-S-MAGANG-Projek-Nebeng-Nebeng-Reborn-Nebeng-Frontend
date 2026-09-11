@@ -18,16 +18,19 @@ export default function CustomerSidebar({ activeMenu = 'Cari & Booking Trip', is
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  // NORMALISASI: Cek secara aman status verifikasi lowercase dari backend/prop
+  const verifiedStatus = customerProfile?.statusVerification?.toLowerCase() === 'approved' || isCustomerVerified;
+
   const menuItems = [
     { 
       name: 'Onboarding Biometrik', 
       icon: UserCheck, 
-      locked: isCustomerVerified, // Disable jika sudah terverifikasi karena sudah selesai
-      label: isCustomerVerified ? 'Terverifikasi (Selesai)' : 'Onboarding Biometrik'
+      locked: verifiedStatus, 
+      label: verifiedStatus ? 'Terverifikasi (Selesai)' : 'Onboarding Biometrik'
     },
-    { name: 'Cari & Booking Trip', icon: Compass, locked: !isCustomerVerified },
-    { name: 'Tickets & Digital QR', icon: Ticket, locked: !isCustomerVerified },
-    { name: 'Profil Saya', icon: User, locked: !isCustomerVerified },
+    { name: 'Cari & Booking Trip', icon: Compass, locked: !verifiedStatus },
+    { name: 'Tickets & Digital QR', icon: Ticket, locked: !verifiedStatus },
+    { name: 'Profil Saya', icon: User, locked: !verifiedStatus },
   ];
 
   const handleConfirmLogout = () => {
@@ -93,9 +96,9 @@ export default function CustomerSidebar({ activeMenu = 'Cari & Booking Trip', is
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold text-white truncate">{customerProfile.fullName}</p>
-                <p className={`text-[8px] font-bold flex items-center gap-1 ${isCustomerVerified ? 'text-emerald-300' : 'text-white/50'}`}>
-                  {isCustomerVerified ? <ShieldCheck size={10} /> : <Lock size={10} />}
-                  {isCustomerVerified ? 'Terverifikasi' : 'Belum Terverifikasi'}
+                <p className={`text-[8px] font-bold flex items-center gap-1 ${verifiedStatus ? 'text-emerald-300' : 'text-white/50'}`}>
+                  {verifiedStatus ? <ShieldCheck size={10} /> : <Lock size={10} />}
+                  {verifiedStatus ? 'Terverifikasi' : 'Belum Terverifikasi'}
                 </p>
               </div>
             </div>
@@ -115,7 +118,7 @@ export default function CustomerSidebar({ activeMenu = 'Cari & Booking Trip', is
                       key={item.name}
                       disabled={item.locked}
                       onClick={() => handleMenuSelect(item)}
-                      title={item.locked ? (isCustomerVerified ? 'Verifikasi biometrik sudah selesai' : 'Selesaikan verifikasi biometrik untuk membuka menu ini') : undefined}
+                      title={item.locked ? (verifiedStatus ? 'Verifikasi biometrik sudah selesai' : 'Selesaikan verifikasi biometrik untuk membuka menu ini') : undefined}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left ${
                         isActive
                           ? 'bg-white text-[#4B2172] font-semibold shadow-sm cursor-default'
@@ -126,7 +129,7 @@ export default function CustomerSidebar({ activeMenu = 'Cari & Booking Trip', is
                     >
                       <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : item.locked ? 'text-white/30' : 'text-white/70'}`} />
                       <span className="flex-1">{item.label || item.name}</span>
-                      {item.locked && (isCustomerVerified ? <ShieldCheck className="w-3 h-3 text-emerald-300" /> : <Lock className="w-3 h-3 text-white/30" />)}
+                      {item.locked && (verifiedStatus ? <ShieldCheck className="w-3 h-3 text-emerald-300" /> : <Lock className="w-3 h-3 text-white/30" />)}
                     </button>
                   );
                 })}

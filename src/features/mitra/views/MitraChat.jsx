@@ -14,7 +14,6 @@ export default function MitraChat() {
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // 1. Ambil daftar percakapan
   useEffect(() => {
     let isMounted = true;
     const fetchConversations = async () => {
@@ -43,7 +42,6 @@ export default function MitraChat() {
     };
   }, [selectedConversationId]);
 
-  // 2. Ambil pesan & Polling pesan aktif
   useEffect(() => {
     if (!selectedConversationId) return;
 
@@ -139,9 +137,7 @@ export default function MitraChat() {
         </div>
       </div>
 
-      {/* Layout Utama Chat ala WhatsApp */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 grid grid-cols-1 lg:grid-cols-3 overflow-hidden flex-1 min-h-0">
-        {/* Panel Daftar Chat */}
         <div className={`border-r border-neutral-100 flex flex-col col-span-1 bg-neutral-50/50 min-h-0 ${showMobileChat ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-3.5 border-b border-neutral-100 shrink-0">
             <div className="relative">
@@ -193,9 +189,7 @@ export default function MitraChat() {
           </div>
         </div>
 
-        {/* Panel Obrolan (WhatsApp Style: Header Tetap, Area Pesan Scroll Sendiri, Input Di Bawah) */}
         <div className={`col-span-2 flex flex-col bg-white min-h-0 ${!showMobileChat ? 'hidden lg:flex' : 'flex'}`}>
-          {/* Header Chat */}
           <div className="p-3.5 border-b border-neutral-100 flex items-center justify-between bg-white shrink-0">
             <div className="flex items-center gap-2.5">
               <button
@@ -217,7 +211,6 @@ export default function MitraChat() {
             </button>
           </div>
 
-          {/* Area Pesan (Scroll Sendiri, Tidak Memanjang Keluar Halaman) */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-neutral-50/40 min-h-0 flex flex-col">
             {messages.length === 0 ? (
               <div className="text-center text-[10px] text-neutral-400 py-10 my-auto">Belum ada pesan dalam percakapan ini.</div>
@@ -245,7 +238,6 @@ export default function MitraChat() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Chat Di Bawah (Menempel Sempurna ala WhatsApp) */}
           <form onSubmit={handleSendMessage} className="p-3.5 border-t border-neutral-100 bg-white flex items-center gap-2.5 shrink-0">
             <input 
               type="text" 
