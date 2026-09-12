@@ -80,6 +80,7 @@ export default function AdminWilayahManagement() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredAdmins = admins.filter(admin => 

@@ -1,20 +1,5 @@
 import { X, Mail, Phone, ShieldCheck, Settings } from 'lucide-react';
 
-// Modal ringkasan profil Operator, dipicu dari dropdown OperatorTopbar saat
-// klik "Profil Saya" — TIDAK berpindah halaman/route. Mengikuti pola yang
-// sama dengan MitraProfileModal: header gradient + avatar + badge peran,
-// baris info, lalu footer Tutup / Pengaturan Akun.
-//
-// Catatan: komponen ini di-render lewat createPortal(..., document.body)
-// dari OperatorTopbar (bukan langsung di dalam <header>), karena header
-// Operator memakai backdrop-blur yang akan mematahkan positioning
-// `fixed` kalau modal dirender langsung sebagai anak header. Lihat
-// komentar di OperatorTopbar.jsx untuk detail.
-//
-// Tombol "Pengaturan Akun" di footer yang benar-benar pindah halaman
-// (lewat onSettingsClick, dioper dari OperatorLayout -> OperatorTopbar ->
-// modal ini).
-
 function getInitials(name) {
   if (!name) return 'OP';
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -47,7 +32,7 @@ export default function OperatorProfileModal({ isOpen, onClose, profile, onSetti
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header gradient */}
-        <div className="relative bg-gradient-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
+        <div className="relative bg-linear-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
           <button
             type="button"
             onClick={onClose}

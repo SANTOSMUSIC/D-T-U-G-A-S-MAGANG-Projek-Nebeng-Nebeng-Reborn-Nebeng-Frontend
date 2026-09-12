@@ -16,7 +16,11 @@ import {
   UserPlus,
   Eye,
   EyeOff,
-  History
+  History,
+  Car,
+  MapPin,
+  Settings2,
+  KeyRound
 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -24,6 +28,24 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { useAuth } from '../../../context/AuthContext';
 import { getAllUsers, createUser, updateUserStatus } from '../../../services/userService';
+
+const ROLE_CONFIG = {
+  customer: { label: 'Customer (Penumpang)', shortLabel: 'Customer', icon: User, variant: 'default' },
+  mitra: { label: 'Mitra (Driver)', shortLabel: 'Mitra', icon: Car, variant: 'purple' },
+  regional: { label: 'Admin Wilayah (Regional)', shortLabel: 'Regional', icon: MapPin, variant: 'blue' },
+  operator: { label: 'Operator', shortLabel: 'Operator', icon: Settings2, variant: 'amber' },
+  admin: { label: 'Superadmin (Admin)', shortLabel: 'Superadmin', icon: ShieldCheck, variant: 'rose' },
+};
+
+function RoleBadge({ role }) {
+  const config = ROLE_CONFIG[role] || { shortLabel: role || 'N/A', icon: User, variant: 'default' };
+  const Icon = config.icon;
+  return (
+    <StatusBadge variant={config.variant} icon={Icon}>
+      {config.shortLabel}
+    </StatusBadge>
+  );
+}
 
 export default function UserGovernance() {
   const { session: currentAdminSession, role: currentAdminRole } = useAuth();
@@ -44,6 +66,7 @@ export default function UserGovernance() {
   const [auditLogs, setAuditLogs] = useState([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
   const [newUser, setNewUser] = useState({ 
     name: '', 
     email: '', 
@@ -144,7 +167,8 @@ export default function UserGovernance() {
 
       await createUser(payload);
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', role: 'passenger', phone: '', password: '' });
+      setShowAddPassword(false);
+      setNewUser({ name: '', email: '', role: 'customer', phone: '', password: '' });
       await fetchUsersData(currentPage);
     } catch (err) {
       console.error('Gagal membuat user:', err);
@@ -202,14 +226,14 @@ export default function UserGovernance() {
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">User Governance (Super-Override)</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Kelola akses akun secara sistemik dengan proteksi PII dan pencatatan audit log otomatis[cite: 9].
+            Kelola akses akun secara sistemik dengan proteksi PII dan pencatatan audit log otomatis.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="hidden md:flex px-3.5 py-2 bg-[#4B2172]/10 border border-[#4B2172]/20 rounded-full text-[10px] font-bold text-[#4B2172] items-center gap-2">
             <ShieldCheck size={14} />
-            Level Akses: Super-Override (Enkripsi PII)[cite: 9]
+            Level Akses: Super-Override (Enkripsi PII)
           </div>
           <button
             onClick={() => setShowAddModal(true)}
@@ -320,6 +344,7 @@ export default function UserGovernance() {
                       {user.status}
                     </StatusBadge>
                   </div>
+                  <RoleBadge role={user.role} />
                   <div className="flex items-center gap-2 text-neutral-600 font-mono">
                     <span>{isUnmasked ? user.email : maskEmail(user.email)}</span>
                     <button onClick={() => toggleMaskPII(user.id)} className="p-1 bg-neutral-100 rounded">
@@ -351,9 +376,9 @@ export default function UserGovernance() {
               <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
                 <th className="py-3 px-5">ID & Nama Pengguna</th>
                 <th className="py-3 px-5">Peran (Role)</th>
-                <th className="py-3 px-5">Kontak PII (Protected)[cite: 9]</th>
+                <th className="py-3 px-5">Kontak PII (Protected)</th>
                 <th className="py-3 px-5">Status Akun</th>
-                <th className="py-3 px-5 text-right">Aksi Super-Override[cite: 9]</th>
+                <th className="py-3 px-5 text-right">Aksi Super-Override</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-[9px]">
@@ -369,9 +394,7 @@ export default function UserGovernance() {
                         <div className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {String(user.id)}</div>
                       </td>
                       <td className="py-3.5 px-5">
-                        <span className="px-2.5 py-0.5 bg-neutral-100 text-neutral-700 font-semibold rounded-lg text-[9px] uppercase">
-                          {user.role}
-                        </span>
+                        <RoleBadge role={user.role} />
                       </td>
                       <td className="py-3.5 px-5">
                         <div className="flex items-center gap-2">
@@ -499,71 +522,116 @@ export default function UserGovernance() {
 
       <BaseModal
         isOpen={Boolean(showAddModal)}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => { setShowAddModal(false); setShowAddPassword(false); }}
         title="Tambah Pengguna Baru"
         subtitle="Formulir Pendaftaran Manual Admin"
         maxWidth="max-w-md"
       >
-        <form onSubmit={handleAddUser} className="space-y-3 text-[10px]">
+        <form onSubmit={handleAddUser} className="space-y-4 text-[10px]">
           <div>
-            <label className="font-bold text-neutral-600 block mb-1">Nama Lengkap</label>
-            <input
-              type="text"
-              required
-              value={newUser.name}
-              onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2"
-              placeholder="Masukkan nama pengguna..."
-            />
+            <label className="font-bold text-neutral-600 block mb-1.5">Nama Lengkap</label>
+            <div className="relative">
+              <User size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="text"
+                required
+                value={newUser.name}
+                onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] focus:bg-white transition"
+                placeholder="Masukkan nama pengguna..."
+              />
+            </div>
           </div>
+
           <div>
-            <label className="font-bold text-neutral-600 block mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={newUser.email}
-              onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2"
-              placeholder="nama@email.com"
-            />
+            <label className="font-bold text-neutral-600 block mb-1.5">Email</label>
+            <div className="relative">
+              <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="email"
+                required
+                value={newUser.email}
+                onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] focus:bg-white transition"
+                placeholder="nama@email.com"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="font-bold text-neutral-600 block mb-1">Password Akun</label>
-            <input
-              type="password"
-              required
-              value={newUser.password}
-              onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2"
-              placeholder="••••••••"
-            />
+            <label className="font-bold text-neutral-600 block mb-1.5">Password Akun</label>
+            <div className="relative">
+              <KeyRound size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type={showAddPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                value={newUser.password}
+                onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-9 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] focus:bg-white transition"
+                placeholder="Minimal 6 karakter"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAddPassword(prev => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                aria-label={showAddPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              >
+                {showAddPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+              </button>
+            </div>
           </div>
+
           <div>
-            <label className="font-bold text-neutral-600 block mb-1">Peran Pengguna (Role)</label>
-            <select
-              value={newUser.role}
-              onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 font-medium cursor-pointer"
+            <label className="font-bold text-neutral-600 block mb-1.5">Nomor Telepon</label>
+            <div className="relative">
+              <Phone size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="tel"
+                value={newUser.phone}
+                onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] focus:bg-white transition"
+                placeholder="08xxxxxxxxxx (opsional)"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="font-bold text-neutral-600 block mb-1.5">Peran Pengguna (Role)</label>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(ROLE_CONFIG).map(([roleKey, config]) => {
+                const Icon = config.icon;
+                const isSelected = newUser.role === roleKey;
+                return (
+                  <button
+                    key={roleKey}
+                    type="button"
+                    onClick={() => setNewUser({...newUser, role: roleKey})}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left font-semibold transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#4B2172]/10 border-[#4B2172] text-[#4B2172] ring-1 ring-[#4B2172]'
+                        : 'bg-neutral-50 border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                    }`}
+                  >
+                    <Icon size={13} className="shrink-0" />
+                    <span className="leading-tight">{config.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100 mt-1">
+            <button
+              type="button"
+              onClick={() => { setShowAddModal(false); setShowAddPassword(false); }}
+              className="px-4 py-2 font-bold text-neutral-500 hover:text-neutral-700 transition cursor-pointer"
             >
-              <option value="customer">customer (Penumpang)</option>
-              <option value="regional">Admin Wilayah (Regional)</option>
-              <option value="admin">Superadmin (Admin)</option>
-              <option value="operator">Operator</option>
-            </select>
-          </div>
-          <div>
-            <label className="font-bold text-neutral-600 block mb-1">Nomor Telepon</label>
-            <input
-              type="tel"
-              value={newUser.phone}
-              onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2"
-              placeholder="08xxxxxxxxxx"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 font-bold text-neutral-500 cursor-pointer">Batal</button>
-            <button type="submit" className="px-4 py-2 bg-[#4B2172] text-white font-bold rounded-full cursor-pointer">Simpan User</button>
+              Batal
+            </button>
+            <button type="submit" className="px-5 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white font-bold rounded-full transition cursor-pointer shadow-sm">
+              Simpan User
+            </button>
           </div>
         </form>
       </BaseModal>
@@ -572,7 +640,7 @@ export default function UserGovernance() {
         isOpen={Boolean(actionModal && selectedUser)}
         onClose={() => { setActionModal(null); setSelectedUser(null); setReason(''); }}
         title={`Konfirmasi ${actionModal} Akun`}
-        subtitle="Otentikasi Tindakan Super-Override & Log Audit[cite: 9]"
+        subtitle="Otentikasi Tindakan Super-Override & Log Audit"
         maxWidth="max-w-md"
       >
         <div className="space-y-4 text-neutral-800 text-[10px]">
@@ -582,7 +650,7 @@ export default function UserGovernance() {
 
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">
-              Alasan Override Sistem <span className="text-rose-600">*Wajib Diisi untuk Audit Log[cite: 9]</span>
+              Alasan Override Sistem <span className="text-rose-600">*Wajib Diisi untuk Audit Log</span>
             </label>
             <textarea 
               rows="3"

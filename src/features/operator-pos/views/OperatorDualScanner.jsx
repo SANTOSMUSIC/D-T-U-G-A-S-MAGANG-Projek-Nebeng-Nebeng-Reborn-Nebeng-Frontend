@@ -62,19 +62,19 @@ export default function OperatorDualScanner() {
     return () => { isMounted = false; };
   }, []);
 
-  const filteredTrips = availableTrips.filter(t => {
-    if (!posId) return true;
-    
-    const originId = String(t.originPointId || t.originPoint?.id || t.origin_point_id || '');
-    const destId = String(t.destinationPointId || t.destinationPoint?.id || t.destination_point_id || '');
-    const activePos = String(posId);
+const filteredTrips = availableTrips.filter(t => {
+  if (!posId) return true;
+  
+  const originId = String(t.originPointId || t.originPoint?.id || '');
+  const destId = String(t.destinationPointId || t.destinationPoint?.id || '');
+  const activePos = String(posId);
 
-    if (scanMode === 'origin') {
-      return originId === activePos || originId === ''; 
-    } else {
-      return destId === activePos || destId === '';
-    }
-  });
+  if (scanMode === 'origin') {
+    return originId === activePos; 
+  } else {
+    return destId === activePos;
+  }
+});
 
   const startCamera = (target) => {
     setActiveTargetField(target);
