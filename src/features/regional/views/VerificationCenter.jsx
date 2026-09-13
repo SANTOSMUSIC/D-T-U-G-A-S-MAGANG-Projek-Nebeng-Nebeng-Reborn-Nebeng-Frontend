@@ -1,5 +1,15 @@
-import { useState, useEffect } from 'react';
-import { ShieldCheck, Search, Clock, Eye, EyeOff, CreditCard, Truck } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  ShieldCheck,
+  Search,
+  Clock,
+  Eye,
+  EyeOff,
+  CreditCard,
+  Truck,
+  Camera,
+  ZoomIn
+} from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -12,16 +22,17 @@ import { regionalService } from '../../../services/regionalService';
 export default function VerificationCenterPage() {
   const toast = useToast();
   const { user } = useAuth();
-  
+
   const [verificationList, setVerificationList] = useState([]);
   const [isLoadingVerification, setIsLoadingVerification] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedVerification, setSelectedVerification] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [selectedReason, setSelectedReason] = useState('Foto KTP buram / tidak terbaca');
-
+  const [selectedReason, setSelectedReason] = useState(
+    'Foto KTP buram / tidak terbaca'
+  );
+  const [selectedVerification, setSelectedVerification] = useState(null);
   const [unmaskedPhones, setUnmaskedPhones] = useState({});
   const [verificationAuditLogs, setVerificationAuditLogs] = useState([]);
 
@@ -33,17 +44,25 @@ export default function VerificationCenterPage() {
     'Skor Liveness Scan Face ID di bawah ambang batas minimum'
   ];
 
-  // Helper untuk membersihkan dan menormalkan URL file dari database/backend
+  // Helper konversi URL gambar dengan sanitasi yang lebih aman
   const getFullFileUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('blob:')) return null;
-    if (path.startsWith('http://') || path.startsWith('https://')) {
+    if (!path || typeof path !== 'string') return null;
+
+    if (
+      path.startsWith('blob:') ||
+      path.startsWith('http://') ||
+      path.startsWith('https://')
+    ) {
       return path;
     }
-    const baseURL = apiClient.defaults.baseURL 
-      ? apiClient.defaults.baseURL.replace('/api', '') 
+
+    const baseURL = apiClient.defaults.baseURL
+      ? apiClient.defaults.baseURL.replace(/\/api\/?$/, '')
       : 'http://localhost:3000';
-    return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
+
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+    return `${baseURL}${cleanPath}`;
   };
 
   useEffect(() => {
@@ -52,51 +71,78 @@ export default function VerificationCenterPage() {
     const loadVerificationData = async () => {
       try {
         if (isMounted) setIsLoadingVerification(true);
-        const currentRegionId = user?.regionId ? String(user.regionId) : null;
-        
-        const responseData = await regionalService.getVerifications(undefined, currentRegionId);
 
-        const formatted = responseData.map(item => {
+        const currentRegionId = user?.regionId
+          ? String(user.regionId)
+          : null;
+
+        const responseData = await regionalService.getVerifications(
+          undefined,
+          currentRegionId
+        );
+
+        const formatted = responseData.map((item) => {
           const profile = item.user?.profile || {};
           const vehicle = item.user?.vehicles?.[0] || {};
-          
           const rawFiles = item.files || [];
-          let allFiles = rawFiles.map(f => ({ ...f, filePath: getFullFileUrl(f.filePath) }));
-          
-          if (profile.faceImageUrl && !allFiles.some(f => f.filePath === getFullFileUrl(profile.faceImageUrl))) {
-            allFiles.unshift({
-              id: 'face-id',
-              fileType: 'image/jpeg',
-              filePath: getFullFileUrl(profile.faceImageUrl),
-              isFaceId: true
-            });
-          }
+
+          const allFiles = rawFiles.map((f) => ({
+            ...f,
+            filePath: getFullFileUrl(f.filePath)
+          }));
+
+          // Cari alternatif foto wajah jika tidak ada di profile.faceImageUrl
+          const faceFile = rawFiles.find((f) =>
+            ['face_id', 'liveness', 'face', 'avatar'].includes(
+              f.type?.toLowerCase()
+            )
+          );
+
+          const faceUrl = profile.faceImageUrl || faceFile?.filePath;
 
           return {
             id: String(item.id),
             userId: String(item.userId || item.user?.id),
             name: item.user?.name || 'Pengguna Tanpa Nama',
             phone: item.user?.phone || '-',
-            role: item.user?.role ? item.user.role.toUpperCase() : 'MITRA',
-            regionId: item.user?.regionId ? String(item.user.regionId) : null,
-            submissionDate: item.createdAt ? new Date(item.createdAt).toLocaleString('id-ID') : 'Baru saja',
-            status: item.status === 'approved' ? 'Disetujui' : item.status === 'rejected' ? 'Ditolak' : 'Menunggu Review',
+            role: item.user?.role
+              ? item.user.role.toUpperCase()
+              : item.user?.vehicles?.length > 0
+                ? 'MITRA'
+                : 'CUSTOMER',
+            regionId: item.user?.regionId
+              ? String(item.user.regionId)
+              : null,
+            submissionDate: item.createdAt
+              ? new Date(item.createdAt).toLocaleString('id-ID')
+              : 'Baru saja',
+            status:
+              item.status === 'approved'
+                ? 'Disetujui'
+                : item.status === 'rejected'
+                  ? 'Ditolak'
+                  : 'Menunggu Review',
             rejectionReason: item.rejectionReason || '',
             type: item.type,
             files: allFiles,
+
             identity: {
               ktpNumber: profile.ktpNumber || '-',
-              fullNameKtp: profile.fullNameKtp || item.user?.name || '-',
+              fullNameKtp:
+                profile.fullNameKtp || item.user?.name || '-',
               addressKtp: profile.addressKtp || '-',
-              faceImageUrl: getFullFileUrl(profile.faceImageUrl),
+              faceImageUrl: getFullFileUrl(faceUrl),
               bankName: profile.bankName || '-',
-              bankAccountNumber: profile.bankAccountNumber || '-',
-              bankAccountHolder: profile.bankAccountHolder || '-',
+              bankAccountNumber:
+                profile.bankAccountNumber || '-',
+              bankAccountHolder:
+                profile.bankAccountHolder || '-'
             },
+
             vehicle: {
               type: vehicle.type || '-',
               model: vehicle.model || '-',
-              plateNumber: vehicle.plateNumber || '-',
+              plateNumber: vehicle.plateNumber || '-'
             }
           };
         });
@@ -106,8 +152,15 @@ export default function VerificationCenterPage() {
         }
       } catch (error) {
         if (isMounted) {
-          console.error('Gagal mengambil data verifikasi:', error);
-          toast.error('Gagal mengambil antrean verifikasi dari server.', { title: 'Koneksi Gagal' });
+          console.error(
+            'Gagal mengambil data verifikasi:',
+            error
+          );
+
+          toast.error(
+            'Gagal mengambil antrean verifikasi dari server.',
+            { title: 'Koneksi Gagal' }
+          );
         }
       } finally {
         if (isMounted) {
@@ -124,17 +177,38 @@ export default function VerificationCenterPage() {
   }, [user?.regionId, toast]);
 
   const handleApprove = async (id) => {
-    const target = verificationList.find(item => item.id === id);
+    const target = verificationList.find(
+      (item) => item.id === id
+    );
+
     if (isDecided(target)) {
-      toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
+      toast.warning(
+        'Pengajuan ini sudah diputuskan sebelumnya.',
+        { title: 'Sudah Diputuskan' }
+      );
       return;
     }
 
     try {
-      await regionalService.reviewVerification(id, 'approved');
-      setVerificationList(prev => prev.map(item => item.id === id ? { ...item, status: 'Disetujui', rejectionReason: '' } : item));
+      await regionalService.reviewVerification(
+        id,
+        'approved'
+      );
+
+      setVerificationList((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: 'Disetujui',
+                rejectionReason: ''
+              }
+            : item
+        )
+      );
 
       const logIndex = verificationAuditLogs.length + 1;
+
       const newLog = {
         id: `LOG-VER-${logIndex}`,
         verId: id,
@@ -143,71 +217,194 @@ export default function VerificationCenterPage() {
         admin: user?.name || 'Admin Regional',
         timestamp: new Date().toLocaleString('id-ID')
       };
-      setVerificationAuditLogs(prevLogs => [newLog, ...prevLogs]);
 
-      setIsDetailModalOpen(false);
-      toast.success(`Verifikasi ID ${id} berhasil disetujui dan akun diaktifkan.`, { title: 'Disetujui' });
+      setVerificationAuditLogs((prevLogs) => [
+        newLog,
+        ...prevLogs
+      ]);
+
+      toast.success(
+        `Verifikasi ID ${id} berhasil disetujui dan akun diaktifkan.`,
+        { title: 'Disetujui' }
+      );
     } catch (error) {
-      console.error('Gagal menyetujui verifikasi:', error);
-      toast.error(error.response?.data?.message || 'Gagal menyetujui dokumen di server.', { title: 'Error' });
+      console.error(
+        'Gagal menyetujui verifikasi:',
+        error
+      );
+
+      toast.error(
+        error.response?.data?.message ||
+          'Gagal menyetujui dokumen di server.',
+        { title: 'Error' }
+      );
     }
   };
 
+  const groupedByUser = useMemo(() => {
+    const map = new Map();
+
+    verificationList.forEach((item) => {
+      if (!map.has(item.userId)) {
+        map.set(item.userId, {
+          userId: item.userId,
+          name: item.name,
+          phone: item.phone,
+          role: item.role,
+          regionId: item.regionId,
+          identity: item.identity,
+          vehicle: item.vehicle,
+          documents: []
+        });
+      }
+
+      map.get(item.userId).documents.push(item);
+    });
+
+    return Array.from(map.values());
+  }, [verificationList]);
+
+  const selectedUserGroup = useMemo(
+    () =>
+      groupedByUser.find(
+        (g) => g.userId === selectedUserId
+      ) || null,
+    [groupedByUser, selectedUserId]
+  );
+
+  const getGroupStatus = (group) => {
+    const statuses = group.documents.map(
+      (d) => d.status
+    );
+
+    if (
+      statuses.some(
+        (s) => s === 'Menunggu Review'
+      )
+    ) {
+      return 'Menunggu Review';
+    }
+
+    if (
+      statuses.every(
+        (s) => s === 'Disetujui'
+      )
+    ) {
+      return 'Disetujui';
+    }
+
+    return 'Ditolak';
+  };
+
+  const getGroupPendingCount = (group) =>
+    group.documents.filter(
+      (d) => d.status === 'Menunggu Review'
+    ).length;
+
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
+
     return `${phone.slice(0, 4)}****${phone.slice(-3)}`;
   };
 
   const toggleMaskPhone = (id) => {
-    setUnmaskedPhones(prev => ({ ...prev, [id]: !prev[id] }));
+    setUnmaskedPhones((prev) => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
   };
 
-  const handleOpenDetail = (item) => {
-    setSelectedVerification(item);
+  const handleOpenDetail = (group) => {
+    setSelectedUserId(group.userId);
     setIsDetailModalOpen(true);
   };
 
-  const isDecided = (item) => !!item && item.status !== 'Menunggu Review';
+  const isDecided = (item) =>
+    !!item && item.status !== 'Menunggu Review';
 
   const handleOpenRejectModal = (item) => {
     if (isDecided(item)) {
-      toast.warning('Pengajuan ini sudah diputuskan sebelumnya.', { title: 'Sudah Diputuskan' });
+      toast.warning(
+        'Pengajuan ini sudah diputuskan sebelumnya.',
+        { title: 'Sudah Diputuskan' }
+      );
       return;
     }
+
     setSelectedVerification(item);
     setIsRejectModalOpen(true);
   };
 
   const handleConfirmReject = async (e) => {
     e.preventDefault();
-    if (!selectedVerification || isDecided(selectedVerification)) return;
+
+    if (
+      !selectedVerification ||
+      isDecided(selectedVerification)
+    ) {
+      return;
+    }
 
     if (!selectedReason) {
-      toast.warning('Alasan penolakan wajib dipilih.', { title: 'Peringatan' });
+      toast.warning(
+        'Alasan penolakan wajib dipilih.',
+        { title: 'Peringatan' }
+      );
       return;
     }
 
     try {
-      await apiClient.patch(`/verifications/${selectedVerification.id}/review`, {
-        status: 'rejected',
-        rejectionReason: selectedReason
-      });
+      await apiClient.patch(
+        `/verifications/${selectedVerification.id}/review`,
+        {
+          status: 'rejected',
+          rejectionReason: selectedReason
+        }
+      );
 
-      setVerificationList(prev => prev.map(item => item.id === selectedVerification.id ? { ...item, status: 'Ditolak', rejectionReason: selectedReason } : item));
+      setVerificationList((prev) =>
+        prev.map((item) =>
+          item.id === selectedVerification.id
+            ? {
+                ...item,
+                status: 'Ditolak',
+                rejectionReason: selectedReason
+              }
+            : item
+        )
+      );
 
       setIsRejectModalOpen(false);
-      setIsDetailModalOpen(false);
-      toast.error(`Verifikasi ID ${selectedVerification.id} ditolak.`, { title: 'Ditolak' });
+
+      toast.error(
+        `Verifikasi ID ${selectedVerification.id} ditolak.`,
+        { title: 'Ditolak' }
+      );
     } catch (error) {
-      console.error('Gagal menolak verifikasi:', error);
-      toast.error(error.response?.data?.message || 'Gagal menolak dokumen di server.', { title: 'Error' });
+      console.error(
+        'Gagal menolak verifikasi:',
+        error
+      );
+
+      toast.error(
+        error.response?.data?.message ||
+          'Gagal menolak dokumen di server.',
+        { title: 'Error' }
+      );
     }
   };
 
-  const filteredData = verificationList.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredData = groupedByUser.filter(
+    (group) =>
+      group.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      group.phone
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      group.userId
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
   const getStatusVariant = (status) => {
@@ -218,85 +415,210 @@ export default function VerificationCenterPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+
+      {/* HEADER */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
+            <span className="w-2 h-2 rounded-full bg-[#66CDAA] animate-pulse"></span>
+
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4FBF99]">
               PUSAT VERIFIKASI & KEAMANAN REGIONAL
             </span>
           </div>
-          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">Verification Center & Face ID</h1>
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Tinjau antrean berkas identitas, rekening, dan kendaraan wilayah Anda.</p>
+
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
+            Verification Center & Face ID
+          </h1>
+
+          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
+            Tinjau antrean berkas identitas, rekening, dan kendaraan wilayah Anda.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#4B2172]/10 rounded-full shrink-0">
-          <Clock className="w-3.5 h-3.5 text-[#4B2172]" />
-          <span className="text-[10px] font-bold text-[#4B2172]">
-            {verificationList.filter(v => v.status === 'Menunggu Review').length} Antrean Pending
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#66CDAA]/10 rounded-full shrink-0">
+          <Clock className="w-3.5 h-3.5 text-[#4FBF99]" />
+
+          <span className="text-[10px] font-bold text-[#4FBF99]">
+            {
+              verificationList.filter(
+                (v) => v.status === 'Menunggu Review'
+              ).length
+            }{' '}
+            Antrean Pending
           </span>
         </div>
       </div>
 
+      {/* SEARCH */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-          <input 
-            type="text" 
+          <Search
+            size={15}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400"
+          />
+
+          <input
+            type="text"
             placeholder="Cari nama, nomor HP, atau ID..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
+            onChange={(e) =>
+              setSearchQuery(e.target.value)
+            }
+            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] transition"
           />
         </div>
       </div>
 
+      {/* TABLE */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
+
             <thead>
               <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                <th className="py-3 px-5">ID & Nama Pengguna</th>
-                <th className="py-3 px-5">Kontak (PII Protected)</th>
-                <th className="py-3 px-5">Peran Akun</th>
-                <th className="py-3 px-5">Tipe Dokumen</th>
-                <th className="py-3 px-5">Status Review</th>
-                <th className="py-3 px-5 text-center">Aksi</th>
+                <th className="py-3 px-5">
+                  ID & Nama Pengguna
+                </th>
+
+                <th className="py-3 px-5">
+                  Kontak (PII Protected)
+                </th>
+
+                <th className="py-3 px-5">
+                  Peran Akun
+                </th>
+
+                <th className="py-3 px-5">
+                  Dokumen
+                </th>
+
+                <th className="py-3 px-5">
+                  Status Review
+                </th>
+
+                <th className="py-3 px-5 text-center">
+                  Aksi
+                </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoadingVerification ? (
-                <SkeletonTableRows rows={4} columns={6} />
+                <SkeletonTableRows
+                  rows={4}
+                  columns={6}
+                />
               ) : filteredData.length > 0 ? (
-                filteredData.map((item) => {
-                  const isUnmasked = unmaskedPhones[item.id];
+                filteredData.map((group) => {
+                  const isUnmasked =
+                    unmaskedPhones[group.userId];
+
+                  const groupStatus =
+                    getGroupStatus(group);
+
+                  const pendingCount =
+                    getGroupPendingCount(group);
+
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                    <tr
+                      key={group.userId}
+                      className="hover:bg-[#66CDAA]/5 transition"
+                    >
                       <td className="py-3.5 px-5">
-                        <div className="font-bold text-neutral-800 text-[10px]">{item.name}</div>
-                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">ID: {item.id}</div>
+                        <div className="font-bold text-neutral-800 text-[10px]">
+                          {group.name}
+                        </div>
+
+                        <div className="text-[8px] font-bold text-[#4FBF99] font-mono">
+                          ID: {group.userId}
+                        </div>
                       </td>
+
                       <td className="py-3.5 px-5 font-mono text-neutral-700">
                         <div className="flex items-center gap-1.5">
-                          <span>{isUnmasked ? item.phone : maskPhone(item.phone)}</span>
+                          <span>
+                            {isUnmasked
+                              ? group.phone
+                              : maskPhone(group.phone)}
+                          </span>
+
                           <button
-                            onClick={() => toggleMaskPhone(item.id)}
+                            onClick={() =>
+                              toggleMaskPhone(
+                                group.userId
+                              )
+                            }
                             className="p-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-600 transition cursor-pointer"
-                            title={isUnmasked ? "Sembunyikan Telepon" : "Buka Masking Telepon"}
+                            title={
+                              isUnmasked
+                                ? 'Sembunyikan Telepon'
+                                : 'Buka Masking Telepon'
+                            }
                           >
-                            {isUnmasked ? <EyeOff size={11} /> : <Eye size={11} />}
+                            {isUnmasked ? (
+                              <EyeOff size={11} />
+                            ) : (
+                              <Eye size={11} />
+                            )}
                           </button>
                         </div>
                       </td>
-                      <td className="py-3.5 px-5 font-semibold text-neutral-700">{item.role}</td>
-                      <td className="py-3.5 px-5 font-bold uppercase text-[#4B2172]">{item.type}</td>
-                      <td className="py-3.5 px-5">
-                        <StatusBadge variant={getStatusVariant(item.status)}>
-                          {item.status}
-                        </StatusBadge>
+
+                      <td className="py-3.5 px-5 font-semibold text-neutral-700">
+                        {group.role}
                       </td>
+
+                      <td className="py-3.5 px-5">
+                        <div className="flex flex-wrap gap-1">
+                          {group.documents.map(
+                            (doc) => (
+                              <span
+                                key={doc.id}
+                                title={doc.status}
+                                className={`px-2 py-0.5 rounded-full text-[8px] font-bold border ${
+                                  doc.status ===
+                                  'Disetujui'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : doc.status ===
+                                        'Ditolak'
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}
+                              >
+                                {doc.type?.toUpperCase()}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-5">
+                        <StatusBadge
+                          variant={getStatusVariant(
+                            groupStatus
+                          )}
+                        >
+                          {groupStatus}
+                        </StatusBadge>
+
+                        {pendingCount > 0 &&
+                          groupStatus ===
+                            'Menunggu Review' && (
+                            <div className="text-[8px] text-neutral-400 mt-0.5">
+                              {pendingCount} dokumen
+                              menunggu
+                            </div>
+                          )}
+                      </td>
+
                       <td className="py-3.5 px-5 text-center">
-                        <button onClick={() => handleOpenDetail(item)} className="px-3 py-1 bg-[#4B2172]/10 hover:bg-[#4B2172]/20 text-[#4B2172] font-bold rounded-full transition cursor-pointer">
+                        <button
+                          onClick={() =>
+                            handleOpenDetail(group)
+                          }
+                          className="px-3 py-1 bg-[#66CDAA]/10 hover:bg-[#66CDAA]/20 text-[#4FBF99] font-bold rounded-full transition cursor-pointer"
+                        >
                           Review Berkas
                         </button>
                       </td>
@@ -306,165 +628,474 @@ export default function VerificationCenterPage() {
               ) : (
                 <tr>
                   <td colSpan="6">
-                    <EmptyState icon={ShieldCheck} title="Antrean Kosong" description="Tidak ada antrean verifikasi di wilayah ini." />
+                    <EmptyState
+                      icon={ShieldCheck}
+                      title="Antrean Kosong"
+                      description="Tidak ada antrean verifikasi di wilayah ini."
+                    />
                   </td>
                 </tr>
               )}
             </tbody>
+
           </table>
         </div>
       </div>
 
-      {/* Modal Detail Review Berkas yang Dipercantik */}
+      {/* MODAL DETAIL BERKAS */}
       <BaseModal
-        isOpen={Boolean(isDetailModalOpen && selectedVerification)}
-        onClose={() => setIsDetailModalOpen(false)}
-        title={`Review Berkas: ${selectedVerification?.name}`}
-        subtitle={`ID Verifikasi: ${selectedVerification?.id} • Tipe Dokumen: ${selectedVerification?.type?.toUpperCase()}`}
+        isOpen={Boolean(
+          isDetailModalOpen &&
+            selectedUserGroup
+        )}
+        onClose={() =>
+          setIsDetailModalOpen(false)
+        }
+        title={`Review Berkas: ${selectedUserGroup?.name}`}
+        subtitle={`ID Pengguna: ${selectedUserGroup?.userId} • ${selectedUserGroup?.documents.length || 0} Dokumen`}
         maxWidth="max-w-3xl"
       >
-        {selectedVerification && (
-          <div className="space-y-5 text-[11px]">
-            {/* Grid Informasi Utama */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Informasi Identitas Pengguna */}
-              <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2">
-                <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Identitas & KTP Pengguna
+        {selectedUserGroup && (
+          <div className="space-y-4 text-[11px] max-h-[65vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
+
+            {/* ROLE & STATUS */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="px-2.5 py-1 bg-[#66CDAA]/10 text-[#4FBF99] text-[9px] font-bold rounded-full uppercase tracking-wide">
+                {selectedUserGroup.role}
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] text-neutral-400 font-medium">
+                  Status Keseluruhan:
                 </span>
+
+                <StatusBadge
+                  variant={getStatusVariant(
+                    getGroupStatus(
+                      selectedUserGroup
+                    )
+                  )}
+                >
+                  {getGroupStatus(
+                    selectedUserGroup
+                  )}
+                </StatusBadge>
+              </div>
+            </div>
+
+            {/* GRID INFORMASI UTAMA */}
+            <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1.2fr_auto] gap-2.5 items-stretch">
+
+              {/* IDENTITAS */}
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
+                <span className="text-[9px] font-bold text-[#4FBF99] uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Identitas & KTP Pengguna
+                </span>
+
                 <div className="space-y-1 text-neutral-700">
-                  <div><strong className="text-neutral-400">NIK:</strong> <span className="font-mono font-bold">{selectedVerification.identity.ktpNumber}</span></div>
-                  <div><strong className="text-neutral-400">Nama KTP:</strong> <span className="font-bold">{selectedVerification.identity.fullNameKtp}</span></div>
-                  <div><strong className="text-neutral-400">Alamat KTP:</strong> {selectedVerification.identity.addressKtp}</div>
+                  <div>
+                    <strong className="text-neutral-400">
+                      NIK:
+                    </strong>{' '}
+                    <span className="font-mono font-bold">
+                      {
+                        selectedUserGroup.identity
+                          .ktpNumber
+                      }
+                    </span>
+                  </div>
+
+                  <div>
+                    <strong className="text-neutral-400">
+                      Nama KTP:
+                    </strong>{' '}
+                    <span className="font-bold">
+                      {
+                        selectedUserGroup.identity
+                          .fullNameKtp
+                      }
+                    </span>
+                  </div>
+
+                  <div>
+                    <strong className="text-neutral-400">
+                      Alamat KTP:
+                    </strong>{' '}
+                    {
+                      selectedUserGroup.identity
+                        .addressKtp
+                    }
+                  </div>
                 </div>
               </div>
 
-              {/* Informasi Finansial / Kendaraan */}
-              <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2">
-                {selectedVerification.role === 'MITRA' ? (
+              {/* KENDARAAN / CUSTOMER */}
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-1.5">
+                {selectedUserGroup.role ===
+                'MITRA' ? (
                   <>
-                    <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1.5">
-                      <Truck className="w-3.5 h-3.5" /> Kendaraan & Rekening Bank
+                    <span className="text-[9px] font-bold text-[#4FBF99] uppercase tracking-wider flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5" />
+                      Kendaraan & Rekening Bank
                     </span>
-                    <div className="space-y-1 text-neutral-700">
-                      <div><strong className="text-neutral-400">Kendaraan:</strong> {selectedVerification.vehicle.type} - {selectedVerification.vehicle.model} ({selectedVerification.vehicle.plateNumber})</div>
-                      <div><strong className="text-neutral-400">Bank:</strong> {selectedVerification.identity.bankName} ({selectedVerification.identity.bankAccountNumber})</div>
-                      <div><strong className="text-neutral-400">Pemilik Rek:</strong> {selectedVerification.identity.bankAccountHolder}</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5" /> Status Akun Customer
-                    </span>
-                    <div className="space-y-1 text-neutral-700">
-                      <div><strong className="text-neutral-400">Peran:</strong> Customer Terverifikasi</div>
-                      <div><strong className="text-neutral-400">Kontak HP:</strong> <span className="font-mono">{selectedVerification.phone}</span></div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
 
-            {selectedVerification.status === 'Ditolak' && selectedVerification.rejectionReason && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 font-medium">
-                <strong>Catatan Alasan Penolakan Sebelumnya:</strong> {selectedVerification.rejectionReason}
-              </div>
-            )}
-
-            {/* Bagian Pratinjau Berkas & Face ID yang Diperbesar */}
-            <div className="space-y-2.5">
-              <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Pratinjau Berkas Lampiran & Face ID Scan</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {selectedVerification.files.length > 0 ? (
-                  selectedVerification.files.map((file, idx) => {
-                    const validFileUrl = file.filePath;
-                    return (
-                      <div key={idx} className="bg-neutral-900/5 p-3 rounded-2xl border border-neutral-200 space-y-2 flex flex-col justify-between">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-[#4B2172] uppercase tracking-wider">
-                            {file.isFaceId ? '📸 Face ID Liveness Scan' : `📄 Berkas Lampiran KTP (${idx + 1})`}
-                          </span>
-                          {validFileUrl && (
-                            <a 
-                              href={validFileUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-[9px] font-bold text-[#4B2172] hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-full shadow-xs"
-                            >
-                              🔍 Zoom Fullscreen
-                            </a>
-                          )}
-                        </div>
-                        <div className="h-48 bg-white rounded-xl overflow-hidden border border-neutral-200 flex items-center justify-center shadow-inner">
-                          {validFileUrl ? (
-                            <img 
-                              src={validFileUrl} 
-                              alt="Lampiran Dokumen" 
-                              className="w-full h-full object-contain bg-neutral-950/5 hover:scale-105 transition duration-300 cursor-zoom-in"
-                              onClick={() => window.open(validFileUrl, '_blank')}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.5'><rect width='18' height='18' x='3' y='3' rx='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>";
-                              }} 
-                            />
-                          ) : (
-                            <div className="text-[10px] text-neutral-400 italic">File tidak tersedia atau gagal dimuat</div>
-                          )}
-                        </div>
+                    <div className="space-y-1 text-neutral-700">
+                      <div>
+                        <strong className="text-neutral-400">
+                          Kendaraan:
+                        </strong>{' '}
+                        {
+                          selectedUserGroup.vehicle
+                            .type
+                        }{' '}
+                        -{' '}
+                        {
+                          selectedUserGroup.vehicle
+                            .model
+                        }{' '}
+                        (
+                        {
+                          selectedUserGroup.vehicle
+                            .plateNumber
+                        }
+                        )
                       </div>
-                    );
-                  })
+
+                      <div>
+                        <strong className="text-neutral-400">
+                          Bank:
+                        </strong>{' '}
+                        {
+                          selectedUserGroup.identity
+                            .bankName
+                        }{' '}
+                        (
+                        {
+                          selectedUserGroup.identity
+                            .bankAccountNumber
+                        }
+                        )
+                      </div>
+
+                      <div>
+                        <strong className="text-neutral-400">
+                          Pemilik Rek:
+                        </strong>{' '}
+                        {
+                          selectedUserGroup.identity
+                            .bankAccountHolder
+                        }
+                      </div>
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-[10px] text-neutral-500 italic col-span-2 text-center py-4">Tidak ada berkas file terlampir.</p>
+                  <>
+                    <span className="text-[9px] font-bold text-[#4FBF99] uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5" />
+                      Status Akun Customer
+                    </span>
+
+                    <div className="space-y-1 text-neutral-700">
+                      <div>
+                        <strong className="text-neutral-400">
+                          Peran:
+                        </strong>{' '}
+                        Customer Terverifikasi
+                      </div>
+
+                      <div>
+                        <strong className="text-neutral-400">
+                          Kontak HP:
+                        </strong>{' '}
+                        <span className="font-mono">
+                          {
+                            selectedUserGroup.phone
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* FACE ID */}
+              <div className="p-2 bg-neutral-50 rounded-xl border border-neutral-200 overflow-hidden flex flex-col gap-1.5 w-full sm:w-28 shrink-0">
+                <span className="text-[7px] font-bold text-[#4FBF99] uppercase tracking-wider flex items-center gap-1">
+                  <Camera className="w-3 h-3 shrink-0" />
+                  Face ID
+                </span>
+
+                {selectedUserGroup.identity
+                  .faceImageUrl ? (
+                  <div className="relative w-full aspect-square bg-white rounded-lg overflow-hidden border border-neutral-200 shadow-inner group flex items-center justify-center">
+                    <img
+                      src={
+                        selectedUserGroup.identity
+                          .faceImageUrl
+                      }
+                      alt="Face ID Liveness Scan"
+                      className="w-full h-full object-cover cursor-zoom-in transition duration-300 group-hover:scale-105"
+                      onClick={() =>
+                        window.open(
+                          selectedUserGroup
+                            .identity
+                            .faceImageUrl,
+                          '_blank'
+                        )
+                      }
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.className =
+                          'w-full h-full object-contain p-2 opacity-50 bg-neutral-100';
+
+                        e.target.src =
+                          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.5'><circle cx='12' cy='8' r='5'/><path d='M20 21a8 8 0 1 0-16 0'/></svg>";
+                      }}
+                    />
+
+                    <a
+                      href={
+                        selectedUserGroup.identity
+                          .faceImageUrl
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute top-1 right-1 bg-white/90 text-[#4FBF99] p-1 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition"
+                      title="Buka ukuran penuh"
+                    >
+                      <ZoomIn size={9} />
+                    </a>
+                  </div>
+                ) : (
+                  <div className="w-full aspect-square bg-neutral-100 rounded-lg border border-dashed border-neutral-300 flex flex-col items-center justify-center p-1 text-center">
+                    <Camera className="w-4 h-4 text-neutral-400 mb-1" />
+
+                    <span className="text-[7px] text-neutral-400 font-medium leading-tight">
+                      Foto tidak tersedia
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Aksi Review Tombol */}
-            {!isDecided(selectedVerification) && (
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">
-                <button 
-                  onClick={() => handleOpenRejectModal(selectedVerification)} 
-                  className="px-5 py-2.5 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer transition shadow-xs"
-                >
-                  Tolak Berkas
-                </button>
-                <button 
-                  onClick={() => handleApprove(selectedVerification.id)} 
-                  className="px-5 py-2.5 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl cursor-pointer transition shadow-md"
-                >
-                  Setujui Berkas & Aktifkan Akun
-                </button>
-              </div>
-            )}
+            {/* DAFTAR DOKUMEN */}
+            <div className="space-y-3">
+              {selectedUserGroup.documents.map(
+                (doc) => (
+                  <div
+                    key={doc.id}
+                    className="border border-neutral-200 rounded-xl p-3 space-y-2.5 bg-white"
+                  >
+                    <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-neutral-100">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[10px] font-bold text-neutral-800 uppercase tracking-wide">
+                          {doc.type}
+                        </span>
+
+                        <span className="text-[8px] text-neutral-400 font-mono">
+                          #{doc.id}
+                        </span>
+                      </div>
+
+                      <StatusBadge
+                        variant={getStatusVariant(
+                          doc.status
+                        )}
+                      >
+                        {doc.status}
+                      </StatusBadge>
+                    </div>
+
+                    {doc.status ===
+                      'Ditolak' &&
+                      doc.rejectionReason && (
+                        <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 font-medium text-[8px]">
+                          <strong>
+                            Alasan Penolakan:
+                          </strong>{' '}
+                          {doc.rejectionReason}
+                        </div>
+                      )}
+
+                    <div className="flex flex-wrap gap-2.5">
+                      {doc.files.length > 0 ? (
+                        doc.files.map(
+                          (file, idx) => {
+                            const validFileUrl =
+                              file.filePath;
+
+                            return (
+                              <div
+                                key={idx}
+                                className="w-24 shrink-0"
+                              >
+                                <div className="relative w-24 h-24 bg-white rounded-lg overflow-hidden border border-neutral-200 shadow-sm group">
+                                  {validFileUrl ? (
+                                    <img
+                                      src={
+                                        validFileUrl
+                                      }
+                                      alt={`Lampiran ${idx + 1}`}
+                                      className="w-full h-full object-cover cursor-zoom-in transition duration-300 group-hover:scale-105"
+                                      onClick={() =>
+                                        window.open(
+                                          validFileUrl,
+                                          '_blank'
+                                        )
+                                      }
+                                      onError={(
+                                        e
+                                      ) => {
+                                        e.target.onerror =
+                                          null;
+
+                                        e.target.className =
+                                          'w-full h-full object-contain p-2 opacity-50 bg-neutral-50';
+
+                                        e.target.src =
+                                          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.5'><rect width='18' height='18' x='3' y='3' rx='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>";
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-neutral-50">
+                                      <span className="text-[7px] text-neutral-400 italic leading-tight">
+                                        File tidak
+                                        ditemukan
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <span className="absolute top-1 left-1 bg-black/60 text-white text-[7px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                                    {idx + 1}
+                                  </span>
+
+                                  {validFileUrl && (
+                                    <a
+                                      href={
+                                        validFileUrl
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="absolute top-1 right-1 bg-white/90 text-[#4FBF99] p-1 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition"
+                                      title="Buka ukuran penuh"
+                                    >
+                                      <Eye size={9} />
+                                    </a>
+                                  )}
+                                </div>
+
+                                <div className="mt-1 text-[7px] font-semibold text-neutral-400 text-center truncate">
+                                  Lampiran {idx + 1}
+                                </div>
+                              </div>
+                            );
+                          }
+                        )
+                      ) : (
+                        <p className="text-[9px] text-neutral-500 italic text-center py-3 w-full">
+                          Tidak ada berkas file
+                          terlampir.
+                        </p>
+                      )}
+                    </div>
+
+                    {!isDecided(doc) && (
+                      <div className="flex items-center justify-end gap-2 pt-1.5 border-t border-neutral-100">
+                        <button
+                          onClick={() =>
+                            handleOpenRejectModal(
+                              doc
+                            )
+                          }
+                          className="px-3 py-1.5 text-[8px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer transition shadow-xs"
+                        >
+                          Tolak
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            handleApprove(doc.id)
+                          }
+                          className="px-3 py-1.5 text-[8px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg cursor-pointer transition shadow-md"
+                        >
+                          Setujui
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         )}
       </BaseModal>
 
-      {/* Modal Penolakan Berkas */}
+      {/* MODAL PENOLAKAN BERKAS */}
       <BaseModal
-        isOpen={Boolean(isRejectModalOpen && selectedVerification)}
-        onClose={() => setIsRejectModalOpen(false)}
+        isOpen={Boolean(
+          isRejectModalOpen &&
+            selectedVerification
+        )}
+        onClose={() =>
+          setIsRejectModalOpen(false)
+        }
         title="Alasan Penolakan Berkas"
         subtitle="Pilih alasan spesifik untuk tercatat dalam audit log"
         maxWidth="max-w-sm"
       >
-        <form onSubmit={handleConfirmReject} className="space-y-3">
+        <form
+          onSubmit={handleConfirmReject}
+          className="space-y-3"
+        >
           <div className="space-y-1.5">
-            {rejectionReasons.map((reason, idx) => (
-              <label key={idx} className="flex items-center gap-2 text-[9px] text-neutral-700 cursor-pointer">
-                <input type="radio" name="reason" value={reason} checked={selectedReason === reason} onChange={(e) => setSelectedReason(e.target.value)} />
-                <span>{reason}</span>
-              </label>
-            ))}
+            {rejectionReasons.map(
+              (reason, idx) => (
+                <label
+                  key={idx}
+                  className="flex items-center gap-2 text-[9px] text-neutral-700 cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name="reason"
+                    value={reason}
+                    checked={
+                      selectedReason === reason
+                    }
+                    onChange={(e) =>
+                      setSelectedReason(
+                        e.target.value
+                      )
+                    }
+                  />
+
+                  <span>{reason}</span>
+                </label>
+              )
+            )}
           </div>
+
           <div className="flex items-center justify-end gap-2 pt-3">
-            <button type="button" onClick={() => setIsRejectModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
-            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-full cursor-pointer shadow-sm">Konfirmasi Penolakan</button>
+            <button
+              type="button"
+              onClick={() =>
+                setIsRejectModalOpen(false)
+              }
+              className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer"
+            >
+              Batal
+            </button>
+
+            <button
+              type="submit"
+              className="px-4 py-2 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-full cursor-pointer shadow-sm"
+            >
+              Konfirmasi Penolakan
+            </button>
           </div>
         </form>
       </BaseModal>
+
     </div>
   );
 }

@@ -38,7 +38,7 @@ export default function AuthInput({
       <div className="relative">
         {Icon && (
           <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-500">
-            <Icon className="w-[18px] h-[18px]" />
+            <Icon className="w-4.5 h-4.5" />
           </span>
         )}
         <input
@@ -46,7 +46,7 @@ export default function AuthInput({
           type={isPassword ? (isShowPassword ? "text" : "password") : type}
           aria-invalid={!!error}
           aria-describedby={error ? errorId : undefined}
-          className={`w-full ${Icon ? 'pl-11' : 'pl-4'} ${isPassword ? 'pr-12' : 'pr-4'} py-3.5 bg-white border ${error ? 'border-red-400 focus:ring-red-500' : 'border-neutral-200 focus:ring-[#4B2172]'} rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 text-[15px] transition font-normal placeholder:font-normal`}
+          className={`w-full ${Icon ? 'pl-11' : 'pl-4'} ${isPassword ? 'pr-12' : 'pr-4'} py-3.5 bg-white border ${error ? 'border-red-400 focus:ring-red-500' : 'border-neutral-200 focus:ring-[#66CDAA]'} rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 text-[15px] transition font-normal placeholder:font-normal`}
           {...props}
         />
         {isPassword && (
@@ -56,7 +56,7 @@ export default function AuthInput({
             aria-label={isShowPassword ? "Sembunyikan password" : "Tampilkan password"}
             className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500 hover:text-zinc-700 transition"
           >
-            {isShowPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+            {isShowPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
           </button>
         )}
       </div>

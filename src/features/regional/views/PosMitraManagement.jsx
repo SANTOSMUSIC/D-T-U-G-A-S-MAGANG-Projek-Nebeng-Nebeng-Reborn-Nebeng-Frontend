@@ -106,6 +106,7 @@ export default function PosMitraManagement() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.regionId]);
 
   const handleOpenAdd = () => {

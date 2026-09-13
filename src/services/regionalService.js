@@ -58,6 +58,11 @@ export const regionalService = {
     const response = await apiClient.get('/users', { params });
     return response.data;
   },
+
+  getVehicles: async () => {
+    const response = await apiClient.get('/vehicles');
+    return response.data;
+  },
   getPayments: async (regionId) => {
     const params = regionId ? { regionId } : {};
     const response = await apiClient.get('/payments', { params });
