@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../../context/AuthContext';
-import { useTickets } from '../../../context/TicketsContext';
+// import { useTickets } from '../../../context/TicketsContext';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
 import apiClient from '../../../services/apiClient';
@@ -61,10 +61,10 @@ const getFullFileUrl = (path) => {
 
 export default function CustomerAccountSettings() {
   const { customerProfile, updateCustomerProfile } = useAuth();
-  const { tickets: allTickets } = useTickets();
   const toast = useToast();
 
   const [liveUser, setLiveUser] = useState(null);
+  const [customerOrders, setCustomerOrders] = useState([]); // State untuk menampung pesanan dari API
   const [showNik, setShowNik] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -74,7 +74,6 @@ export default function CustomerAccountSettings() {
     nik: '',
   });
 
-  // State untuk Pengaturan PIN Keamanan Transaksi
   const [pinForm, setPinForm] = useState({
     pin: '',
     confirmPin: '',
@@ -89,40 +88,53 @@ export default function CustomerAccountSettings() {
 
   const fileInputRef = useRef(null);
 
+  // Ambil data Profil User dan Riwayat Order / Trip dari Backend
   useEffect(() => {
     let isMounted = true;
 
-    const fetchUserData = async () => {
+    const fetchUserDataAndOrders = async () => {
       try {
-        const res = await apiClient.get('/auth/me');
+        // Fetch profil pengguna
+        const resUser = await apiClient.get('/auth/me');
+        // Fetch riwayat pesanan/trip customer dari endpoint /orders/me[cite: 2]
+        const resOrders = await apiClient.get('/orders/me');
 
-        if (isMounted && res.data) {
-          setLiveUser(res.data);
+        if (isMounted) {
+          if (resUser.data) {
+            setLiveUser(resUser.data);
+            const userNik =
+              resUser.data.nik ||
+              resUser.data.profile?.ktpNumber ||
+              resUser.data.ktpNumber ||
+              '';
 
-          const userNik =
-            res.data.nik ||
-            res.data.profile?.ktpNumber ||
-            res.data.ktpNumber ||
-            '';
+            setDraft({
+              fullName: resUser.data.name || '',
+              phone: resUser.data.phone || '',
+              nik: userNik,
+            });
 
-          setDraft({
-            fullName: res.data.name || '',
-            phone: res.data.phone || '',
-            nik: userNik,
-          });
+            if (resUser.data.avatar) {
+              setAvatarPreview(getFullFileUrl(resUser.data.avatar));
+            } else if (customerProfile?.photoDataUrl) {
+              setAvatarPreview(customerProfile.photoDataUrl);
+            }
+          }
 
-          if (res.data.avatar) {
-            setAvatarPreview(getFullFileUrl(res.data.avatar));
-          } else if (customerProfile?.photoDataUrl) {
-            setAvatarPreview(customerProfile.photoDataUrl);
+          if (resOrders.data) {
+            // Sesuaikan dengan format respons backend Anda (apakah array langsung atau di dalam key tertentu)
+            const ordersData = Array.isArray(resOrders.data) 
+              ? resOrders.data 
+              : resOrders.data.data || [];
+            setCustomerOrders(ordersData);
           }
         }
       } catch (err) {
-        console.error('Gagal mengambil data akun live:', err);
+        console.error('Gagal mengambil data akun atau pesanan:', err);
       }
     };
 
-    fetchUserData();
+    fetchUserDataAndOrders();
 
     return () => {
       isMounted = false;
@@ -132,14 +144,9 @@ export default function CustomerAccountSettings() {
   const isVerified = liveUser?.statusVerification === 'approved';
 
   const displayName =
-    liveUser?.name ||
-    customerProfile?.fullName ||
-    'Pelanggan Nebeng';
+    liveUser?.name || customerProfile?.fullName || 'Pelanggan Nebeng';
 
-  const displayPhone =
-    liveUser?.phone ||
-    customerProfile?.phone ||
-    '-';
+  const displayPhone = liveUser?.phone || customerProfile?.phone || '-';
 
   const displayNik =
     liveUser?.nik ||
@@ -159,12 +166,16 @@ export default function CustomerAccountSettings() {
   const isNameValid = draft.fullName.trim().length > 0;
   const canSave = isPhoneValid && isNameValid;
 
-  const completedTrips = allTickets.filter(
-    (t) => t.status === 'Selesai'
+  const completedTrips = customerOrders.filter(
+    (order) => 
+      order.status === 'completed' || 
+      order.trip?.status === 'completed'
   ).length;
 
-  const activeTrips = allTickets.filter(
-    (t) => t.status === 'Aktif'
+  const activeTrips = customerOrders.filter(
+    (order) => 
+      ['paid', 'checked_in_origin', 'in_transit', 'arrived_destination'].includes(order.status) ||
+      ['scheduled', 'in_origin_pos', 'in_transit', 'arrived_dest_pos'].includes(order.trip?.status)
   ).length;
 
   const rewardPoints = liveUser?.rewardPoints ?? 0;

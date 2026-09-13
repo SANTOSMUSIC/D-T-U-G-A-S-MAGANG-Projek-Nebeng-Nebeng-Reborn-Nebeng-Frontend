@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldCheck, UserCheck, AlertTriangle, Unlock } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -7,7 +7,6 @@ import BaseModal from '../../../components/ui/BaseModal';
 import apiClient from '../../../services/apiClient';
 
 const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
 const PRIMARY_ACCENT = '#66CDAA';
 
 export default function OperatorHandover() {
@@ -15,7 +14,7 @@ export default function OperatorHandover() {
   const [recipientName, setRecipientName] = useState('');
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  const [posId, setPosId] = useState('1');
+  const [posId, setPosId] = useState('');
   const [otpCode, setOtpCode] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,9 +23,42 @@ export default function OperatorHandover() {
   // State untuk Modal Force Release Darurat
   const [showForceModal, setShowForceModal] = useState(false);
   const [forceTicket, setForceTicket] = useState('');
-  const [forcePosId, setForcePosId] = useState('1');
+  const [forcePosId, setForcePosId] = useState('');
   const [forceOtp, setForceOtp] = useState('');
   const [isForcing, setIsForcing] = useState(false);
+
+  // Ambil ID Pos secara otomatis dan seragam seperti di Dual Scanner
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOperatorPos = async () => {
+      try {
+        const res = await apiClient.get('/pickup-points');
+        if (isMounted && res.data) {
+          const points = Array.isArray(res.data) ? res.data : res.data.data || [];
+
+          const userRes = await apiClient.get('/auth/me');
+          const currentUserId = userRes.data?.id;
+
+          const assignedPoint = points.find(
+            (p) => String(p.operatorId) === String(currentUserId)
+          );
+
+          const resolvedPosId = assignedPoint?.id || points[0]?.id || '1';
+          setPosId(String(resolvedPosId));
+          setForcePosId(String(resolvedPosId));
+        }
+      } catch (err) {
+        console.error('Gagal memuat daftar pos:', err);
+        setPosId('1');
+        setForcePosId('1');
+      }
+    };
+
+    fetchOperatorPos();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleHandoverSubmit = async (e) => {
     e.preventDefault();
@@ -42,6 +74,11 @@ export default function OperatorHandover() {
         'Mohon lengkapi Nama, QR Trip, QR Resi Paket, dan Kode OTP!',
         { title: 'Data Belum Lengkap' }
       );
+      return;
+    }
+
+    if (!posId) {
+      toast.warning('ID Pos bertugas belum terdeteksi dari sistem.', { title: 'Pos Belum Dimuat' });
       return;
     }
 
@@ -202,25 +239,14 @@ export default function OperatorHandover() {
           >
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS BERTUGAS
+                ID POS BERTUGAS (OTOMATIS)
               </label>
 
               <input
                 type="text"
-                required
-                placeholder="cth: 1"
+                disabled
                 value={posId}
-                onChange={(e) => setPosId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-mono text-[10px]"
-                style={{
-                  '--tw-ring-color': PRIMARY_COLOR,
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100 font-mono text-[10px] cursor-not-allowed"
               />
             </div>
 
@@ -236,12 +262,6 @@ export default function OperatorHandover() {
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-medium text-[10px]"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
               />
             </div>
 
@@ -257,12 +277,6 @@ export default function OperatorHandover() {
                 value={tripQr}
                 onChange={(e) => setTripQr(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-mono font-medium text-[10px] uppercase"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
               />
             </div>
 
@@ -278,12 +292,6 @@ export default function OperatorHandover() {
                 value={ticketQr}
                 onChange={(e) => setTicketQr(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-mono font-medium text-[10px] uppercase"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
               />
             </div>
 
@@ -303,12 +311,6 @@ export default function OperatorHandover() {
                   setOtpCode(e.target.value.replace(/\D/g, ''))
                 }
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-mono tracking-widest text-center text-[12px] font-extrabold"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
               />
             </div>
 
@@ -318,14 +320,6 @@ export default function OperatorHandover() {
               className="w-full py-3 disabled:opacity-50 text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5 mt-1"
               style={{
                 backgroundColor: PRIMARY_COLOR,
-              }}
-              onMouseEnter={(e) => {
-                if (!isSubmitting) {
-                  e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
               }}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
