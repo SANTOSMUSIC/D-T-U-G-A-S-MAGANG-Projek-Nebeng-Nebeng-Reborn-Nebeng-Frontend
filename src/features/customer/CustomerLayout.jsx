@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+
 import CustomerSidebar from './components/CustomerSidebar';
 import CustomerProfileModal from './components/CustomerProfileModal';
+
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/apiClient';
 
@@ -18,6 +20,7 @@ export default function CustomerLayout() {
   const navigate = useNavigate();
   const { logout, customerProfile } = useAuth();
   const location = useLocation();
+
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   // State status verifikasi langsung berdasarkan respons akurat dari /auth/me
@@ -27,9 +30,11 @@ export default function CustomerLayout() {
   // Ambil data status verifikasi secara langsung dari backend saat layout dimuat
   useEffect(() => {
     let isMounted = true;
+
     const fetchLiveStatus = async () => {
       try {
         const res = await apiClient.get('/auth/me');
+
         if (isMounted && res.data) {
           // Berdasarkan respons backend: "statusVerification": "approved"
           const approved = res.data.statusVerification === 'approved';
@@ -43,6 +48,7 @@ export default function CustomerLayout() {
     };
 
     fetchLiveStatus();
+
     return () => {
       isMounted = false;
     };
@@ -52,14 +58,23 @@ export default function CustomerLayout() {
 
   const activeMenu = Object.keys(CUSTOMER_MENU_PATH).find((menu) => {
     const slug = CUSTOMER_MENU_PATH[menu];
-    return currentPath === `/customer/${slug}` || currentPath.startsWith(`/customer/${slug}/`);
+
+    return (
+      currentPath === `/customer/${slug}` ||
+      currentPath.startsWith(`/customer/${slug}/`)
+    );
   });
 
   const activeSlug = activeMenu ? CUSTOMER_MENU_PATH[activeMenu] : null;
 
-  // Guard: block access to booking/tickets/profile until loading finishes and verified is true
+  // Guard: block access to booking/tickets/profile
+  // until loading finishes and verified is true
   useEffect(() => {
-    if (!isLoadingStatus && !isVerified && VERIFIED_ONLY_SLUGS.includes(activeSlug)) {
+    if (
+      !isLoadingStatus &&
+      !isVerified &&
+      VERIFIED_ONLY_SLUGS.includes(activeSlug)
+    ) {
       navigate('/customer/onboarding', { replace: true });
     }
   }, [isLoadingStatus, isVerified, activeSlug, navigate]);
@@ -72,12 +87,16 @@ export default function CustomerLayout() {
         customerProfile={customerProfile}
         onMenuSelect={(name) => {
           const slug = CUSTOMER_MENU_PATH[name];
-          if (!isVerified && VERIFIED_ONLY_SLUGS.includes(slug)) return;
+
+          if (!isVerified && VERIFIED_ONLY_SLUGS.includes(slug)) {
+            return;
+          }
 
           if (name === 'Profil Saya') {
             setShowProfileModal(true);
             return;
           }
+
           navigate(`/customer/${slug}`);
         }}
         onLogout={() => {

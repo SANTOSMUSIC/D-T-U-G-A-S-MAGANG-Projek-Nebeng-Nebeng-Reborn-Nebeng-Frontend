@@ -13,7 +13,14 @@ import {
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
 
-export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSelect, onLogout, isVerified = false }) {
+const PRIMARY_COLOR = '#4FBF99';
+
+export default function MitraSidebar({
+  activeMenu = 'Dashboard Mitra',
+  onMenuSelect,
+  onLogout,
+  isVerified = false
+}) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -29,6 +36,7 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
 
   const handleConfirmLogout = () => {
     setIsLoggingOut(true);
+
     setTimeout(() => {
       if (onLogout) onLogout();
     }, 400);
@@ -44,7 +52,8 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#4B2172] print:hidden"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center print:hidden"
+        style={{ color: PRIMARY_COLOR }}
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -56,7 +65,12 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
         />
       )}
 
-      <aside className={`w-64 h-screen bg-[#4B2172] text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 print:hidden select-none`}>
+      <aside
+        className={`w-64 h-screen text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:translate-x-0 print:hidden select-none`}
+        style={{ backgroundColor: PRIMARY_COLOR }}
+      >
         <div>
           <div className="mb-8 px-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -69,10 +83,12 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
                   e.target.src = '/logo.png';
                 }}
               />
+
               <span className="font-bold text-white text-[20px] tracking-wide leading-none">
                 Nebeng
               </span>
             </div>
+
             <button
               onClick={() => setIsMobileOpen(false)}
               aria-label="Tutup menu navigasi"
@@ -87,6 +103,7 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
               <p className="text-[8px] font-semibold uppercase tracking-widest text-white/50 mb-2.5 px-3">
                 MENU MITRA POS
               </p>
+
               <nav className="space-y-1">
                 {menuItems.map((item) => {
                   const IconComponent = item.icon;
@@ -94,9 +111,11 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
 
                   // Akun yang sudah diverifikasi Admin Regional tidak lagi
                   // perlu membuka menu Onboarding & Verifikasi — sembunyikan
-                  // menu ini sepenuhnya dari sidebar (bukan lagi ditampilkan
-                  // sebagai badge status).
-                  if (item.name === 'Onboarding & Verifikasi' && isVerified) {
+                  // menu ini sepenuhnya dari sidebar.
+                  if (
+                    item.name === 'Onboarding & Verifikasi' &&
+                    isVerified
+                  ) {
                     return null;
                   }
 
@@ -106,11 +125,20 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
                       onClick={() => handleMenuSelect(item.name)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
                         isActive
-                          ? 'bg-white text-[#4B2172] font-semibold shadow-sm'
+                          ? 'bg-white font-semibold shadow-sm'
                           : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
                       }`}
+                      style={isActive ? { color: PRIMARY_COLOR } : undefined}
                     >
-                      <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : 'text-white/70'}`} />
+                      <IconComponent
+                        className="w-4 h-4"
+                        style={{
+                          color: isActive
+                            ? PRIMARY_COLOR
+                            : 'rgba(255,255,255,0.7)',
+                        }}
+                      />
+
                       <span>{item.name}</span>
                     </button>
                   );
@@ -139,9 +167,14 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
               <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center shadow-sm">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-[14px] font-bold text-gray-900">Konfirmasi Keluar Sistem</h3>
+
+              <h3 className="text-[14px] font-bold text-gray-900">
+                Konfirmasi Keluar Sistem
+              </h3>
+
               <p className="text-[10px] font-normal text-gray-500">
-                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus masuk kembali untuk mengakses panel mitra.
+                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus
+                masuk kembali untuk mengakses panel mitra.
               </p>
             </div>
 
@@ -153,6 +186,7 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
               >
                 Batal
               </button>
+
               <button
                 onClick={handleConfirmLogout}
                 disabled={isLoggingOut}

@@ -46,7 +46,7 @@ export default function AuthInput({
           type={isPassword ? (isShowPassword ? "text" : "password") : type}
           aria-invalid={!!error}
           aria-describedby={error ? errorId : undefined}
-          className={`w-full ${Icon ? 'pl-11' : 'pl-4'} ${isPassword ? 'pr-12' : 'pr-4'} py-3.5 bg-white border ${error ? 'border-red-400 focus:ring-red-500' : 'border-neutral-200 focus:ring-[#4B2172]'} rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 text-[15px] transition font-normal placeholder:font-normal`}
+          className={`w-full ${Icon ? 'pl-11' : 'pl-4'} ${isPassword ? 'pr-12' : 'pr-4'} py-3.5 bg-white border ${error ? 'border-red-400 focus:ring-red-500' : 'border-neutral-200 focus:ring-[#66CDAA]'} rounded-full text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 text-[15px] transition font-normal placeholder:font-normal`}
           {...props}
         />
         {isPassword && (

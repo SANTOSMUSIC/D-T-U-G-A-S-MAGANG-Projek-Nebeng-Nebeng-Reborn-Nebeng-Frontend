@@ -168,7 +168,7 @@ export default function Register({ onSwitchToLogin }) {
               id="register-role"
               value={form.role}
               onChange={handleChange('role')}
-              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] text-[15px] transition font-normal cursor-pointer"
+              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] text-[15px] transition font-normal cursor-pointer"
             >
               <option value="customer">Customer</option>
               <option value="mitra">Mitra (Driver)</option>
@@ -188,7 +188,7 @@ export default function Register({ onSwitchToLogin }) {
               value={form.regionId}
               onChange={handleChange('regionId')}
               disabled={isLoadingRegions || regions.length === 0}
-              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] text-[15px] transition font-normal cursor-pointer disabled:bg-neutral-100 disabled:cursor-not-allowed"
+              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] text-[15px] transition font-normal cursor-pointer disabled:bg-neutral-100 disabled:cursor-not-allowed"
             >
               {isLoadingRegions ? (
                 <option value="">Memuat wilayah...</option>
@@ -237,7 +237,7 @@ export default function Register({ onSwitchToLogin }) {
         <button
           type="submit"
           disabled={isSubmitting || isLoadingRegions || regions.length === 0}
-          className="w-full py-3.5 px-4 bg-[#4B2172] hover:bg-[#371654] disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold rounded-full shadow-sm flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2 cursor-pointer"
+          className="w-full py-3.5 px-4 bg-[#66CDAA] hover:bg-[#4FBF99] disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold rounded-full shadow-sm flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2 cursor-pointer"
         >
           {isSubmitting ? (
             <>
@@ -255,7 +255,7 @@ export default function Register({ onSwitchToLogin }) {
 
       <p className="text-center text-sm text-neutral-500 font-normal mt-6">
         Sudah punya akun?{' '}
-        <button onClick={onSwitchToLogin} className="text-[#4B2172] font-semibold hover:underline cursor-pointer">
+        <button onClick={onSwitchToLogin} className="text-[#66CDAA] font-semibold hover:underline cursor-pointer">
           Masuk di sini
         </button>
       </p>

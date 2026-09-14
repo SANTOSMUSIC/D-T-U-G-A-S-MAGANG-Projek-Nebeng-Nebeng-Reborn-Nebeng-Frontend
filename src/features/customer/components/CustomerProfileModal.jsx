@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { X, Phone, IdCard, ShieldCheck, Settings, CalendarCheck } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 
+const PRIMARY_COLOR = '#4FBF99';
+const PRIMARY_HOVER = '#429f80';
+const PRIMARY_ACCENT = '#66CDAA';
+
 const maskNik = (nik) => {
   if (!nik || nik === '-') return '-';
   if (nik.length <= 8) return 'x'.repeat(nik.length);
@@ -11,27 +15,40 @@ const maskNik = (nik) => {
 const getFullFileUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('blob:') || path.startsWith('data:')) return path;
+
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  const baseURL = apiClient.defaults.baseURL 
-    ? apiClient.defaults.baseURL.replace('/api', '') 
+
+  const baseURL = apiClient.defaults.baseURL
+    ? apiClient.defaults.baseURL.replace('/api', '')
     : 'http://localhost:3000';
+
   return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
-export default function CustomerProfileModal({ isOpen, onClose, profile, isVerified, onSettingsClick }) {
+export default function CustomerProfileModal({
+  isOpen,
+  onClose,
+  profile,
+  isVerified,
+  onSettingsClick,
+}) {
   const [userData, setUserData] = useState(profile || null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Ambil data langsung dari /auth/me saat modal dibuka agar tidak pernah kosong (-)
   useEffect(() => {
     if (!isOpen) return;
+
     let isMounted = true;
+
     const fetchModalData = async () => {
       setIsLoading(true);
+
       try {
         const res = await apiClient.get('/auth/me');
+
         if (isMounted && res.data) {
           setUserData(res.data);
         }
@@ -41,7 +58,9 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
         if (isMounted) setIsLoading(false);
       }
     };
+
     fetchModalData();
+
     return () => {
       isMounted = false;
     };
@@ -49,20 +68,49 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
 
   if (!isOpen) return null;
 
-  const displayName = userData?.name || userData?.fullName || profile?.name || profile?.fullName || 'Pelanggan Nebeng';
+  const displayName =
+    userData?.name ||
+    userData?.fullName ||
+    profile?.name ||
+    profile?.fullName ||
+    'Pelanggan Nebeng';
+
   const initial = displayName.charAt(0).toUpperCase() || 'P';
-  
-  const rawPhoto = userData?.avatar || userData?.photoDataUrl || profile?.avatar || profile?.photoDataUrl || '';
+
+  const rawPhoto =
+    userData?.avatar ||
+    userData?.photoDataUrl ||
+    profile?.avatar ||
+    profile?.photoDataUrl ||
+    '';
+
   const photoUrl = getFullFileUrl(rawPhoto);
 
-  const rawDate = userData?.createdAt || userData?.verifiedAt || profile?.createdAt || profile?.verifiedAt;
+  const rawDate =
+    userData?.createdAt ||
+    userData?.verifiedAt ||
+    profile?.createdAt ||
+    profile?.verifiedAt;
+
   const memberSince = rawDate
-    ? new Date(rawDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(rawDate).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
     : '-';
 
   const displayPhone = userData?.phone || profile?.phone || '-';
-  const displayNik = userData?.nik || userData?.profile?.ktpNumber || profile?.nik || profile?.profile?.ktpNumber || '-';
-  const verifiedStatus = userData?.statusVerification === 'approved' || isVerified;
+
+  const displayNik =
+    userData?.nik ||
+    userData?.profile?.ktpNumber ||
+    profile?.nik ||
+    profile?.profile?.ktpNumber ||
+    '-';
+
+  const verifiedStatus =
+    userData?.statusVerification === 'approved' || isVerified;
 
   const handleGoToSettings = () => {
     onClose?.();
@@ -78,7 +126,13 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
         className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative bg-linear-to-br from-[#4B2172] to-[#2f1350] px-5 pt-5 pb-6">
+        {/* Header */}
+        <div
+          className="relative px-5 pt-5 pb-6 bg-linear-to-br"
+          style={{
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR}, ${PRIMARY_HOVER})`,
+          }}
+        >
           <button
             type="button"
             onClick={onClose}
@@ -89,10 +143,10 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
 
           <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white text-[18px] font-extrabold mb-3 overflow-hidden">
             {photoUrl ? (
-              <img 
-                src={photoUrl} 
-                alt="Foto Profil" 
-                className="w-full h-full object-cover" 
+              <img
+                src={photoUrl}
+                alt="Foto Profil"
+                className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.style.display = 'none';
@@ -102,39 +156,59 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
               initial
             )}
           </div>
+
           <p className="text-white font-bold text-[15px]">{displayName}</p>
+
           <span
             className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-              verifiedStatus ? 'bg-emerald-400/20 text-emerald-100' : 'bg-white/10 text-white/90'
+              verifiedStatus
+                ? 'bg-emerald-400/20 text-emerald-100'
+                : 'bg-white/10 text-white/90'
             }`}
           >
-            <ShieldCheck className="w-3 h-3" /> {verifiedStatus ? 'Terverifikasi' : 'Belum Terverifikasi'}
+            <ShieldCheck className="w-3 h-3" />
+            {verifiedStatus ? 'Terverifikasi' : 'Belum Terverifikasi'}
           </span>
         </div>
 
+        {/* Profile information */}
         <div className="p-4 space-y-2.5">
           <div className="flex items-center gap-2.5 bg-neutral-50 border border-neutral-100 rounded-xl p-3">
             <Phone className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+
             <div className="min-w-0">
-              <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">No. WhatsApp/HP</p>
+              <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">
+                No. WhatsApp/HP
+              </p>
+
               <p className="text-[10px] font-bold text-neutral-800 truncate">
                 {isLoading ? 'Memuat...' : displayPhone}
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2.5 bg-neutral-50 border border-neutral-100 rounded-xl p-3">
             <IdCard className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+
             <div className="min-w-0">
-              <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">NIK</p>
+              <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">
+                NIK
+              </p>
+
               <p className="text-[10px] font-bold text-neutral-800 font-mono truncate">
                 {isLoading ? 'Memuat...' : maskNik(displayNik)}
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2.5 bg-neutral-50 border border-neutral-100 rounded-xl p-3">
             <CalendarCheck className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+
             <div className="min-w-0">
-              <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">Anggota Sejak</p>
+              <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">
+                Anggota Sejak
+              </p>
+
               <p className="text-[10px] font-bold text-neutral-800 truncate">
                 {isLoading ? 'Memuat...' : memberSince}
               </p>
@@ -142,6 +216,7 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
           </div>
         </div>
 
+        {/* Actions */}
         <div className="px-4 pb-4 pt-1 flex items-center justify-between">
           <button
             type="button"
@@ -150,12 +225,21 @@ export default function CustomerProfileModal({ isOpen, onClose, profile, isVerif
           >
             Tutup
           </button>
+
           <button
             type="button"
             onClick={handleGoToSettings}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-full text-[10px] font-bold transition shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 text-white rounded-full text-[10px] font-bold transition shadow-sm cursor-pointer"
+            style={{ backgroundColor: PRIMARY_COLOR }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+            }}
           >
-            <Settings className="w-3.5 h-3.5" /> Pengaturan Akun
+            <Settings className="w-3.5 h-3.5" />
+            Pengaturan Akun
           </button>
         </div>
       </div>

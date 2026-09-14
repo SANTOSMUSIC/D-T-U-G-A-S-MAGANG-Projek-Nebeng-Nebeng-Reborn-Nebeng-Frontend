@@ -66,7 +66,7 @@ export default function SuperadminDashboard() {
         setIsLoading(true);
         const [dashRes, escrowRes] = await Promise.all([
           getGlobalDashboard(),
-          getEscrowLedger(escrowPage, 5).catch(() => null) // Membatasi limit 5 data terbaru untuk widget dashboard
+          getEscrowLedger(escrowPage, 5).catch(() => null)
         ]);
         if (isMounted) {
           setDashboardData(dashRes?.data || dashRes);
@@ -89,7 +89,6 @@ export default function SuperadminDashboard() {
     };
   }, [escrowPage]);
 
-  
   const regionalActivities = useMemo(() => {
     const rawList = dashboardData?.regionalSummary || [];
     if (Array.isArray(rawList) && rawList.length > 0) {
@@ -98,7 +97,7 @@ export default function SuperadminDashboard() {
       return rawList.map((reg, index) => {
         const pointsCount = reg.pickupPointsCount || 0;
         const activeCount = reg.activeUserCount || 0;
-        
+
         const realRevenue = Number(reg.revenue || reg.totalRevenue || 0);
         const userActivityShare = Math.round((activeCount / totalGlobalActive) * 100);
 
@@ -121,7 +120,6 @@ export default function SuperadminDashboard() {
 
   const [selectedChartRegion, setSelectedChartRegion] = useState('Semua');
 
-  
   const targetRevenueJt = useMemo(() => {
     const totalRevBackend = dashboardData?.overview?.totalRevenue;
     if (totalRevBackend !== undefined && selectedChartRegion === 'Semua') {
@@ -135,7 +133,6 @@ export default function SuperadminDashboard() {
     return reg ? reg.revenueVal / 1_000_000 : 1;
   }, [selectedChartRegion, regionalActivities, dashboardData]);
 
-  
   const insights = useMemo(() => {
     const overview = dashboardData?.overview || dashboardData || {};
     const escrowSummary = escrowLedgerData?.summary || escrowLedgerData || {};
@@ -173,7 +170,6 @@ export default function SuperadminDashboard() {
   const maxOrders = regionalActivities.length > 0 ? Math.max(...regionalActivities.map((r) => r.activeOrders), 1) : 1;
   const totalOrders = regionalActivities.reduce((sum, r) => sum + r.activeOrders, 0) || 1;
 
-  
   const recentActivity = useMemo(() => {
     const rawTx = escrowLedgerData?.recentTransactions || escrowLedgerData?.transactions || [];
     if (Array.isArray(rawTx) && rawTx.length > 0) {
@@ -308,7 +304,13 @@ export default function SuperadminDashboard() {
       });
     };
 
-    const RANGE_GENERATORS = { Hari: generateHarian, Minggu: generateMingguan, Bulan: generateBulanan, Tahun: generateTahunan };
+    const RANGE_GENERATORS = {
+      Hari: generateHarian,
+      Minggu: generateMingguan,
+      Bulan: generateBulanan,
+      Tahun: generateTahunan
+    };
+
     return (RANGE_GENERATORS[activeRange] || generateBulanan)();
   }, [activeRange, targetRevenueJt, selectedChartRegion]);
 
@@ -332,74 +334,140 @@ export default function SuperadminDashboard() {
     return Math.max(step, Math.ceil(maxVal / step) * step);
   }, [chartData]);
 
-  const totalPemasukanTotalPeriode = formatRupiahFull(chartData.reduce((sum, d) => sum + d.pemasukanTotal, 0));
-  const totalPemasukanBersihPeriode = formatRupiahFull(chartData.reduce((sum, d) => sum + d.pemasukanBersih, 0));
+  const totalPemasukanTotalPeriode = formatRupiahFull(
+    chartData.reduce((sum, d) => sum + d.pemasukanTotal, 0)
+  );
+
+  const totalPemasukanBersihPeriode = formatRupiahFull(
+    chartData.reduce((sum, d) => sum + d.pemasukanBersih, 0)
+  );
 
   const rangeSummaryLabel = useMemo(() => {
     if (chartData.length === 0) return 'Data Tidak Ditemukan';
     if (activeRange === 'Hari') return `27 Agustus 2026 · Per Jam`;
     if (activeRange === 'Minggu') return `${chartData.length} Minggu Terfilter`;
-    if (activeRange === 'Bulan') return `${formatTanggalSingkat(chartData[0].date)} – ${formatTanggalPenuh(chartData[chartData.length - 1].date)}`;
+    if (activeRange === 'Bulan') {
+      return `${formatTanggalSingkat(chartData[0].date)} – ${formatTanggalPenuh(chartData[chartData.length - 1].date)}`;
+    }
     return `Tahun ${chartData[0].date.getFullYear()}`;
   }, [activeRange, chartData]);
 
-  const CW = 700, CH = 220, PAD_L = 64, PAD_R = 35, PAD_T = 16, PAD_B = 26;
+  const CW = 700;
+  const CH = 220;
+  const PAD_L = 64;
+  const PAD_R = 35;
+  const PAD_T = 16;
+  const PAD_B = 26;
+
   const plotW = CW - PAD_L - PAD_R;
   const plotH = CH - PAD_T - PAD_B;
+
   const xFor = (i) => {
     if (chartData.length <= 1) return PAD_L + plotW / 2;
     return PAD_L + (i / (chartData.length - 1)) * plotW;
   };
-  const yFor = (v) => PAD_T + plotH - (v / CHART_MAX) * plotH;
 
-  const toPoints = (key) => chartData.map((d, i) => ({ x: xFor(i), y: yFor(d[key]) }));
+  const yFor = (v) =>
+    PAD_T + plotH - (v / CHART_MAX) * plotH;
+
+  const toPoints = (key) =>
+    chartData.map((d, i) => ({
+      x: xFor(i),
+      y: yFor(d[key])
+    }));
+
   const smoothLinePath = (pts) => {
     if (pts.length === 0) return '';
-    if (pts.length === 1) return `M${pts[0].x},${pts[0].y} L${pts[0].x + 1},${pts[0].y}`;
+
+    if (pts.length === 1) {
+      return `M${pts[0].x},${pts[0].y} L${pts[0].x + 1},${pts[0].y}`;
+    }
+
     let d = `M${pts[0].x},${pts[0].y}`;
+
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i];
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[i + 2] || p2;
+
       const cp1x = p1.x + (p2.x - p0.x) / 6;
       const cp1y = p1.y + (p2.y - p0.y) / 6;
       const cp2x = p2.x - (p3.x - p1.x) / 6;
       const cp2y = p2.y - (p3.y - p1.y) / 6;
+
       d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
     }
+
     return d;
   };
 
   const pemasukanTotalPointsArr = toPoints('pemasukanTotal');
   const pemasukanBersihPointsArr = toPoints('pemasukanBersih');
-  const pemasukanTotalLinePath = smoothLinePath(pemasukanTotalPointsArr);
-  const pemasukanBersihLinePath = smoothLinePath(pemasukanBersihPointsArr);
+
+  const pemasukanTotalLinePath =
+    smoothLinePath(pemasukanTotalPointsArr);
+
+  const pemasukanBersihLinePath =
+    smoothLinePath(pemasukanBersihPointsArr);
+
   const areaPathFor = (linePath) => {
     if (chartData.length === 0) return '';
-    const lastX = chartData.length === 1 ? xFor(0) + 1 : xFor(chartData.length - 1);
+
+    const lastX =
+      chartData.length === 1
+        ? xFor(0) + 1
+        : xFor(chartData.length - 1);
+
     return `${linePath} L${lastX},${PAD_T + plotH} L${xFor(0)},${PAD_T + plotH} Z`;
   };
-  const pemasukanTotalAreaPath = areaPathFor(pemasukanTotalLinePath);
-  const pemasukanBersihAreaPath = areaPathFor(pemasukanBersihLinePath);
 
-  const barGroupW = chartData.length > 0 ? plotW / chartData.length : plotW;
-  const barW = Math.min(barGroupW * 0.32, 20);
+  const pemasukanTotalAreaPath =
+    areaPathFor(pemasukanTotalLinePath);
+
+  const pemasukanBersihAreaPath =
+    areaPathFor(pemasukanBersihLinePath);
+
+  const barGroupW =
+    chartData.length > 0
+      ? plotW / chartData.length
+      : plotW;
+
+  const barW = Math.min(
+    barGroupW * 0.32,
+    20
+  );
 
   const chartSvgRef = useRef(null);
+
   const handleMouseMove = (e) => {
     if (chartData.length === 0) return;
+
     const svg = chartSvgRef.current;
     if (!svg) return;
+
     const rect = svg.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width;
+
+    const relX =
+      (e.clientX - rect.left) /
+      rect.width;
+
     const svgX = relX * CW;
+
     let nearest = 0;
     let minDist = Infinity;
+
     chartData.forEach((_, i) => {
-      const dist = Math.abs(xFor(i) - svgX);
-      if (dist < minDist) { minDist = dist; nearest = i; }
+      const dist = Math.abs(
+        xFor(i) - svgX
+      );
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = i;
+      }
     });
+
     setHoveredIndex(nearest);
   };
 
@@ -408,49 +476,84 @@ export default function SuperadminDashboard() {
   };
 
   const activeIndex = hoveredIndex;
-  const selectedX = activeIndex !== null && chartData[activeIndex] ? xFor(activeIndex) : 0;
-  const selectedY = activeIndex !== null && chartData[activeIndex] ? yFor(chartData[activeIndex].pemasukanTotal) : 0;
-  const selectedPct = (selectedX / CW) * 100;
-  const tooltipAnchor = selectedPct < 20 ? 'left' : selectedPct > 70 ? 'right' : 'center';
+
+  const selectedX =
+    activeIndex !== null &&
+    chartData[activeIndex]
+      ? xFor(activeIndex)
+      : 0;
+
+  const selectedY =
+    activeIndex !== null &&
+    chartData[activeIndex]
+      ? yFor(
+          chartData[activeIndex]
+            .pemasukanTotal
+        )
+      : 0;
+
+  const selectedPct =
+    (selectedX / CW) * 100;
+
+  const tooltipAnchor =
+    selectedPct < 20
+      ? 'left'
+      : selectedPct > 70
+        ? 'right'
+        : 'center';
 
   const statusStyle = {
-    Completed: { icon: CheckCircle2, text: 'text-emerald-600', bg: 'bg-emerald-50', dot: 'bg-emerald-500', label: 'Selesai' },
-    Canceled: { icon: XCircle, text: 'text-rose-600', bg: 'bg-rose-50', dot: 'bg-rose-500', label: 'Dibatalkan' },
-    Pending: { icon: Clock, text: 'text-[#4B2172]', bg: 'bg-[#4B2172]/10', dot: 'bg-[#4B2172]', label: 'Menunggu' },
+    Completed: {
+      icon: CheckCircle2,
+      text: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      dot: 'bg-emerald-500',
+      label: 'Selesai'
+    },
+    Canceled: {
+      icon: XCircle,
+      text: 'text-rose-600',
+      bg: 'bg-rose-50',
+      dot: 'bg-rose-500',
+      label: 'Dibatalkan'
+    },
+    Pending: {
+      icon: Clock,
+      text: 'text-[#66CDAA]',
+      bg: 'bg-[#66CDAA]/10',
+      dot: 'bg-[#66CDAA]',
+      label: 'Menunggu'
+    }
   };
 
   const rowAccents = [
-    { bg: 'bg-[#4B2172]/10', text: 'text-[#4B2172]' },
-    { bg: 'bg-[#4B2172]/[0.16]', text: 'text-[#4B2172]' },
-    { bg: 'bg-neutral-100', text: 'text-neutral-500' },
-    { bg: 'bg-[#4B2172]/[0.08]', text: 'text-[#4B2172]/80' },
+    {
+      bg: 'bg-[#66CDAA]/10',
+      text: 'text-[#66CDAA]'
+    },
+    {
+      bg: 'bg-[#66CDAA]/[0.16]',
+      text: 'text-[#66CDAA]'
+    },
+    {
+      bg: 'bg-neutral-100',
+      text: 'text-neutral-500'
+    },
+    {
+      bg: 'bg-[#66CDAA]/[0.08]',
+      text: 'text-[#66CDAA]/80'
+    }
   ];
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      <div className="flex flex-col gap-3 pb-3 border-b border-neutral-100">
-        <div className="relative w-full sm:max-w-md pl-14 lg:pl-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            value={mainQuery}
-            onChange={(e) => setMainQuery(e.target.value)}
-            placeholder="Search here..."
-            className="w-full pl-10 pr-8 py-2 bg-white border border-neutral-200 rounded-full text-[11px] text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition shadow-sm"
-          />
-          {mainQuery && (
-            <button
-              onClick={() => setMainQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-      </div>
+
+      {/* Search bar utama DIHILANGKAN */}
 
       <div className="pt-1">
-        <h1 className="text-[18px] font-bold text-neutral-800">Halo {displayName}, selamat datang kembali! 👋</h1>
+        <h1 className="text-[18px] font-bold text-neutral-800">
+          Halo {displayName}, selamat datang kembali! 👋
+        </h1>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -463,22 +566,39 @@ export default function SuperadminDashboard() {
         ) : (
           insights.map((insight, idx) => {
             const InsightIcon = insight.icon;
+
             return (
-              <div key={idx} className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col">
+              <div
+                key={idx}
+                className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col"
+              >
                 <div className="flex items-center gap-3 mb-3">
-                  <div className={`${insight.iconBg} ${insight.iconColor} p-2 rounded-xl shrink-0`}>
+                  <div
+                    className={`${insight.iconBg} ${insight.iconColor} p-2 rounded-xl shrink-0`}
+                  >
                     <InsightIcon size={16} />
                   </div>
-                  <h3 className="text-[14px] font-semibold text-neutral-800 leading-snug">{insight.title}</h3>
+
+                  <h3 className="text-[14px] font-semibold text-neutral-800 leading-snug">
+                    {insight.title}
+                  </h3>
                 </div>
-                <p className="text-[10px] text-neutral-400 leading-relaxed mb-4">{insight.desc}</p>
+
+                <p className="text-[10px] text-neutral-400 leading-relaxed mb-4">
+                  {insight.desc}
+                </p>
+
                 <div className="mt-auto pt-1">
-                  <p className="text-[8px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">{insight.label}</p>
+                  <p className="text-[8px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">
+                    {insight.label}
+                  </p>
+
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[18px] font-bold text-neutral-800">{insight.value}</span>
-                    <button className="flex items-center gap-0.5 text-[10px] font-semibold text-[#4B2172] hover:underline cursor-pointer">
-                      Lihat Detail <ChevronRight size={12} />
-                    </button>
+                    <span className="text-[18px] font-bold text-neutral-800">
+                      {insight.value}
+                    </span>
+
+                    {/* Lihat Detail DIHILANGKAN */}
                   </div>
                 </div>
               </div>
@@ -496,7 +616,10 @@ export default function SuperadminDashboard() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-5">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-neutral-100 pb-4">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-[14px] font-semibold text-neutral-800">Rekap Pemasukan</h2>
+              <h2 className="text-[14px] font-semibold text-neutral-800">
+                Rekap Pemasukan
+              </h2>
+
               <span className="flex items-center gap-1 text-[8px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Live
@@ -512,7 +635,9 @@ export default function SuperadminDashboard() {
                     setHoveredIndex(null);
                   }}
                   className={`text-[10px] font-semibold px-3 py-1 rounded-full transition cursor-pointer ${
-                    activeRange === range ? 'bg-white text-[#4B2172] shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    activeRange === range
+                      ? 'bg-white text-[#66CDAA] shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
                   {range}
@@ -530,18 +655,30 @@ export default function SuperadminDashboard() {
                     setSelectedChartRegion(e.target.value);
                     setHoveredIndex(null);
                   }}
-                  className="pl-8 pr-7 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
+                  className="pl-8 pr-7 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#66CDAA] cursor-pointer"
                 >
-                  <option value="Semua">Semua Wilayah</option>
+                  <option value="Semua">
+                    Semua Wilayah
+                  </option>
+
                   {regionalActivities.map((r) => (
-                    <option key={r.id} value={r.name}>{r.name}</option>
+                    <option
+                      key={r.id}
+                      value={r.name}
+                    >
+                      {r.name}
+                    </option>
                   ))}
                 </select>
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
+
+                <Filter
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none"
+                />
               </div>
 
               <div className="relative flex-1 sm:w-60">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+
                 <input
                   type="text"
                   value={chartQuery}
@@ -550,8 +687,9 @@ export default function SuperadminDashboard() {
                     setHoveredIndex(null);
                   }}
                   placeholder="Cari & filter pemasukan..."
-                  className="w-full pl-9 pr-8 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] text-neutral-600 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
+                  className="w-full pl-9 pr-8 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] text-neutral-600 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] transition"
                 />
+
                 {chartQuery && (
                   <button
                     onClick={() => {
@@ -571,25 +709,32 @@ export default function SuperadminDashboard() {
                 <Calendar size={13} />
                 {rangeSummaryLabel}
               </button>
+
               <div className="flex items-center gap-1 bg-neutral-50 border border-neutral-200 rounded-full p-1">
                 <button
                   onClick={() => setChartType('line')}
                   className={`w-6 h-6 rounded-full flex items-center justify-center transition cursor-pointer ${
-                    chartType === 'line' ? 'bg-white text-[#4B2172] shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    chartType === 'line'
+                      ? 'bg-white text-[#66CDAA] shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
                   <LineChartIcon size={13} />
                 </button>
+
                 <button
                   onClick={() => setChartType('bar')}
                   className={`w-6 h-6 rounded-full flex items-center justify-center transition cursor-pointer ${
-                    chartType === 'bar' ? 'bg-white text-[#4B2172] shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    chartType === 'bar'
+                      ? 'bg-white text-[#66CDAA] shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
                   <BarChart3 size={13} />
                 </button>
               </div>
-              <button className="w-7 h-7 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-[#4B2172] transition">
+
+              <button className="w-7 h-7 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-[#66CDAA] transition">
                 <Download size={13} />
               </button>
             </div>
@@ -597,38 +742,73 @@ export default function SuperadminDashboard() {
 
           <div className="flex items-center gap-8 pt-1">
             <button
-              onClick={() => setShowPemasukanTotal(!showPemasukanTotal)}
-              className={`text-left cursor-pointer transition-opacity ${showPemasukanTotal ? 'opacity-100' : 'opacity-40'}`}
+              onClick={() =>
+                setShowPemasukanTotal(
+                  !showPemasukanTotal
+                )
+              }
+              className={`text-left cursor-pointer transition-opacity ${
+                showPemasukanTotal
+                  ? 'opacity-100'
+                  : 'opacity-40'
+              }`}
             >
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2 h-2 rounded-full bg-[#4B2172]"></span>
-                <span className="text-[10px] font-medium text-neutral-500">Total Pemasukan</span>
+                <span className="w-2 h-2 rounded-full bg-[#66CDAA]"></span>
+
+                <span className="text-[10px] font-medium text-neutral-500">
+                  Total Pemasukan
+                </span>
               </div>
-              <p className="text-[18px] font-bold text-neutral-800">{totalPemasukanTotalPeriode}</p>
+
+              <p className="text-[18px] font-bold text-neutral-800">
+                {totalPemasukanTotalPeriode}
+              </p>
             </button>
+
             <button
-              onClick={() => setShowPemasukanBersih(!showPemasukanBersih)}
-              className={`text-left cursor-pointer transition-opacity ${showPemasukanBersih ? 'opacity-100' : 'opacity-40'}`}
+              onClick={() =>
+                setShowPemasukanBersih(
+                  !showPemasukanBersih
+                )
+              }
+              className={`text-left cursor-pointer transition-opacity ${
+                showPemasukanBersih
+                  ? 'opacity-100'
+                  : 'opacity-40'
+              }`}
             >
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2 h-2 rounded-full bg-violet-300"></span>
-                <span className="text-[10px] font-medium text-neutral-500">Pemasukan Bersih</span>
+                <span className="w-2 h-2 rounded-full bg-[#66CDAA]"></span>
+
+                <span className="text-[10px] font-medium text-neutral-500">
+                  Pemasukan Bersih
+                </span>
               </div>
-              <p className="text-[18px] font-bold text-neutral-800">{totalPemasukanBersihPeriode}</p>
+
+              <p className="text-[18px] font-bold text-neutral-800">
+                {totalPemasukanBersihPeriode}
+              </p>
             </button>
           </div>
 
           <div className="relative pt-2">
             {chartData.length === 0 ? (
-              <div className="h-56 flex flex-col items-center justify-center text-center p-4 bg-neutral-50/50 rounded-2xl border border-dashed border-neutral-200">
-                <p className="text-[12px] font-semibold text-neutral-700">Data Pemasukan Tidak Ditemukan</p>
-                <p className="text-[10px] text-neutral-400 mt-1">Tidak ada titik data pemasukan yang sesuai kata kunci "{chartQuery}".</p>
+              <div className="h-56 flex flex-col items-center justify-center text-center p-4 bg-[#66CDAA]/50 rounded-2xl border border-dashed border-neutral-200">
+                <p className="text-[12px] font-semibold text-neutral-700">
+                  Data Pemasukan Tidak Ditemukan
+                </p>
+
+                <p className="text-[10px] text-neutral-400 mt-1">
+                  Tidak ada titik data pemasukan yang sesuai kata kunci "{chartQuery}".
+                </p>
+
                 <button
                   onClick={() => {
                     setChartQuery('');
                     setHoveredIndex(null);
                   }}
-                  className="mt-3 text-[10px] font-semibold text-[#4B2172] hover:underline"
+                  className="mt-3 text-[10px] font-semibold text-[#66CDAA] hover:underline"
                 >
                   Bersihkan Pencarian
                 </button>
@@ -643,26 +823,81 @@ export default function SuperadminDashboard() {
                 onMouseLeave={handleMouseLeave}
               >
                 <defs>
-                  <linearGradient id="pemasukanTotalFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#4B2172" stopOpacity="0.20" />
-                    <stop offset="100%" stopColor="#4B2172" stopOpacity="0" />
+                  <linearGradient
+                    id="pemasukanTotalFill"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor="#66CDAA"
+                      stopOpacity="0.20"
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="#66CDAA"
+                      stopOpacity="0"
+                    />
                   </linearGradient>
-                  <linearGradient id="pemasukanBersihFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#c4b5fd" stopOpacity="0.30" />
-                    <stop offset="100%" stopColor="#c4b5fd" stopOpacity="0" />
+
+                  <linearGradient
+                    id="pemasukanBersihFill"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor="#A7E8D2"
+                      stopOpacity="0.30"
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="#A7E8D2"
+                      stopOpacity="0"
+                    />
                   </linearGradient>
                 </defs>
 
                 {[0, 1, 2, 3].map((g) => {
-                  const gy = PAD_T + (g * plotH) / 3;
-                  const gValue = CHART_MAX - (g * CHART_MAX) / 3;
+                  const gy =
+                    PAD_T + (g * plotH) / 3;
+
+                  const gValue =
+                    CHART_MAX -
+                    (g * CHART_MAX) / 3;
+
                   const formattedValue =
                     gValue === 0
                       ? 'Rp 0'
-                      : `Rp ${Number.isInteger(gValue) ? gValue : gValue.toFixed(1).replace('.', ',')} Jt`;
+                      : `Rp ${
+                          Number.isInteger(
+                            gValue
+                          )
+                            ? gValue
+                            : gValue
+                                .toFixed(1)
+                                .replace(
+                                  '.',
+                                  ','
+                                )
+                        } Jt`;
+
                   return (
                     <g key={g}>
-                      <line x1={PAD_L} x2={CW - PAD_R} y1={gy} y2={gy} stroke="#E7E5EE" strokeWidth="1" strokeDasharray="2 4" />
+                      <line
+                        x1={PAD_L}
+                        x2={CW - PAD_R}
+                        y1={gy}
+                        y2={gy}
+                        stroke="#E7E5EE"
+                        strokeWidth="1"
+                        strokeDasharray="2 4"
+                      />
+
                       <text
                         x={PAD_L - 10}
                         y={gy}
@@ -683,132 +918,240 @@ export default function SuperadminDashboard() {
                   <>
                     {showPemasukanBersih && (
                       <>
-                        <path d={pemasukanBersihAreaPath} fill="url(#pemasukanBersihFill)" />
-                        <path d={pemasukanBersihLinePath} fill="none" stroke="#c4b5fd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </>
-                    )}
-                    {showPemasukanTotal && (
-                      <>
-                        <path d={pemasukanTotalAreaPath} fill="url(#pemasukanTotalFill)" />
-                        <path d={pemasukanTotalLinePath} fill="none" stroke="#4B2172" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                          d={pemasukanBersihAreaPath}
+                          fill="url(#pemasukanBersihFill)"
+                        />
+
+                        <path
+                          d={pemasukanBersihLinePath}
+                          fill="none"
+                          stroke="#66CDAA"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </>
                     )}
 
-                    {activeIndex !== null && chartData[activeIndex] && (
-                      <g>
-                        {showPemasukanTotal && (
-                          <circle
-                            cx={xFor(activeIndex)}
-                            cy={yFor(chartData[activeIndex].pemasukanTotal)}
-                            r={5}
-                            fill="#4B2172"
-                            stroke="white"
-                            strokeWidth="2"
-                          />
-                        )}
-                        {showPemasukanBersih && (
-                          <circle
-                            cx={xFor(activeIndex)}
-                            cy={yFor(chartData[activeIndex].pemasukanBersih)}
-                            r={4.5}
-                            fill="#c4b5fd"
-                            stroke="white"
-                            strokeWidth="2"
-                          />
-                        )}
-                      </g>
+                    {showPemasukanTotal && (
+                      <>
+                        <path
+                          d={pemasukanTotalAreaPath}
+                          fill="url(#pemasukanTotalFill)"
+                        />
+
+                        <path
+                          d={pemasukanTotalLinePath}
+                          fill="none"
+                          stroke="#66CDAA"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </>
                     )}
+
+                    {activeIndex !== null &&
+                      chartData[activeIndex] && (
+                        <g>
+                          {showPemasukanTotal && (
+                            <circle
+                              cx={xFor(
+                                activeIndex
+                              )}
+                              cy={yFor(
+                                chartData[
+                                  activeIndex
+                                ]
+                                  .pemasukanTotal
+                              )}
+                              r={5}
+                              fill="#66CDAA"
+                              stroke="white"
+                              strokeWidth="2"
+                            />
+                          )}
+
+                          {showPemasukanBersih && (
+                            <circle
+                              cx={xFor(
+                                activeIndex
+                              )}
+                              cy={yFor(
+                                chartData[
+                                  activeIndex
+                                ]
+                                  .pemasukanBersih
+                              )}
+                              r={4.5}
+                              fill="#A7E8D2"
+                              stroke="white"
+                              strokeWidth="2"
+                            />
+                          )}
+                        </g>
+                      )}
                   </>
                 ) : (
                   <>
-                    {chartData.map((d, i) => (
-                      <g key={i}>
-                        {showPemasukanTotal && (
-                          <rect
-                            x={xFor(i) - barW - 1.5}
-                            y={yFor(d.pemasukanTotal)}
-                            width={barW}
-                            height={(PAD_T + plotH) - yFor(d.pemasukanTotal)}
-                            rx={2}
-                            fill="#4B2172"
-                            opacity={i === activeIndex ? 1 : 0.85}
-                          />
-                        )}
-                        {showPemasukanBersih && (
-                          <rect
-                            x={xFor(i) + 1.5}
-                            y={yFor(d.pemasukanBersih)}
-                            width={barW}
-                            height={(PAD_T + plotH) - yFor(d.pemasukanBersih)}
-                            rx={2}
-                            fill="#c4b5fd"
-                            opacity={i === activeIndex ? 1 : 0.85}
-                          />
-                        )}
-                      </g>
-                    ))}
+                    {chartData.map(
+                      (d, i) => (
+                        <g key={i}>
+                          {showPemasukanTotal && (
+                            <rect
+                              x={
+                                xFor(i) -
+                                barW -
+                                1.5
+                              }
+                              y={yFor(
+                                d.pemasukanTotal
+                              )}
+                              width={barW}
+                              height={
+                                PAD_T +
+                                plotH -
+                                yFor(
+                                  d.pemasukanTotal
+                                )
+                              }
+                              rx={2}
+                              fill="#66CDAA"
+                              opacity={
+                                i ===
+                                activeIndex
+                                  ? 1
+                                  : 0.85
+                              }
+                            />
+                          )}
+
+                          {showPemasukanBersih && (
+                            <rect
+                              x={
+                                xFor(i) +
+                                1.5
+                              }
+                              y={yFor(
+                                d.pemasukanBersih
+                              )}
+                              width={barW}
+                              height={
+                                PAD_T +
+                                plotH -
+                                yFor(
+                                  d.pemasukanBersih
+                                )
+                              }
+                              rx={2}
+                              fill="#A7E8D2"
+                              opacity={
+                                i ===
+                                activeIndex
+                                  ? 1
+                                  : 0.85
+                              }
+                            />
+                          )}
+                        </g>
+                      )
+                    )}
                   </>
                 )}
 
-                {activeIndex !== null && chartData[activeIndex] && (
-                  <line
-                    x1={selectedX}
-                    x2={selectedX}
-                    y1={PAD_T}
-                    y2={PAD_T + plotH}
-                    stroke="#27272a"
-                    strokeWidth="1"
-                    strokeDasharray="3 3"
-                    opacity="0.7"
-                  />
-                )}
+                {activeIndex !== null &&
+                  chartData[activeIndex] && (
+                    <line
+                      x1={selectedX}
+                      x2={selectedX}
+                      y1={PAD_T}
+                      y2={PAD_T + plotH}
+                      stroke="#27272a"
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                      opacity="0.7"
+                    />
+                  )}
 
-                {chartData.map((d, i) => (
-                  (i % xLabelStep === 0 || i === chartData.length - 1) && (
-                    <text
-                      key={i}
-                      x={xFor(i)}
-                      y={CH - 6}
-                      fontSize="8"
-                      fontFamily="Inter, sans-serif"
-                      fontWeight="500"
-                      fill="#A3A3A3"
-                      textAnchor="middle"
-                    >
-                      {d.label}
-                    </text>
-                  )
-                ))}
+                {chartData.map(
+                  (d, i) =>
+                    (i % xLabelStep === 0 ||
+                      i ===
+                        chartData.length -
+                          1) && (
+                      <text
+                        key={i}
+                        x={xFor(i)}
+                        y={CH - 6}
+                        fontSize="8"
+                        fontFamily="Inter, sans-serif"
+                        fontWeight="500"
+                        fill="#A3A3A3"
+                        textAnchor="middle"
+                      >
+                        {d.label}
+                      </text>
+                    )
+                )}
               </svg>
             )}
 
-            {chartType === 'line' && activeIndex !== null && chartData[activeIndex] && (
-              <div
-                className="hidden sm:block absolute bg-[#1c1c22] rounded-2xl shadow-xl p-3 w-44 pointer-events-none transition-all duration-75 z-10"
-                style={{
-                  left: `${selectedPct}%`,
-                  top: `${(selectedY / CH) * 100}%`,
-                  transform:
-                    tooltipAnchor === 'left' ? 'translate(10px, -110%)' :
-                    tooltipAnchor === 'right' ? 'translate(-105%, -110%)' :
-                    'translate(-50%, -120%)'
-                }}
-              >
-                <p className="text-[9px] font-semibold text-white mb-1.5">{chartData[activeIndex].fullLabel}</p>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="flex items-center gap-1 text-[9px] text-neutral-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] shrink-0"></span>Total Pemasukan
-                  </span>
-                  <span className="text-[9px] font-bold text-white whitespace-nowrap">{formatRupiahFull(chartData[activeIndex].pemasukanTotal)}</span>
+            {chartType === 'line' &&
+              activeIndex !== null &&
+              chartData[activeIndex] && (
+                <div
+                  className="hidden sm:block absolute bg-[#66CDAA] rounded-2xl shadow-xl p-3 w-44 pointer-events-none transition-all duration-75 z-10"
+                  style={{
+                    left: `${selectedPct}%`,
+                    top: `${(selectedY / CH) * 100}%`,
+                    transform:
+                      tooltipAnchor === 'left'
+                        ? 'translate(10px, -110%)'
+                        : tooltipAnchor === 'right'
+                          ? 'translate(-105%, -110%)'
+                          : 'translate(-50%, -120%)'
+                  }}
+                >
+                  <p className="text-[9px] font-semibold text-white mb-1.5">
+                    {
+                      chartData[
+                        activeIndex
+                      ].fullLabel
+                    }
+                  </p>
+
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="flex items-center gap-1 text-[9px] text-neutral-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#66CDAA] shrink-0"></span>
+                      Total Pemasukan
+                    </span>
+
+                    <span className="text-[9px] font-bold text-white whitespace-nowrap">
+                      {formatRupiahFull(
+                        chartData[
+                          activeIndex
+                        ].pemasukanTotal
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[9px] text-neutral-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#66CDAA] shrink-0"></span>
+                      Pemasukan Bersih
+                    </span>
+
+                    <span className="text-[9px] font-bold text-white whitespace-nowrap">
+                      {formatRupiahFull(
+                        chartData[
+                          activeIndex
+                        ].pemasukanBersih
+                      )}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 text-[9px] text-neutral-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#c4b5fd] shrink-0"></span>Pemasukan Bersih
-                  </span>
-                  <span className="text-[9px] font-bold text-white whitespace-nowrap">{formatRupiahFull(chartData[activeIndex].pemasukanBersih)}</span>
-                </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
       )}
@@ -824,56 +1167,137 @@ export default function SuperadminDashboard() {
               <div className="p-5 border-b border-gray-100 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="bg-[#4B2172]/10 text-[#4B2172] p-1.5 rounded-xl">
+                    <div className="bg-[#66CDAA]/10 text-[#66CDAA] p-1.5 rounded-xl">
                       <MapPin size={15} />
                     </div>
-                    <h2 className="text-[14px] font-semibold text-neutral-800">Data Wilayah</h2>
-                    <span className="text-[9px] text-neutral-400">· {filteredRegions.length} Wilayah</span>
+
+                    <h2 className="text-[14px] font-semibold text-neutral-800">
+                      Data Wilayah
+                    </h2>
+
+                    <span className="text-[9px] text-neutral-400">
+                      · {filteredRegions.length} Wilayah
+                    </span>
                   </div>
 
                   <div className="relative">
                     <button
-                      onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                      onClick={() =>
+                        setShowFilterDropdown(
+                          !showFilterDropdown
+                        )
+                      }
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold transition cursor-pointer border ${
-                        filterSortBy !== 'default'
-                          ? 'bg-[#4B2172] text-white border-[#4B2172]'
+                        filterSortBy !==
+                        'default'
+                          ? 'bg-[#66CDAA] text-white border-[#66CDAA]'
                           : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                       }`}
                     >
                       <SlidersHorizontal size={12} />
-                      Filter {filterSortBy !== 'default' && '•'}
+                      Filter{' '}
+                      {filterSortBy !==
+                        'default' &&
+                        '•'}
                     </button>
 
                     {showFilterDropdown && (
                       <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-neutral-200 py-2 z-30 animate-in fade-in duration-150">
-                        <p className="px-3 py-1 text-[8px] font-semibold text-neutral-400 uppercase tracking-wider">Urutkan & Filter</p>
+                        <p className="px-3 py-1 text-[8px] font-semibold text-neutral-400 uppercase tracking-wider">
+                          Urutkan & Filter
+                        </p>
+
                         <button
-                          onClick={() => { setFilterSortBy('default'); setShowFilterDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${filterSortBy === 'default' ? 'font-bold text-[#4B2172]' : 'text-neutral-700'}`}
+                          onClick={() => {
+                            setFilterSortBy(
+                              'default'
+                            );
+                            setShowFilterDropdown(
+                              false
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
+                            filterSortBy ===
+                            'default'
+                              ? 'font-bold text-[#66CDAA]'
+                              : 'text-neutral-700'
+                          }`}
                         >
                           Default
                         </button>
+
                         <button
-                          onClick={() => { setFilterSortBy('revenue-desc'); setShowFilterDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${filterSortBy === 'revenue-desc' ? 'font-bold text-[#4B2172]' : 'text-neutral-700'}`}
+                          onClick={() => {
+                            setFilterSortBy(
+                              'revenue-desc'
+                            );
+                            setShowFilterDropdown(
+                              false
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
+                            filterSortBy ===
+                            'revenue-desc'
+                              ? 'font-bold text-[#66CDAA]'
+                              : 'text-neutral-700'
+                          }`}
                         >
                           Pendapatan Tertinggi
                         </button>
+
                         <button
-                          onClick={() => { setFilterSortBy('orders-desc'); setShowFilterDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${filterSortBy === 'orders-desc' ? 'font-bold text-[#4B2172]' : 'text-neutral-700'}`}
+                          onClick={() => {
+                            setFilterSortBy(
+                              'orders-desc'
+                            );
+                            setShowFilterDropdown(
+                              false
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
+                            filterSortBy ===
+                            'orders-desc'
+                              ? 'font-bold text-[#66CDAA]'
+                              : 'text-neutral-700'
+                          }`}
                         >
                           Pesanan Terbanyak
                         </button>
+
                         <button
-                          onClick={() => { setFilterSortBy('change-positive'); setShowFilterDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${filterSortBy === 'change-positive' ? 'font-bold text-[#4B2172]' : 'text-neutral-700'}`}
+                          onClick={() => {
+                            setFilterSortBy(
+                              'change-positive'
+                            );
+                            setShowFilterDropdown(
+                              false
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
+                            filterSortBy ===
+                            'change-positive'
+                              ? 'font-bold text-[#66CDAA]'
+                              : 'text-neutral-700'
+                          }`}
                         >
                           Perubahan Positif (+)
                         </button>
+
                         <button
-                          onClick={() => { setFilterSortBy('change-negative'); setShowFilterDropdown(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${filterSortBy === 'change-negative' ? 'font-bold text-[#4B2172]' : 'text-neutral-700'}`}
+                          onClick={() => {
+                            setFilterSortBy(
+                              'change-negative'
+                            );
+                            setShowFilterDropdown(
+                              false
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
+                            filterSortBy ===
+                            'change-negative'
+                              ? 'font-bold text-[#66CDAA]'
+                              : 'text-neutral-700'
+                          }`}
                         >
                           Perubahan Negatif (-)
                         </button>
@@ -883,24 +1307,29 @@ export default function SuperadminDashboard() {
                 </div>
 
                 <div className="flex items-center gap-4 overflow-x-auto">
-                  {categoryTabs.map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setRegionTab(tab)}
-                      className={`pb-1.5 text-[10px] font-semibold whitespace-nowrap transition cursor-pointer border-b-2 ${
-                        regionTab === tab
-                          ? 'text-[#4B2172] border-[#4B2172]'
-                          : 'text-neutral-400 border-transparent hover:text-neutral-600'
-                      }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
+                  {categoryTabs.map(
+                    (tab) => (
+                      <button
+                        key={tab}
+                        onClick={() =>
+                          setRegionTab(tab)
+                        }
+                        className={`pb-1.5 text-[10px] font-semibold whitespace-nowrap transition cursor-pointer border-b-2 ${
+                          regionTab === tab
+                            ? 'text-[#66CDAA] border-[#66CDAA]'
+                            : 'text-neutral-400 border-transparent hover:text-neutral-600'
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
 
               <div className="block sm:hidden divide-y divide-gray-100">
-                {filteredRegions.length === 0 ? (
+                {filteredRegions.length ===
+                0 ? (
                   <div className="p-4">
                     <EmptyState
                       title="Belum ada data wilayah"
@@ -908,47 +1337,127 @@ export default function SuperadminDashboard() {
                     />
                   </div>
                 ) : (
-                  filteredRegions.map((region, index) => {
-                    const accent = rowAccents[index % rowAccents.length];
-                    const isUp = region.change >= 0;
-                    return (
-                      <div key={region.id} className="p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`p-2 ${accent.bg} ${accent.text} rounded-xl shrink-0`}>
-                              <MapPin size={14} />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                                <span className="font-semibold text-neutral-800 text-[11px]">{region.name} ({region.code})</span>
+                  filteredRegions.map(
+                    (
+                      region,
+                      index
+                    ) => {
+                      const accent =
+                        rowAccents[
+                          index %
+                            rowAccents.length
+                        ];
+
+                      const isUp =
+                        region.change >=
+                        0;
+
+                      return (
+                        <div
+                          key={
+                            region.id
+                          }
+                          className="p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`p-2 ${accent.bg} ${accent.text} rounded-xl shrink-0`}
+                              >
+                                <MapPin size={14} />
                               </div>
-                              <div className="text-[9px] text-neutral-400">{region.category} • Pos: {region.pickupPointsCount}</div>
-                            </div>
-                          </div>
-                          <span className={`flex items-center gap-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${isUp ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
-                            {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                            {Math.abs(region.change)}%
-                          </span>
-                        </div>
 
-                        <div className="space-y-1">
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+
+                                  <span className="font-semibold text-neutral-800 text-[11px]">
+                                    {
+                                      region.name
+                                    }{' '}
+                                    (
+                                    {
+                                      region.code
+                                    }
+                                    )
+                                  </span>
+                                </div>
+
+                                <div className="text-[9px] text-neutral-400">
+                                  {
+                                    region.category
+                                  }{' '}
+                                  • Pos:{' '}
+                                  {
+                                    region.pickupPointsCount
+                                  }
+                                </div>
+                              </div>
+                            </div>
+
+                            <span
+                              className={`flex items-center gap-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                isUp
+                                  ? 'text-emerald-600 bg-emerald-50'
+                                  : 'text-rose-600 bg-rose-50'
+                              }`}
+                            >
+                              {isUp ? (
+                                <ArrowUpRight size={12} />
+                              ) : (
+                                <ArrowDownRight size={12} />
+                              )}
+
+                              {Math.abs(
+                                region.change
+                              )}
+                              %
+                            </span>
+                          </div>
+
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between text-[9px]">
-                              <span className="text-neutral-400 font-medium">Aktivitas User</span>
-                              <span className="font-semibold text-neutral-700">{region.sharePercentage}% ({region.activeOrders} user)</span>
+                              <span className="text-neutral-400 font-medium">
+                                Aktivitas User
+                              </span>
+
+                              <span className="font-semibold text-neutral-700">
+                                {
+                                  region.sharePercentage
+                                }
+                                % (
+                                {
+                                  region.activeOrders
+                                }{' '}
+                                user)
+                              </span>
                             </div>
+
                             <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-[#4B2172] rounded-full" style={{ width: `${region.sharePercentage}%` }} />
+                              <div
+                                className="h-full bg-[#66CDAA] rounded-full"
+                                style={{
+                                  width: `${region.sharePercentage}%`
+                                }}
+                              />
                             </div>
                           </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-dashed border-neutral-100 text-[10px]">
-                          <span className="text-neutral-400">Estimasi Pendapatan</span>
-                          <span className="font-bold text-neutral-800">{region.revenue}</span>
+                          <div className="flex items-center justify-between pt-1 border-t border-dashed border-neutral-100 text-[10px]">
+                            <span className="text-neutral-400">
+                              Estimasi Pendapatan
+                            </span>
+
+                            <span className="font-bold text-neutral-800">
+                              {
+                                region.revenue
+                              }
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    }
+                  )
                 )}
               </div>
 
@@ -956,14 +1465,27 @@ export default function SuperadminDashboard() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-medium">
-                      <th className="py-3 px-5">Wilayah</th>
-                      <th className="py-3 px-5">Aktivitas User</th>
-                      <th className="py-3 px-5">Pendapatan</th>
-                      <th className="py-3 px-5">Pos & Status</th>
+                      <th className="py-3 px-5">
+                        Wilayah
+                      </th>
+
+                      <th className="py-3 px-5">
+                        Aktivitas User
+                      </th>
+
+                      <th className="py-3 px-5">
+                        Pendapatan
+                      </th>
+
+                      <th className="py-3 px-5">
+                        Pos & Status
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-gray-100">
-                    {filteredRegions.length === 0 ? (
+                    {filteredRegions.length ===
+                    0 ? (
                       <tr>
                         <td colSpan={4}>
                           <EmptyState
@@ -973,46 +1495,107 @@ export default function SuperadminDashboard() {
                         </td>
                       </tr>
                     ) : (
-                      filteredRegions.map((region, index) => {
-                        const accent = rowAccents[index % rowAccents.length];
-                        const share = Math.round((region.activeOrders / totalOrders) * 100);
-                        const barWidth = Math.round((region.activeOrders / maxOrders) * 100);
-                        return (
-                          <tr key={region.id} className="hover:bg-gray-50/50 transition-colors text-[9px]">
-                            <td className="py-3.5 px-5">
-                              <div className="flex items-center gap-2.5">
-                                <div className={`p-2 ${accent.bg} ${accent.text} rounded-xl shrink-0`}>
-                                  <MapPin size={14} />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                                    <span className="font-semibold text-neutral-800 truncate text-[9px]">{region.name} ({region.code})</span>
-                                  </div>
-                                  <div className="text-[8px] text-neutral-400">{region.category}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-5">
-                              <div className="flex items-center gap-2.5 min-w-30">
-                                <span className="text-[9px] font-semibold text-neutral-600 w-8 shrink-0">{share}%</span>
-                                <div className="flex-1 h-1 bg-neutral-100 rounded-full overflow-hidden">
+                      filteredRegions.map(
+                        (
+                          region,
+                          index
+                        ) => {
+                          const accent =
+                            rowAccents[
+                              index %
+                                rowAccents.length
+                            ];
+
+                          const share =
+                            Math.round(
+                              (region.activeOrders /
+                                totalOrders) *
+                                100
+                            );
+
+                          const barWidth =
+                            Math.round(
+                              (region.activeOrders /
+                                maxOrders) *
+                                100
+                            );
+
+                          return (
+                            <tr
+                              key={
+                                region.id
+                              }
+                              className="hover:bg-gray-50/50 transition-colors text-[9px]"
+                            >
+                              <td className="py-3.5 px-5">
+                                <div className="flex items-center gap-2.5">
                                   <div
-                                    className="h-full bg-[#4B2172] rounded-full"
-                                    style={{ width: `${barWidth}%` }}
-                                  />
+                                    className={`p-2 ${accent.bg} ${accent.text} rounded-xl shrink-0`}
+                                  >
+                                    <MapPin size={14} />
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+
+                                      <span className="font-semibold text-neutral-800 truncate text-[9px]">
+                                        {
+                                          region.name
+                                        }{' '}
+                                        (
+                                        {
+                                          region.code
+                                        }
+                                        )
+                                      </span>
+                                    </div>
+
+                                    <div className="text-[8px] text-neutral-400">
+                                      {
+                                        region.category
+                                      }
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-5 font-bold text-neutral-800 whitespace-nowrap text-[9px]">
-                              {region.revenue}
-                            </td>
-                            <td className="py-3.5 px-5 text-neutral-600 font-semibold">
-                              {region.pickupPointsCount} Pos Aktif
-                            </td>
-                          </tr>
-                        );
-                      })
+                              </td>
+
+                              <td className="py-3.5 px-5">
+                                <div className="flex items-center gap-2.5 min-w-30">
+                                  <span className="text-[9px] font-semibold text-neutral-600 w-8 shrink-0">
+                                    {
+                                      share
+                                    }
+                                    %
+                                  </span>
+
+                                  <div className="flex-1 h-1 bg-neutral-100 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-[#66CDAA] rounded-full"
+                                      style={{
+                                        width: `${barWidth}%`
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-5 font-bold text-neutral-800 whitespace-nowrap text-[9px]">
+                                {
+                                  region.revenue
+                                }
+                              </td>
+
+                              <td className="py-3.5 px-5 text-neutral-600 font-semibold">
+                                {
+                                  region.pickupPointsCount
+                                }{' '}
+                                Pos Aktif
+                              </td>
+                            </tr>
+                          );
+                        }
+                      )
                     )}
                   </tbody>
                 </table>
@@ -1021,61 +1604,146 @@ export default function SuperadminDashboard() {
 
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-[14px] font-semibold text-neutral-800">Aktivitas Escrow Terbaru</h2>
-                <button className="text-[10px] font-semibold text-[#4B2172] hover:underline cursor-pointer">Lihat Semua</button>
+                <h2 className="text-[14px] font-semibold text-neutral-800">
+                  Aktivitas Escrow Terbaru
+                </h2>
+
+                <button className="text-[10px] font-semibold text-[#66CDAA] hover:underline cursor-pointer">
+                  Lihat Semua
+                </button>
               </div>
 
               <div className="space-y-3 flex-1">
-                {filteredActivities.length === 0 ? (
+                {filteredActivities.length ===
+                0 ? (
                   <div className="text-center py-8 text-neutral-400 text-[10px]">
-                    Tidak ada riwayat aktivitas escrow dari backend.
+                    Tidak ada riwayat aktivitas
+                    escrow dari backend.
                   </div>
                 ) : (
-                  filteredActivities.map((activity, idx) => {
-                    const s = statusStyle[activity.status] || statusStyle.Completed;
-                    const StatusIcon = s.icon;
-                    return (
-                      <div key={idx} className={idx !== filteredActivities.length - 1 ? "pb-3 border-b border-gray-100" : ""}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>
-                          <span className="text-[8px] text-neutral-400 font-medium">{activity.time}</span>
+                  filteredActivities.map(
+                    (
+                      activity,
+                      idx
+                    ) => {
+                      const s =
+                        statusStyle[
+                          activity.status
+                        ] ||
+                        statusStyle.Completed;
+
+                      const StatusIcon =
+                        s.icon;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={
+                            idx !==
+                            filteredActivities.length -
+                              1
+                              ? 'pb-3 border-b border-gray-100'
+                              : ''
+                          }
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${s.dot}`}
+                            ></span>
+
+                            <span className="text-[8px] text-neutral-400 font-medium">
+                              {
+                                activity.time
+                              }
+                            </span>
+                          </div>
+
+                          <p className="text-[9px] font-semibold text-neutral-800 mb-0.5">
+                            {
+                              activity.title
+                            }
+                          </p>
+
+                          <p className="text-[8px] text-neutral-400 mb-2 line-clamp-1">
+                            {
+                              activity.desc
+                            }
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`flex items-center gap-1 text-[8px] font-semibold ${s.text} ${s.bg} px-2 py-0.5 rounded-full`}
+                            >
+                              <StatusIcon
+                                size={10}
+                              />{' '}
+                              {s.label}
+                            </span>
+
+                            <span className="text-[9px] font-bold text-neutral-800">
+                              {
+                                activity.amount
+                              }
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-[9px] font-semibold text-neutral-800 mb-0.5">{activity.title}</p>
-                        <p className="text-[8px] text-neutral-400 mb-2 line-clamp-1">{activity.desc}</p>
-                        <div className="flex items-center justify-between">
-                          <span className={`flex items-center gap-1 text-[8px] font-semibold ${s.text} ${s.bg} px-2 py-0.5 rounded-full`}>
-                            <StatusIcon size={10} /> {s.label}
-                          </span>
-                          <span className="text-[9px] font-bold text-neutral-800">{activity.amount}</span>
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    }
+                  )
                 )}
               </div>
 
               {/* Kontrol Navigasi Paginasi Sederhana untuk Escrow Ledger */}
-              {paginationInfo && paginationInfo.totalPages > 1 && (
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-neutral-100 text-[9px] text-neutral-500">
-                  <span>Hal {escrowPage} dari {paginationInfo.totalPages}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={escrowPage <= 1}
-                      onClick={() => setEscrowPage(prev => Math.max(prev - 1, 1))}
-                      className="px-2 py-1 bg-neutral-100 rounded disabled:opacity-40 cursor-pointer"
-                    >
-                      Prev
-                    </button>
-                    <button
-                      disabled={escrowPage >= paginationInfo.totalPages}
-                      onClick={() => setEscrowPage(prev => prev + 1)}
-                      className="px-2 py-1 bg-neutral-100 rounded disabled:opacity-40 cursor-pointer"
-                    >
-                      Next
-                    </button>
+              {paginationInfo &&
+                paginationInfo.totalPages >
+                  1 && (
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-neutral-100 text-[9px] text-neutral-500">
+                    <span>
+                      Hal {escrowPage}{' '}
+                      dari{' '}
+                      {
+                        paginationInfo.totalPages
+                      }
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        disabled={
+                          escrowPage <=
+                          1
+                        }
+                        onClick={() =>
+                          setEscrowPage(
+                            (prev) =>
+                              Math.max(
+                                prev - 1,
+                                1
+                              )
+                          )
+                        }
+                        className="px-2 py-1 bg-neutral-100 rounded disabled:opacity-40 cursor-pointer"
+                      >
+                        Prev
+                      </button>
+
+                      <button
+                        disabled={
+                          escrowPage >=
+                          paginationInfo.totalPages
+                        }
+                        onClick={() =>
+                          setEscrowPage(
+                            (prev) =>
+                              prev + 1
+                          )
+                        }
+                        className="px-2 py-1 bg-neutral-100 rounded disabled:opacity-40 cursor-pointer"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </>
         )}
