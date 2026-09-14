@@ -25,17 +25,16 @@ export default function MitraTripManagement() {
     date: '',
     time: '08:00',
     vehicleId: '',
-    serviceType: 'penumpang',
-    price: 50000,
-    totalSeats: 4,
-    maxWeightCapacityKg: 50,
+    serviceType: 'barang',
+    price: 175000,
+    totalSeats: 1,
+    maxWeightCapacityKg: 15,
   });
 
   const [cancelConfirmTarget, setCancelConfirmTarget] = useState(null);
   const [isPriceManual, setIsPriceManual] = useState(false);
   const todayISO = new Date().toISOString().slice(0, 10);
 
-  // Helper untuk menghitung estimasi tarif secara instan tanpa useEffect
   const calculateSuggestedFare = (originId, destinationId, vehId, currentPoints, currentVehicles) => {
     if (!originId || !destinationId || !vehId) return null;
     const originPoint = currentPoints.find(p => String(p.id) === String(originId));
@@ -48,44 +47,34 @@ export default function MitraTripManagement() {
     return estimateFare(originPoint.name, destinationPoint.name, vehicleLabel);
   };
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadMitraData = async (isMounted = true) => {
+    setIsLoading(true);
+    try {
+      const [resPoints, resVehicles, resMyTrips] = await Promise.all([
+        apiClient.get('/pickup-points').catch(() => ({ data: [] })),
+        apiClient.get('/vehicles/me').catch(() => ({ data: [] })),
+        apiClient.get('/trips/me').catch(() => ({ data: [] })),
+      ]);
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const resPoints = await apiClient.get('/pickup-points');
-        const allPoints = resPoints.data?.data || resPoints.data || [];
-        
-        if (!isMounted) return;
-        setPoints(allPoints);
+      if (!isMounted) return;
 
-        let initialOrigin = '';
-        let initialDestination = '';
-        if (allPoints.length >= 2) {
-          initialOrigin = String(allPoints[0].id);
-          initialDestination = String(allPoints[1].id);
-        }
+      const allPoints = resPoints.data?.data || resPoints.data || [];
+      const myVehicles = resVehicles.data?.data || resVehicles.data || [];
+      const myTrips = resMyTrips.data?.data || resMyTrips.data || [];
 
-        const resVehicles = await apiClient.get('/vehicles/me').catch(() => ({ data: [] }));
-        const myVehicles = resVehicles.data?.data || resVehicles.data || [];
-        
-        if (!isMounted) return;
-        setVehicles(myVehicles);
+      setPoints(allPoints);
+      setVehicles(myVehicles);
+      setTrips(myTrips);
 
-        let initialVehicleId = '';
-        let initialSeats = 4;
-        let initialMaxWeight = 100;
+      if (allPoints.length >= 2 && myVehicles.length > 0) {
+        const initialOrigin = String(allPoints[0].id);
+        const initialDestination = String(allPoints[1].id);
+        const initialVehicleId = String(myVehicles[0].id);
+        const initialSeats = myVehicles[0].capacitySeats || 1;
+        const initialMaxWeight = Number(myVehicles[0].maxWeightCapacityKg) || 15;
 
-        if (myVehicles.length > 0) {
-          initialVehicleId = String(myVehicles[0].id);
-          initialSeats = myVehicles[0].capacitySeats || 4;
-          initialMaxWeight = Number(myVehicles[0].maxWeightCapacityKg) || 100;
-        }
-
-        // Hitung estimasi harga awal jika data lengkap
-        let initialPrice = 50000;
-        if (!isPriceManual && initialOrigin && initialDestination && initialVehicleId) {
+        let initialPrice = 175000;
+        if (!isPriceManual) {
           const suggested = calculateSuggestedFare(initialOrigin, initialDestination, initialVehicleId, allPoints, myVehicles);
           if (suggested) initialPrice = suggested;
         }
@@ -99,28 +88,34 @@ export default function MitraTripManagement() {
           maxWeightCapacityKg: initialMaxWeight,
           price: initialPrice,
         }));
-
-        const userRes = await apiClient.get('/auth/me');
-        const currentUserId = String(userRes.data?.id);
-
-        const resTrips = await apiClient.get('/trips');
-        const allTrips = resTrips.data?.data || resTrips.data || [];
-        const myTrips = allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId);
-        
-        if (!isMounted) return;
-        setTrips(myTrips);
-      } catch (err) {
-        console.error('Gagal memuat data trip:', err);
-        toast.error('Gagal menyambungkan data ke server.', { title: 'Error' });
-      } finally {
-        if (isMounted) setIsLoading(false);
       }
+    } catch (err) {
+      console.error('Gagal memuat data trip:', err);
+      if (isMounted) {
+        toast.error('Gagal menyambungkan data ke server.', { title: 'Error' });
+      }
+    } finally {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  // Safe Effect Lifecycle Call
+  useEffect(() => {
+    let isMounted = true;
+
+    const initData = async () => {
+      await loadMitraData(isMounted);
     };
 
-    fetchData();
-    return () => { isMounted = false; };
+    initData();
+
+    return () => {
+      isMounted = false;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -130,8 +125,6 @@ export default function MitraTripManagement() {
 
     setFormData(prev => {
       const updated = { ...prev, [name]: value };
-      
-      // Jika field yang diubah memengaruhi rute/kendaraan dan user belum set manual, update harga secara langsung di sini
       if (!isPriceManual && (name === 'originPointId' || name === 'destinationPointId' || name === 'vehicleId')) {
         const suggested = calculateSuggestedFare(
           name === 'originPointId' ? value : prev.originPointId,
@@ -148,20 +141,6 @@ export default function MitraTripManagement() {
     });
   };
 
-  const handleResetToSuggestedPrice = () => {
-    setIsPriceManual(false);
-    const suggested = calculateSuggestedFare(
-      formData.originPointId,
-      formData.destinationPointId,
-      formData.vehicleId,
-      points,
-      vehicles
-    );
-    if (suggested) {
-      setFormData(prev => ({ ...prev, price: suggested }));
-    }
-  };
-
   const handleVehicleSelect = (e) => {
     const vId = e.target.value;
     const selectedVeh = vehicles.find(v => String(v.id) === vId);
@@ -170,8 +149,8 @@ export default function MitraTripManagement() {
         const updated = {
           ...prev,
           vehicleId: vId,
-          totalSeats: selectedVeh.capacitySeats || 4,
-          maxWeightCapacityKg: Number(selectedVeh.maxWeightCapacityKg) || 100,
+          totalSeats: selectedVeh.capacitySeats || 1,
+          maxWeightCapacityKg: Number(selectedVeh.maxWeightCapacityKg) || 15,
         };
         if (!isPriceManual) {
           const suggested = calculateSuggestedFare(prev.originPointId, prev.destinationPointId, vId, points, vehicles);
@@ -190,12 +169,6 @@ export default function MitraTripManagement() {
   const isSameOriginDestination = formData.originPointId && formData.destinationPointId && formData.originPointId === formData.destinationPointId;
   const isPastDate = Boolean(formData.date) && formData.date < todayISO;
 
-  const isScheduleConflict = trips.some((t) =>
-    (t.status === 'scheduled' || t.status === 'in_transit') &&
-    String(t.vehicleId) === String(formData.vehicleId) &&
-    t.departureDate?.split('T')[0] === formData.date
-  );
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSameOriginDestination) {
@@ -204,14 +177,6 @@ export default function MitraTripManagement() {
     }
     if (isPastDate) {
       toast.warning('Tanggal trip tidak boleh di masa lalu.', { title: 'Tanggal Tidak Valid' });
-      return;
-    }
-    if (!formData.vehicleId) {
-      toast.warning('Pilih kendaraan terlebih dahulu.', { title: 'Kendaraan Belum Dipilih' });
-      return;
-    }
-    if (isScheduleConflict) {
-      toast.warning('Kendaraan ini sudah dijadwalkan pada tanggal yang sama.', { title: 'Jadwal Bentrok' });
       return;
     }
 
@@ -235,13 +200,7 @@ export default function MitraTripManagement() {
 
       toast.success('Trip baru berhasil dibuat dan dipublikasikan!', { title: 'Sukses' });
       setFormData(prev => ({ ...prev, date: '' }));
-      setIsPriceManual(false);
-      
-      const resTrips = await apiClient.get('/trips');
-      const userRes = await apiClient.get('/auth/me');
-      const currentUserId = String(userRes.data?.id);
-      const allTrips = resTrips.data?.data || resTrips.data || [];
-      setTrips(allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId));
+      loadMitraData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal membuat trip baru.', { title: 'Gagal' });
     } finally {
@@ -255,12 +214,7 @@ export default function MitraTripManagement() {
       await apiClient.patch(`/trips/${cancelConfirmTarget}`, { status: 'cancelled' });
       toast.success('Trip berhasil dibatalkan.', { title: 'Sukses' });
       setCancelConfirmTarget(null);
-      
-      const resTrips = await apiClient.get('/trips');
-      const userRes = await apiClient.get('/auth/me');
-      const currentUserId = String(userRes.data?.id);
-      const allTrips = resTrips.data?.data || resTrips.data || [];
-      setTrips(allTrips.filter(t => String(t.mitraId || t.mitra?.id) === currentUserId));
+      loadMitraData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal membatalkan trip.', { title: 'Gagal' });
     }
@@ -431,19 +385,7 @@ export default function MitraTripManagement() {
             )}
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Tarif Trip (Rp)</label>
-                {isPriceManual && (
-                  <button 
-                    type="button" 
-                    onClick={handleResetToSuggestedPrice}
-                    className="text-[8px] font-bold hover:underline cursor-pointer"
-                    style={{ color: PRIMARY_COLOR }}
-                  >
-                    Gunakan Estimasi
-                  </button>
-                )}
-              </div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Tarif Trip (Rp)</label>
               <input 
                 type="number" 
                 name="price" 
@@ -454,29 +396,19 @@ export default function MitraTripManagement() {
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
               />
               <span className="text-[8px] text-neutral-400 mt-1 block">
-                {isPriceManual ? 'Tarif diatur manual oleh mitra.' : 'Tarif otomatis diestimasi berdasarkan rute & jenis kendaraan.'}
+                Tarif otomatis diestimasi berdasarkan rute & jenis kendaraan.
               </span>
             </div>
 
-            {isSameOriginDestination && (
-              <p className="text-[8px] text-rose-600 font-bold">⚠️ Pos Asal dan Pos Tujuan tidak boleh sama.</p>
-            )}
-            {isPastDate && (
-              <p className="text-[8px] text-rose-600 font-bold">⚠️ Tanggal trip tidak boleh di masa lalu.</p>
-            )}
-            {isScheduleConflict && (
-              <p className="text-[8px] text-rose-600 font-bold">⚠️ Jadwal bentrok dengan trip lain di kendaraan yang sama.</p>
-            )}
-
             <button 
               type="submit"
-              disabled={isSameOriginDestination || isPastDate || isScheduleConflict || isSubmitting || vehicles.length === 0}
+              disabled={isSameOriginDestination || isPastDate || isSubmitting || vehicles.length === 0}
               className={`w-full py-3 rounded-xl text-[10px] font-bold transition shadow-sm ${
-                isSameOriginDestination || isPastDate || isScheduleConflict || isSubmitting || vehicles.length === 0
+                isSameOriginDestination || isPastDate || isSubmitting || vehicles.length === 0
                   ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
                   : 'text-white cursor-pointer'
               }`}
-              style={!(isSameOriginDestination || isPastDate || isScheduleConflict || isSubmitting || vehicles.length === 0) ? { backgroundColor: PRIMARY_COLOR } : undefined}
+              style={!(isSameOriginDestination || isPastDate || isSubmitting || vehicles.length === 0) ? { backgroundColor: PRIMARY_COLOR } : undefined}
             >
               {isSubmitting ? 'Memproses...' : 'Publikasikan Trip Jadwal'}
             </button>

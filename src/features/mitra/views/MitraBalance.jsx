@@ -9,6 +9,8 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatCard from '../../../components/ui/StatCard';
@@ -34,7 +36,13 @@ export default function MitraBalance() {
   const [availableBalance, setAvailableBalance] = useState(0);
   const [escrowHold, setEscrowHold] = useState(0);
   const [walletHistory, setWalletHistory] = useState([]);
+  
+  // State Escrow & Paginasi
   const [escrowTransactions, setEscrowTransactions] = useState([]);
+  const [escrowPage, setEscrowPage] = useState(1);
+  const [escrowLimit, setEscrowLimit] = useState(5);
+  const [totalEscrowPages, setTotalEscrowPages] = useState(1);
+  const [totalEscrowItems, setTotalEscrowItems] = useState(0);
   
   const [bankInfo, setBankInfo] = useState({
     bankName: '',
@@ -55,20 +63,20 @@ export default function MitraBalance() {
     try {
       setIsLoading(true);
       
-      // 1. Ambil profil user & bank dari database (/api/auth/me) yang memuat user_profiles
+      // 1. Ambil profil pengguna & rekening bank
       const userRes = await apiClient.get('/auth/me');
-      if (userRes.data && userRes.data.profile) {
-        const profile = userRes.data.profile;
-        const initialBank = {
-          bankName: profile.bankName || '',
-          accountNumber: profile.bankAccountNumber || '',
-          accountHolder: profile.bankAccountHolder || userRes.data.name || '',
-        };
+      if (userRes.data) {
+        const userData = userRes.data;
+        const bankName = userData.bankName || userData.profile?.bankName || '';
+        const accountNumber = userData.bankAccountNumber || userData.profile?.bankAccountNumber || '';
+        const accountHolder = userData.bankAccountHolder || userData.profile?.bankAccountHolder || userData.name || '';
+
+        const initialBank = { bankName, accountNumber, accountHolder };
         setBankInfo(initialBank);
         setBankDraft(initialBank);
       }
 
-      // 2. Ambil data dompet & mutasi (/api/wallets/me)
+      // 2. Ambil data dompet & riwayat mutasi
       const walletRes = await apiClient.get('/wallets/me');
       if (walletRes.data) {
         setAvailableBalance(Number(walletRes.data.balance || 0));
@@ -79,90 +87,45 @@ export default function MitraBalance() {
         }
       }
 
-      // 3. Ambil data trip mitra untuk rincian escrow
-      const tripsRes = await apiClient.get('/trips');
+      // 3. Ambil data trip mitra dengan paginasi dan limit
+      const tripsRes = await apiClient.get('/trips', {
+        params: {
+          page: escrowPage,
+          limit: escrowLimit,
+        },
+      });
+
       if (tripsRes.data) {
         const allTrips = Array.isArray(tripsRes.data) ? tripsRes.data : tripsRes.data.data || [];
         const activeEscrows = allTrips.filter(
           (t) => ['scheduled', 'in_origin_pos', 'in_transit', 'arrived_dest_pos'].includes(t.status)
         );
         setEscrowTransactions(activeEscrows);
+
+        if (tripsRes.data.meta) {
+          setTotalEscrowPages(tripsRes.data.meta.totalPages || 1);
+          setTotalEscrowItems(tripsRes.data.meta.total || 0);
+        } else {
+          setTotalEscrowPages(1);
+          setTotalEscrowItems(activeEscrows.length);
+        }
       }
     } catch (error) {
       console.error('Gagal memuat data keuangan:', error);
-      toast.error('Gagal menyinkronkan data keuangan dari database.', { title: 'Error' });
+      toast.error('Gagal menyinkronkan data keuangan dari basis data.', { title: 'Kesalahan' });
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, escrowPage, escrowLimit]);
 
+  // Penanganan error setState pada useEffect
   useEffect(() => {
-    let isMounted = true;
+    const timer = setTimeout(() => {
+      fetchWalletData();
+    }, 0);
 
-    async function loadData() {
-      try {
-        setIsLoading(true);
-
-        const userRes = await apiClient.get('/auth/me');
-        if (!isMounted) return;
-
-        if (userRes.data) {
-          const userData = userRes.data;
-          const bankName = userData.bankName || userData.profile?.bankName || '';
-          const accountNumber = userData.bankAccountNumber || userData.profile?.bankAccountNumber || '';
-          const accountHolder = userData.bankAccountHolder || userData.profile?.bankAccountHolder || userData.name || '';
-
-          const initialBank = {
-            bankName: bankName,
-            accountNumber: accountNumber,
-            accountHolder: accountHolder,
-          };
-          
-          setBankInfo(initialBank);
-          setBankDraft(initialBank);
-        }
-
-        // 2. Ambil data dompet & mutasi (/api/wallets/me)[cite: 2]
-        const walletRes = await apiClient.get('/wallets/me');
-        if (!isMounted) return;
-
-        if (walletRes.data) {
-          setAvailableBalance(Number(walletRes.data.balance || 0));
-          setEscrowHold(Number(walletRes.data.heldEscrowBalance || 0));
-          
-          if (walletRes.data.transactions) {
-            setWalletHistory(walletRes.data.transactions);
-          }
-        }
-
-        // 3. Ambil data trip mitra untuk rincian escrow[cite: 2]
-        const tripsRes = await apiClient.get('/trips');
-        if (!isMounted) return;
-
-        if (tripsRes.data) {
-          const allTrips = Array.isArray(tripsRes.data) ? tripsRes.data : tripsRes.data.data || [];
-          const activeEscrows = allTrips.filter(
-            (t) => ['scheduled', 'in_origin_pos', 'in_transit', 'arrived_dest_pos'].includes(t.status)
-          );
-          setEscrowTransactions(activeEscrows);
-        }
-      } catch (error) {
-        if (!isMounted) return;
-        console.error('Gagal memuat data keuangan:', error);
-        toast.error('Gagal menyinkronkan data keuangan dari database.', { title: 'Error' });
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [toast]);
+    return () => clearTimeout(timer);
+  }, [fetchWalletData]);
 
   const maskAccountNumber = (accNum) => {
     if (!accNum || accNum.length < 6) return accNum || '-';
@@ -175,16 +138,16 @@ export default function MitraBalance() {
 
     if (!amount || amount < MIN_WITHDRAWAL) {
       toast.warning(
-        `Minimum penarikan saldo adalah Rp ${MIN_WITHDRAWAL.toLocaleString('id-ID')}.`,
-        { title: 'Batas Minimum Penarikan' }
+        `Penarikan saldo minimal adalah Rp ${MIN_WITHDRAWAL.toLocaleString('id-ID')}.`,
+        { title: 'Batas Penarikan Minimal' }
       );
       return;
     }
 
     if (amount > availableBalance) {
       toast.warning(
-        'Jumlah penarikan melebihi Saldo Boleh Ditarik (Available Balance).',
-        { title: 'Saldo Tidak Cukup' }
+        'Jumlah penarikan melebihi Saldo Yang Dapat Ditarik.',
+        { title: 'Saldo Tidak Mencukupi' }
       );
       return;
     }
@@ -196,7 +159,7 @@ export default function MitraBalance() {
       fetchWalletData();
     } catch (error) {
       toast.error(
-        error.response?.data?.message || 'Penarikan gagal diproses.',
+        error.response?.data?.message || 'Penarikan saldo gagal diproses.',
         { title: 'Gagal' }
       );
     }
@@ -215,12 +178,11 @@ export default function MitraBalance() {
       !bankDraft.accountNumber.trim() ||
       !bankDraft.accountHolder.trim()
     ) {
-      toast.warning('Semua field rekening bank wajib diisi.', { title: 'Data Tidak Lengkap' });
+      toast.warning('Semua kolom rekening bank wajib diisi.', { title: 'Data Tidak Lengkap' });
       return;
     }
 
     try {
-      // Memperbarui rincian bank ke database melalui endpoint profil detail (/api/users/me/profile)
       await apiClient.patch('/users/me/profile', {
         bankName: bankDraft.bankName,
         bankAccountNumber: bankDraft.accountNumber,
@@ -229,11 +191,11 @@ export default function MitraBalance() {
 
       setBankInfo(bankDraft);
       setIsEditingBank(false);
-      toast.success('Rekening bank berhasil diperbarui.', { title: 'Rekening Diperbarui' });
+      toast.success('Informasi rekening bank berhasil diperbarui.', { title: 'Rekening Diperbarui' });
     } catch (error) {
       toast.error(
-        error.response?.data?.message || 'Gagal memperbarui rekening bank.',
-        { title: 'Error' }
+        error.response?.data?.message || 'Gagal memperbarui informasi rekening bank.',
+        { title: 'Kesalahan' }
       );
     }
   };
@@ -258,39 +220,39 @@ export default function MitraBalance() {
           </div>
 
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
-            Mitra Wallet & Auto-Escrow Earnings
+            Dompet Mitra & Pendapatan Auto-Escrow
           </h1>
 
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pantau saldo tertahan otomatis (escrow) dan lakukan penarikan
-            komisi trip ke rekening bank terdaftar secara aman.
+            Pantau saldo tertahan (escrow) secara otomatis dan lakukan penarikan
+            pendapatan ke rekening bank yang terdaftar dengan aman.
           </p>
         </div>
       </div>
 
-      {/* Saldo Cards */}
+      {/* Card Saldo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <StatCard
-          title="SALDO BOLEH DITARIK (AVAILABLE)"
+          title="SALDO DAPAT DITARIK"
           value={`Rp ${availableBalance.toLocaleString('id-ID')}`}
-          subtitle="Siap dicairkan ke rekening"
+          subtitle="Siap dicairkan ke rekening bank"
           icon={Wallet}
         />
 
         <StatCard
-          title="SALDO DITAHAN (ESCROW HOLD)"
+          title="SALDO TERTAHAN (ESCROW)"
           value={`Rp ${escrowHold.toLocaleString('id-ID')}`}
-          subtitle="Terkunci aman sistem hingga verifikasi pos"
+          subtitle="Tersimpan aman hingga verifikasi pos selesai"
           icon={Lock}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Withdrawal Section */}
+        {/* Form Penarikan */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 lg:col-span-1 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <ArrowUpRight className="w-4 h-4" style={{ color: PRIMARY_COLOR }} />
-            Tarik Saldo (Withdrawal)
+            Penarikan Saldo
           </h3>
 
           {!isEditingBank ? (
@@ -428,7 +390,7 @@ export default function MitraBalance() {
                 className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-[10px] font-bold text-neutral-800 focus:outline-none"
               />
               <span className="text-[8px] text-neutral-400 mt-1 block">
-                Min. Rp 50.000 | Maks. Rp {availableBalance.toLocaleString('id-ID')}
+                Minimal Rp 50.000 | Maksimal Rp {availableBalance.toLocaleString('id-ID')}
               </span>
             </div>
 
@@ -443,20 +405,39 @@ export default function MitraBalance() {
           </form>
         </div>
 
-        {/* Escrow & History Section */}
+        {/* Section Escrow & Riwayat */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 lg:col-span-2 space-y-5">
-          {/* Active Escrow */}
+          {/* Tabel Escrow Aktif */}
           <div>
-            <h3 className="text-[14px] font-bold text-neutral-800 mb-3 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-500" />
-              Rincian Dana Escrow Aktif
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                Rincian Dana Escrow Aktif
+              </h3>
+
+              {/* Opsi Limit */}
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-neutral-400">Tampilkan:</span>
+                <select
+                  value={escrowLimit}
+                  onChange={(e) => {
+                    setEscrowLimit(Number(e.target.value));
+                    setEscrowPage(1);
+                  }}
+                  className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 font-semibold text-neutral-700 focus:outline-none"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                </select>
+              </div>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-neutral-100 text-[9px] text-neutral-400 uppercase font-semibold">
-                    <th className="py-3 px-3">ID Trip</th>
+                    <th className="py-3 px-3">ID Perjalanan</th>
                     <th className="py-3 px-3">Rute Perjalanan</th>
                     <th className="py-3 px-3">Nominal Escrow</th>
                     <th className="py-3 px-3">Status Sistem</th>
@@ -472,7 +453,7 @@ export default function MitraBalance() {
                   ) : escrowTransactions.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-6 text-center text-neutral-400 font-medium">
-                        Tidak ada dana escrow aktif saat ini.
+                        Tidak ada dana escrow yang aktif saat ini.
                       </td>
                     </tr>
                   ) : (
@@ -498,9 +479,37 @@ export default function MitraBalance() {
                 </tbody>
               </table>
             </div>
+
+            {/* Navigasi Paginasi */}
+            {totalEscrowItems > 0 && (
+              <div className="flex items-center justify-between pt-3 border-t border-neutral-100 text-[10px] text-neutral-500">
+                <span>
+                  Halaman {escrowPage} dari {totalEscrowPages} ({totalEscrowItems} data)
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={escrowPage <= 1 || isLoading}
+                    onClick={() => setEscrowPage((prev) => Math.max(prev - 1, 1))}
+                    className="p-1.5 rounded-lg border border-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neutral-50 transition"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={escrowPage >= totalEscrowPages || isLoading}
+                    onClick={() => setEscrowPage((prev) => Math.min(prev + 1, totalEscrowPages))}
+                    className="p-1.5 rounded-lg border border-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neutral-50 transition"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Wallet History */}
+          {/* Riwayat Mutasi Dompet */}
           <div className="pt-4 border-t border-neutral-100">
             <h3 className="text-[14px] font-bold text-neutral-800 mb-3 flex items-center gap-1.5">
               <History className="w-3.5 h-3.5" style={{ color: PRIMARY_COLOR }} />
@@ -510,7 +519,7 @@ export default function MitraBalance() {
             <div className="space-y-2">
               {walletHistory.length === 0 ? (
                 <p className="text-[10px] text-neutral-400 text-center py-4">
-                  Belum ada riwayat mutasi transaksi.
+                  Belum terdapat riwayat mutasi transaksi.
                 </p>
               ) : (
                 walletHistory.map((item) => (
@@ -554,11 +563,11 @@ export default function MitraBalance() {
         </div>
       </div>
 
-      {/* Success Modal */}
+      {/* Modal Berhasil */}
       <BaseModal
         isOpen={isSuccessModalOpen}
         onClose={() => setIsSuccessModalOpen(false)}
-        title="Penarikan Berhasil Diajukan!"
+        title="Penarikan Berhasil Diajukan"
         subtitle="Pencairan Komisi Mitra"
         maxWidth="max-w-sm"
       >
@@ -568,15 +577,15 @@ export default function MitraBalance() {
           </div>
 
           <p className="text-neutral-500">
-            Permintaan penarikan saldo Anda telah diterima dan sedang diproses ke rekening bank terdaftar.
+            Permintaan penarikan saldo Anda telah berhasil diajukan dan sedang diproses ke rekening bank terdaftar.
           </p>
 
           <button
             onClick={() => setIsSuccessModalOpen(false)}
-            className="w-full py.2.5 text-white font-bold rounded-xl transition cursor-pointer"
+            className="w-full py-2.5 text-white font-bold rounded-xl transition cursor-pointer"
             style={{ backgroundColor: PRIMARY_COLOR }}
           >
-            Tutup & Selesai
+            Tutup
           </button>
         </div>
       </BaseModal>

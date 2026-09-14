@@ -4,6 +4,7 @@ import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
+import { useAuth } from '../../../context/AuthContext';
 import { operatorService } from '../../../services/operatorService';
 
 const PRIMARY_COLOR = '#4FBF99';
@@ -11,6 +12,7 @@ const PRIMARY_HOVER = '#429f80';
 const PRIMARY_ACCENT = '#66CDAA';
 
 export default function OperatorFinancial() {
+  const { user } = useAuth();
   const [dailyTransactions, setDailyTransactions] = useState([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
@@ -22,10 +24,10 @@ export default function OperatorFinancial() {
         if (isMounted) setIsLoadingTransactions(true);
 
         const responseData = await operatorService.getPayments();
+        const dataArray = Array.isArray(responseData) ? responseData : responseData?.data || [];
 
-        const formatted = responseData.map((trx, index) => {
+        const formatted = dataArray.map((trx, index) => {
           const gateway = trx.paymentGateway || 'MANUAL_SIMULATION';
-
           let readableMethod = 'Tunai / Manual';
 
           if (gateway === 'QRIS') {
@@ -35,9 +37,7 @@ export default function OperatorFinancial() {
           }
 
           return {
-            id: String(
-              trx.id || `TRX-${String(index + 1).padStart(3, '0')}`
-            ),
+            id: String(trx.id || `TRX-${String(index + 1).padStart(3, '0')}`),
             amount: Number(trx.amount || 0),
             type: gateway,
             method: readableMethod,
@@ -55,15 +55,10 @@ export default function OperatorFinancial() {
           setDailyTransactions(formatted);
         }
       } catch (error) {
-        console.error(
-          'Gagal mengambil data keuangan dari database:',
-          error
-        );
-        setDailyTransactions([]);
+        console.error('Gagal mengambil data keuangan dari database:', error);
+        if (isMounted) setDailyTransactions([]);
       } finally {
-        if (isMounted) {
-          setIsLoadingTransactions(false);
-        }
+        if (isMounted) setIsLoadingTransactions(false);
       }
     }
 
@@ -74,184 +69,266 @@ export default function OperatorFinancial() {
     };
   }, []);
 
-  const totalRevenue = dailyTransactions.reduce(
-    (acc, curr) => acc + curr.amount,
-    0
-  );
-
-  // Kalkulasi dinamis berdasarkan jenis gateway pembayaran aktual
+  const totalRevenue = dailyTransactions.reduce((acc, curr) => acc + curr.amount, 0);
   const qrisRevenue = dailyTransactions
     .filter((t) => t.type === 'QRIS')
     .reduce((acc, curr) => acc + curr.amount, 0);
-
   const otherRevenue = totalRevenue - qrisRevenue;
   const regionalCommission = Math.round(totalRevenue * 0.15);
 
+  const printDate = new Date().toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter'] print:p-0 print:bg-white">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      {/* CSS Khusus untuk Mengatur Skenario Print Formats Resmi */}
       <style>{`
         @media print {
+          /* Sembunyikan SEMUA elemen layout luar (Sidebar, Topbar, dll) */
+          body * {
+            visibility: hidden;
+          }
+          
+          /* Hanya tampilkan kontainer printable */
+          #print-area, #print-area * {
+            visibility: visible;
+          }
+
+          #print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            background: white !important;
+            color: black !important;
+          }
+
           @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 15mm;
           }
 
-          body,
-          html {
-            background: white !important;
-          }
-
-          .print-hidden {
+          .no-print {
             display: none !important;
           }
         }
       `}</style>
 
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1 print-hidden">
-            <span
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{ backgroundColor: PRIMARY_ACCENT }}
-            />
-
-            <span
-              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1"
-              style={{ color: PRIMARY_COLOR }}
-            >
-              <FileText className="w-3 h-3" />
-              REKAPITULASI KAS & PENDAPATAN POS (DATABASE)
-            </span>
+      {/* TAMPILAN WEB (Aplikasi Layar) */}
+      <div className="space-y-6 no-print">
+        {/* Header Dashboard */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ backgroundColor: PRIMARY_ACCENT }}
+              />
+              <span
+                className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1"
+                style={{ color: PRIMARY_COLOR }}
+              >
+                <FileText className="w-3 h-3" />
+                REKAPITULASI KAS & PENDAPATAN POS (DATABASE)
+              </span>
+            </div>
+            <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
+              Laporan Finansial Pos Terminal
+            </h1>
+            <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
+              Kelola setoran tunai harian, rekonsiliasi kasir, dan pantau pendapatan total pos dari server.
+            </p>
           </div>
 
-          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
-            Laporan Finansial Pos Terminal
-          </h1>
-
-          <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5 print-hidden">
-            Kelola setoran tunai harian, rekonsiliasi kasir, dan pantau
-            pendapatan total pos dari server.
-          </p>
+          <button
+            onClick={() => window.print()}
+            className="text-white px-4 py-2.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition shadow-sm cursor-pointer shrink-0"
+            style={{ backgroundColor: PRIMARY_COLOR }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+            }}
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Cetak Laporan Shift
+          </button>
         </div>
 
-        <button
-          onClick={() => window.print()}
-          className="text-white px-4 py-2.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition shadow-sm cursor-pointer shrink-0 print-hidden"
-          style={{
-            backgroundColor: PRIMARY_COLOR,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-          }}
-        >
-          <Printer className="w-3.5 h-3.5" />
-          Cetak Laporan Shift
-        </button>
-      </div>
+        {/* Ringkasan Statistik Web */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <StatCard
+            title="TOTAL PENDAPATAN POS"
+            value={`Rp ${totalRevenue.toLocaleString('id-ID')}`}
+            subtitle={`${dailyTransactions.length} transaksi hari ini`}
+            icon={DollarSign}
+          />
+          <StatCard
+            title="PENDAPATAN QRIS"
+            value={`Rp ${qrisRevenue.toLocaleString('id-ID')}`}
+            subtitle={`Non-QRIS / Lainnya: Rp ${otherRevenue.toLocaleString('id-ID')}`}
+            icon={Wallet}
+          />
+          <StatCard
+            title="SETORAN REGIONAL (15%)"
+            value={`Rp ${regionalCommission.toLocaleString('id-ID')}`}
+            subtitle="Potongan otomatis sistem"
+            icon={FileText}
+          />
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <StatCard
-          title="TOTAL PENDAPATAN POS"
-          value={`Rp ${totalRevenue.toLocaleString('id-ID')}`}
-          subtitle={`${dailyTransactions.length} transaksi hari ini`}
-          icon={DollarSign}
-        />
-
-        <StatCard
-          title="PENDAPATAN QRIS"
-          value={`Rp ${qrisRevenue.toLocaleString('id-ID')}`}
-          subtitle={`Non-QRIS / Lainnya: Rp ${otherRevenue.toLocaleString(
-            'id-ID'
-          )}`}
-          icon={Wallet}
-        />
-
-        <StatCard
-          title="SETORAN REGIONAL (15%)"
-          value={`Rp ${regionalCommission.toLocaleString('id-ID')}`}
-          subtitle="Potongan otomatis sistem"
-          icon={FileText}
-        />
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
-        <h2 className="text-[14px] font-bold text-neutral-800">
-          Rincian Transaksi Shift Aktif (Database)
-        </h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                <th className="py-3 px-4">ID TRX & WAKTU</th>
-                <th className="py-3 px-4">GATEWAY PEMBAYARAN</th>
-                <th className="py-3 px-4">METODE</th>
-                <th className="py-3 px-4 text-right">
-                  TOTAL NOMINAL
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-neutral-100 text-[9px]">
-              {isLoadingTransactions ? (
-                <SkeletonTableRows rows={3} columns={4} />
-              ) : dailyTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan={4}>
-                    <EmptyState
-                      icon={FileText}
-                      title="Belum Ada Transaksi"
-                      description="Belum ada data transaksi finansial tercatat di database pos Anda."
-                    />
-                  </td>
+        {/* Tabel Web */}
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
+          <h2 className="text-[14px] font-bold text-neutral-800">
+            Rincian Transaksi Shift Aktif (Database)
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
+                  <th className="py-3 px-4">ID TRX & WAKTU</th>
+                  <th className="py-3 px-4">GATEWAY PEMBAYARAN</th>
+                  <th className="py-3 px-4">METODE</th>
+                  <th className="py-3 px-4 text-right">TOTAL NOMINAL</th>
                 </tr>
-              ) : (
-                dailyTransactions.map((trx) => (
-                  <tr
-                    key={trx.id}
-                    className="hover:bg-neutral-50/60 transition"
-                  >
-                    <td className="py-3.5 px-4">
-                      <p className="font-bold text-neutral-800 font-mono text-[10px]">
-                        {trx.id}
-                      </p>
-
-                      <p className="text-[8px] text-neutral-400">
-                        {trx.time}
-                      </p>
-                    </td>
-
-                    <td className="py-3.5 px-4 font-semibold text-neutral-700">
-                      {trx.type}
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <StatusBadge
-                        variant={
-                          trx.status === 'success'
-                            ? 'emerald'
-                            : 'amber'
-                        }
-                      >
-                        <Wallet
-                          size={10}
-                          className="mr-1 inline"
-                        />{' '}
-                        {trx.method}
-                      </StatusBadge>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right font-bold text-neutral-800">
-                      Rp {trx.amount.toLocaleString('id-ID')}
+              </thead>
+              <tbody className="divide-y divide-neutral-100 text-[9px]">
+                {isLoadingTransactions ? (
+                  <SkeletonTableRows rows={3} columns={4} />
+                ) : dailyTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <EmptyState
+                        icon={FileText}
+                        title="Belum Ada Transaksi"
+                        description="Belum ada data transaksi finansial tercatat di database pos Anda."
+                      />
                     </td>
                   </tr>
-                ))
-              )}
+                ) : (
+                  dailyTransactions.map((trx) => (
+                    <tr key={trx.id} className="hover:bg-neutral-50/60 transition">
+                      <td className="py-3.5 px-4">
+                        <p className="font-bold text-neutral-800 font-mono text-[10px]">
+                          {trx.id}
+                        </p>
+                        <p className="text-[8px] text-neutral-400">{trx.time}</p>
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-neutral-700">
+                        {trx.type}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <StatusBadge variant={trx.status === 'success' ? 'emerald' : 'amber'}>
+                          <Wallet size={10} className="mr-1 inline" /> {trx.method}
+                        </StatusBadge>
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-neutral-800">
+                        Rp {trx.amount.toLocaleString('id-ID')}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* LAYOUT KHUSUS CETAK DOKUMEN RESMI (Hanya Tampil Saat Print) */}
+      <div id="print-area" className="hidden print:block text-black">
+        {/* Kop Surat Dokumen Resmi */}
+        <div className="border-b-2 border-black pb-4 mb-5 flex justify-between items-end">
+          <div>
+            <h1 className="text-xl font-black tracking-wide uppercase">NEBENG SYSTEM</h1>
+            <p className="text-xs font-semibold uppercase">Laporan Rekapitulasi Kasir & Kas Pos Operasional</p>
+            <p className="text-[10px] text-gray-600">
+              Pos: {user?.assignedPickupPointName || user?.posName || 'Pos Terminal Utama'}
+            </p>
+          </div>
+          <div className="text-right text-[10px]">
+            <p><span className="font-bold">Tanggal Cetak:</span> {printDate}</p>
+            <p><span className="font-bold">Operator:</span> {user?.name || 'Operator Pos'}</p>
+          </div>
+        </div>
+
+        {/* Ringkasan Angka Kas (KOTAK RINGKASAN RESMI) */}
+        <div className="grid grid-cols-3 gap-4 mb-6 text-center">
+          <div className="border border-black p-2.5 rounded">
+            <p className="text-[9px] font-bold uppercase text-gray-700">Total Transaksi Pos</p>
+            <p className="text-sm font-black mt-1">Rp {totalRevenue.toLocaleString('id-ID')}</p>
+            <p className="text-[8px] text-gray-500">{dailyTransactions.length} Transaksi Tercatat</p>
+          </div>
+          <div className="border border-black p-2.5 rounded">
+            <p className="text-[9px] font-bold uppercase text-gray-700">Pendapatan QRIS</p>
+            <p className="text-sm font-black mt-1">Rp {qrisRevenue.toLocaleString('id-ID')}</p>
+            <p className="text-[8px] text-gray-500">Tunai/Lainnya: Rp {otherRevenue.toLocaleString('id-ID')}</p>
+          </div>
+          <div className="border border-black p-2.5 rounded">
+            <p className="text-[9px] font-bold uppercase text-gray-700">Bagi Hasil Regional (15%)</p>
+            <p className="text-sm font-black mt-1">Rp {regionalCommission.toLocaleString('id-ID')}</p>
+            <p className="text-[8px] text-gray-500">Potongan Sistem</p>
+          </div>
+        </div>
+
+        {/* Tabel Rincian Transaksi */}
+        <div className="mb-8">
+          <h2 className="text-xs font-bold uppercase mb-2 border-b border-gray-400 pb-1">
+            Rincian Transaksi Shift
+          </h2>
+          <table className="w-full text-left text-[10px] border-collapse">
+            <thead>
+              <tr className="border-b border-black text-black uppercase font-bold">
+                <th className="py-2 px-2">No / ID TRX</th>
+                <th className="py-2 px-2">Waktu</th>
+                <th className="py-2 px-2">Gateway</th>
+                <th className="py-2 px-2">Metode Pembayaran</th>
+                <th className="py-2 px-2 text-right">Nominal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-300">
+              {dailyTransactions.map((trx) => (
+                <tr key={trx.id}>
+                  <td className="py-2 px-2 font-mono font-bold">{trx.id}</td>
+                  <td className="py-2 px-2">{trx.time}</td>
+                  <td className="py-2 px-2 font-semibold">{trx.type}</td>
+                  <td className="py-2 px-2">{trx.method}</td>
+                  <td className="py-2 px-2 text-right font-bold">
+                    Rp {trx.amount.toLocaleString('id-ID')}
+                  </td>
+                </tr>
+              ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-black font-bold">
+                <td colSpan={4} className="py-2 px-2 text-right uppercase">Total Kas Masuk:</td>
+                <td className="py-2 px-2 text-right text-xs">Rp {totalRevenue.toLocaleString('id-ID')}</td>
+              </tr>
+            </tfoot>
           </table>
+        </div>
+
+        {/* Kolom Tanda Tangan Pengesahan (Persyaratan Dokumen Keuangan) */}
+        <div className="grid grid-cols-2 gap-8 text-center text-[10px] pt-4 mt-8 break-inside-avoid">
+          <div>
+            <p className="font-bold">Diserahkan Oleh (Operator Shift),</p>
+            <div className="h-16"></div>
+            <p className="font-bold underline uppercase">{user?.name || 'Operator Pos'}</p>
+            <p className="text-[9px] text-gray-600">NIP / ID Operator</p>
+          </div>
+          <div>
+            <p className="font-bold">Diterima & Diverifikasi Oleh,</p>
+            <div className="h-16"></div>
+            <p className="font-bold underline uppercase">( Supervisor / Finance Pos )</p>
+            <p className="text-[9px] text-gray-600">Manajer Keuangan Regional</p>
+          </div>
         </div>
       </div>
     </div>
