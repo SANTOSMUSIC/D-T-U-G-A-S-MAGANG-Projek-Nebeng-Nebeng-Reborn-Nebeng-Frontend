@@ -9,6 +9,8 @@ export default function StatusBadge({
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     amber: 'bg-amber-50 text-amber-700 border-amber-100',
     rose: 'bg-rose-50 text-rose-700 border-rose-100',
+    blue: 'bg-blue-50 text-blue-700 border-blue-100',
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
     default: 'bg-neutral-100 text-neutral-600 border-neutral-200',
   };
 

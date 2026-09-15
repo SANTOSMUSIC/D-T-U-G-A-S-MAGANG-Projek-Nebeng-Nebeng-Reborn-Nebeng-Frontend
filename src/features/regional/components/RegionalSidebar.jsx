@@ -9,36 +9,65 @@ import {
   LogOut,
   AlertTriangle,
   Menu,
-  X
+  X,
 } from 'lucide-react';
-import logoImage from '../../../assets/LOGO.png';
+
+import logoImage from '../../../assets/logo.png';
 
 const MENU_GROUPS = [
   {
     label: 'Menu Utama',
     items: [
-      { name: 'Dashboard Wilayah', icon: LayoutDashboard },
-      { name: 'Pos Mitra & Terminal', icon: MapPin },
-      { name: 'Armada & Kurir', icon: Truck },
+      {
+        name: 'Dashboard Wilayah',
+        icon: LayoutDashboard,
+      },
+      {
+        name: 'Pos Mitra & Terminal',
+        icon: MapPin,
+      },
+      {
+        name: 'Armada & Kurir',
+        icon: Truck,
+      },
     ],
   },
   {
     label: 'Operasional & Keamanan',
     items: [
-      { name: 'Verifikasi ID & Face', icon: ShieldCheck },
-      { name: 'Pemantauan Trip', icon: Navigation },
-      { name: 'Laporan Keuangan', icon: FileText },
+      {
+        name: 'Verifikasi ID & Face',
+        icon: ShieldCheck,
+      },
+      {
+        name: 'Pemantauan Trip',
+        icon: Navigation,
+      },
+      {
+        name: 'Laporan Keuangan',
+        icon: FileText,
+      },
     ],
   },
 ];
 
-export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMenuSelect, onLogout }) {
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+export default function RegionalSidebar({
+  activeMenu = 'Dashboard Wilayah',
+  onMenuSelect,
+  onLogout,
+}) {
+  const [showLogoutModal, setShowLogoutModal] =
+    useState(false);
+
+  const [isLoggingOut, setIsLoggingOut] =
+    useState(false);
+
+  const [isMobileOpen, setIsMobileOpen] =
+    useState(false);
 
   const handleConfirmLogout = () => {
     setIsLoggingOut(true);
+
     setTimeout(() => {
       if (onLogout) onLogout();
     }, 400);
@@ -51,14 +80,16 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
 
   return (
     <>
+      {/* MOBILE MENU BUTTON */}
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#4B2172]"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#4FBF99]"
       >
         <Menu className="w-5 h-5" />
       </button>
 
+      {/* MOBILE OVERLAY */}
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
@@ -66,8 +97,36 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
         />
       )}
 
-      <aside className={`w-64 h-screen bg-[#4B2172] text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      {/* SIDEBAR */}
+      <aside
+        className={`
+          w-64
+          h-screen
+          bg-[#66CDAA]
+          text-white
+          flex
+          flex-col
+          justify-between
+          p-5
+          fixed
+          left-0
+          top-0
+          shadow-md
+          overflow-y-auto
+          z-40
+          transition-transform
+          duration-300
+          font-['Inter']
+          ${
+            isMobileOpen
+              ? 'translate-x-0'
+              : '-translate-x-full'
+          }
+          lg:translate-x-0
+        `}
+      >
         <div>
+          {/* LOGO */}
           <div className="mb-8 px-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <img
@@ -75,40 +134,76 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
                 alt="Logo Nebeng"
                 className="h-8 w-8 object-contain shrink-0 filter brightness-0 invert"
               />
+
               <span className="font-bold text-white text-[20px] tracking-wide leading-none">
                 Nebeng
               </span>
             </div>
+
+            {/* MOBILE CLOSE */}
             <button
-              onClick={() => setIsMobileOpen(false)}
+              onClick={() =>
+                setIsMobileOpen(false)
+              }
               aria-label="Tutup menu navigasi"
-              className="lg:hidden w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"
+              className="lg:hidden w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
+          {/* MENU GROUPS */}
           <div className="space-y-6">
             {MENU_GROUPS.map((group) => (
               <div key={group.label}>
-                <p className="text-[8px] font-semibold uppercase tracking-widest text-white/50 mb-2.5 px-3">
+                <p className="text-[8px] font-semibold uppercase tracking-widest text-white/60 mb-2.5 px-3">
                   {group.label}
                 </p>
+
                 <nav className="space-y-1">
                   {group.items.map((item) => {
-                    const IconComponent = item.icon;
-                    const isActive = activeMenu === item.name;
+                    const IconComponent =
+                      item.icon;
+
+                    const isActive =
+                      activeMenu === item.name;
+
                     return (
                       <button
                         key={item.name}
-                        onClick={() => handleMenuSelect(item.name)}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
-                          isActive
-                            ? 'bg-white text-[#4B2172] font-semibold shadow-sm'
-                            : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
-                        }`}
+                        onClick={() =>
+                          handleMenuSelect(item.name)
+                        }
+                        className={`
+                          w-full
+                          flex
+                          items-center
+                          gap-3
+                          px-3
+                          py-2.5
+                          rounded-xl
+                          text-[12px]
+                          transition
+                          text-left
+                          cursor-pointer
+                          ${
+                            isActive
+                              ? 'bg-white text-[#4FBF99] font-semibold shadow-sm'
+                              : 'text-white/85 font-medium hover:bg-white/15 hover:text-white'
+                          }
+                        `}
                       >
-                        <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : 'text-white/70'}`} />
+                        <IconComponent
+                          className={`
+                            w-4 h-4
+                            ${
+                              isActive
+                                ? 'text-[#4FBF99]'
+                                : 'text-white/75'
+                            }
+                          `}
+                        />
+
                         {item.name}
                       </button>
                     );
@@ -119,39 +214,59 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
           </div>
         </div>
 
-        <div className="pt-5 border-t border-white/10">
+        {/* LOGOUT */}
+        <div className="pt-5 border-t border-white/20">
           <button
-            onClick={() => setShowLogoutModal(true)}
+            onClick={() =>
+              setShowLogoutModal(true)
+            }
             aria-label="Keluar Sistem"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-[#FF0055] hover:bg-[#e0004c] transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-rose-500 hover:bg-rose-600 transition cursor-pointer"
           >
             <LogOut className="w-4 h-4 text-white shrink-0" />
+
             <span>Log Out</span>
           </button>
         </div>
       </aside>
 
+      {/* LOGOUT MODAL */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-6 text-gray-900">
+
+            {/* MODAL HEADER */}
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center shadow-sm">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-[14px] font-bold text-gray-900">Konfirmasi Keluar Sistem</h3>
+
+              <h3 className="text-[14px] font-bold text-gray-900">
+                Konfirmasi Keluar Sistem
+              </h3>
+
               <p className="text-[10px] font-normal text-gray-500">
-                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus masuk kembali untuk mengakses panel regional.
+                Apakah Anda yakin ingin mengakhiri
+                sesi aktif ini? Anda harus masuk kembali
+                untuk mengakses panel regional.
               </p>
             </div>
 
+            {/* MODAL ACTIONS */}
             <div className="flex items-center gap-3">
+
+              {/* CANCEL */}
               <button
-                onClick={() => setShowLogoutModal(false)}
+                onClick={() =>
+                  setShowLogoutModal(false)
+                }
                 disabled={isLoggingOut}
                 className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-semibold rounded-full transition cursor-pointer"
               >
                 Batal
               </button>
+
+              {/* LOGOUT */}
               <button
                 onClick={handleConfirmLogout}
                 disabled={isLoggingOut}
@@ -162,7 +277,8 @@ export default function RegionalSidebar({ activeMenu = 'Dashboard Wilayah', onMe
                 ) : (
                   <>
                     <LogOut className="w-3.5 h-3.5" />
-                    Ya, Keluar
+
+                    <span>Ya, Keluar</span>
                   </>
                 )}
               </button>

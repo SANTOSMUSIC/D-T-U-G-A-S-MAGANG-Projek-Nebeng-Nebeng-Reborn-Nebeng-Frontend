@@ -6,6 +6,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BaseModal from '../../../components/ui/BaseModal';
 import { regionalService } from '../../../services/regionalService';
 import { useAuth } from '../../../context/AuthContext';
+import { getRegionId } from '../../../utils/regionId';
 
 export default function OperatorPosPage() {
   const toast = useToast();
@@ -42,7 +43,7 @@ export default function OperatorPosPage() {
         const formatted = (data || [])
           .filter(op => {
             if (!currentRegionId) return true;
-            return op.regionId ? String(op.regionId) === currentRegionId : true;
+            return getRegionId(op) === currentRegionId;
           })
           .map(op => ({
             id: String(op.id),
@@ -121,7 +122,7 @@ export default function OperatorPosPage() {
       const formatted = (data || [])
         .filter(op => {
           if (!currentRegionId) return true;
-          return op.regionId ? String(op.regionId) === currentRegionId : true;
+          return getRegionId(op) === currentRegionId;
         })
         .map(op => ({
           id: String(op.id),
@@ -151,7 +152,7 @@ export default function OperatorPosPage() {
       const formatted = (data || [])
         .filter(op => {
           if (!currentRegionId) return true;
-          return op.regionId ? String(op.regionId) === currentRegionId : true;
+          return getRegionId(op) === currentRegionId;
         })
         .map(op => ({
           id: String(op.id),

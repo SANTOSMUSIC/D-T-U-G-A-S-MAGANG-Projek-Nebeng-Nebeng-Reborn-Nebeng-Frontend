@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ArrowDownLeft, ArrowUpRight, Clock, CheckCircle2 } from 'lucide-react';
+import {
+  Calendar,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
@@ -7,8 +13,13 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import { useAuth } from '../../../context/AuthContext';
 import { operatorService } from '../../../services/operatorService';
 
+const PRIMARY_COLOR = '#4FBF99';
+const PRIMARY_HOVER = '#429f80';
+const PRIMARY_ACCENT = '#66CDAA';
+
 export default function OperatorDashboard() {
   const { user } = useAuth();
+
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [tripsSchedule, setTripsSchedule] = useState([]);
 
@@ -17,27 +28,67 @@ export default function OperatorDashboard() {
 
     const fetchOperatorData = async () => {
       try {
-        if (isMounted) setIsLoadingTrips(true);
-        
-        // Memanggil operatorService untuk mendapatkan daftar trip
+        if (isMounted) {
+          setIsLoadingTrips(true);
+        }
+
         const rawData = await operatorService.getTrips();
 
-        const formatted = rawData.map((t, index) => ({
-          id: String(t.id || `TRIP-${index + 9080}`),
-          type: index % 2 === 0 ? 'Masuk' : 'Keluar',
-          partnerName: t.driver?.name || t.mitraName || 'Driver Mitra',
-          service: t.serviceType || 'Ride / Transportasi',
-          plateNumber: t.vehicle?.plateNumber || 'AD 1234 XY',
-          time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : '09:30 WIB',
-          status: t.status === 'in_transit' ? 'Dalam Perjalanan' : 'Tiba di Pos',
-          notes: t.notes || 'Aktivitas operasional pos'
-        }));
+        const formatted = rawData.map((t, index) => {
+          // Ambil jam dari departureTime atau fallback ke createdAt
+          const timeSource =
+            t.departureTime || t.createdAt;
+
+          const formattedTime = timeSource
+            ? new Date(timeSource).toLocaleTimeString(
+                'id-ID',
+                {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              ) + ' WIB'
+            : '-';
+
+          return {
+            id: String(
+              t.id || `TRIP-${index + 9080}`
+            ),
+            type:
+              index % 2 === 0
+                ? 'Masuk'
+                : 'Keluar',
+            partnerName:
+              t.driver?.name ||
+              t.mitra?.name ||
+              t.mitraName ||
+              'Mitra Pos',
+            service:
+              t.serviceType ||
+              (t.totalSeats > 0
+                ? 'Nebeng Penumpang'
+                : 'Nebeng Barang'),
+            plateNumber:
+              t.vehicle?.plateNumber || '-',
+            time: formattedTime,
+            status:
+              t.status === 'in_transit'
+                ? 'Dalam Perjalanan'
+                : 'Tiba di Pos',
+            notes:
+              t.notes ||
+              'Aktivitas operasional pos',
+          };
+        });
 
         if (isMounted) {
           setTripsSchedule(formatted);
         }
       } catch (error) {
-        console.error('Gagal mengambil data operasional pos:', error);
+        console.error(
+          'Gagal mengambil data operasional pos:',
+          error
+        );
+
         setTripsSchedule([]);
       } finally {
         if (isMounted) {
@@ -53,44 +104,95 @@ export default function OperatorDashboard() {
     };
   }, []);
 
-  const incomingCount = tripsSchedule.filter((trip) => trip.type === 'Masuk').length;
-  const outgoingCount = tripsSchedule.filter((trip) => trip.type === 'Keluar').length;
+  const incomingCount = tripsSchedule.filter(
+    (trip) => trip.type === 'Masuk'
+  ).length;
 
-  const todayLabel = new Date().toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  const outgoingCount = tripsSchedule.filter(
+    (trip) => trip.type === 'Keluar'
+  ).length;
+
+  const todayLabel = new Date().toLocaleDateString(
+    'id-ID',
+    {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }
+  );
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
-              POS OPERASIONAL WILAYAH | {user?.name ? user.name.toUpperCase() : 'OPERATOR POS'}
+            <span
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{
+                backgroundColor: PRIMARY_COLOR,
+              }}
+            />
+
+            <span
+              className="text-[9px] font-bold uppercase tracking-widest"
+              style={{
+                color: PRIMARY_COLOR,
+              }}
+            >
+              POS OPERASIONAL WILAYAH |{' '}
+              {user?.name
+                ? user.name.toUpperCase()
+                : 'OPERATOR POS'}
             </span>
           </div>
+
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
             Dashboard Operasional Pos
           </h1>
+
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pantau jadwal trip mitra yang masuk dan keluar di pos Anda hari ini dari database server.
+            Pantau jadwal trip mitra yang masuk dan
+            keluar di pos Anda hari ini dari database
+            server.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#4B2172]/10 border border-[#4B2172]/20 rounded-full shrink-0">
-          <div className="w-7 h-7 rounded-full bg-[#4B2172] text-white flex items-center justify-center font-bold shrink-0">
+        {/* Tanggal Hari Ini */}
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-2 rounded-full shrink-0"
+          style={{
+            backgroundColor: `${PRIMARY_ACCENT}1A`,
+            border: `1px solid ${PRIMARY_ACCENT}33`,
+          }}
+        >
+          <div
+            className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold shrink-0"
+            style={{
+              backgroundColor: PRIMARY_COLOR,
+            }}
+          >
             <Calendar className="w-3.5 h-3.5" />
           </div>
+
           <div>
-            <p className="text-[8px] font-bold text-[#4B2172] uppercase tracking-wider">TANGGAL HARI INI</p>
-            <p className="text-[10px] font-bold text-neutral-800">{todayLabel}</p>
+            <p
+              className="text-[8px] font-bold uppercase tracking-wider"
+              style={{
+                color: PRIMARY_COLOR,
+              }}
+            >
+              TANGGAL HARI INI
+            </p>
+
+            <p className="text-[10px] font-bold text-neutral-800">
+              {todayLabel}
+            </p>
           </div>
         </div>
       </div>
 
+      {/* Statistik */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard
           title="TOTAL TRIP MASUK POS"
@@ -98,12 +200,14 @@ export default function OperatorDashboard() {
           subtitle="Jadwal aktif hari ini"
           icon={ArrowDownLeft}
         />
+
         <StatCard
           title="TOTAL TRIP KELUAR POS"
           value={`${outgoingCount} Trip`}
           subtitle="Siap diberangkatkan"
           icon={ArrowUpRight}
         />
+
         <StatCard
           title="STATUS OPERASIONAL POS"
           value="Buka / Normal"
@@ -112,34 +216,70 @@ export default function OperatorDashboard() {
         />
       </div>
 
+      {/* Jadwal Trip */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-purple-50 text-[#4B2172] rounded-xl">
+            <div
+              className="p-2 rounded-xl"
+              style={{
+                backgroundColor: `${PRIMARY_ACCENT}1A`,
+                color: PRIMARY_COLOR,
+              }}
+            >
               <Calendar className="w-4 h-4" />
             </div>
+
             <div>
-              <h2 className="text-[14px] font-bold text-neutral-800">Jadwal Trip Mitra Masuk & Keluar Hari Ini</h2>
-              <p className="text-[10px] text-neutral-400">Daftar perjalanan yang dijadwalkan melintasi atau berpusat di pos Anda.</p>
+              <h2 className="text-[14px] font-bold text-neutral-800">
+                Jadwal Trip Mitra Masuk & Keluar Hari Ini
+              </h2>
+
+              <p className="text-[10px] text-neutral-400">
+                Daftar perjalanan yang dijadwalkan
+                melintasi atau berpusat di pos Anda.
+              </p>
             </div>
           </div>
         </div>
 
+        {/* Desktop Table */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                <th className="py-3 px-4">ID TRIP & WAKTU</th>
-                <th className="py-3 px-4">TIPE ARAH</th>
-                <th className="py-3 px-4">MITRA & KENDARAAN</th>
-                <th className="py-3 px-4">LAYANAN</th>
-                <th className="py-3 px-4">STATUS</th>
-                <th className="py-3 px-4 text-right">KETERANGAN</th>
+                <th className="py-3 px-4">
+                  ID TRIP & WAKTU
+                </th>
+
+                <th className="py-3 px-4">
+                  TIPE ARAH
+                </th>
+
+                <th className="py-3 px-4">
+                  MITRA & KENDARAAN
+                </th>
+
+                <th className="py-3 px-4">
+                  LAYANAN
+                </th>
+
+                <th className="py-3 px-4">
+                  STATUS
+                </th>
+
+                <th className="py-3 px-4 text-right">
+                  KETERANGAN
+                </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-neutral-100 text-[9px]">
               {isLoadingTrips ? (
-                <SkeletonTableRows rows={4} columns={6} />
+                <SkeletonTableRows
+                  rows={4}
+                  columns={6}
+                />
               ) : tripsSchedule.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
@@ -150,32 +290,71 @@ export default function OperatorDashboard() {
                     />
                   </td>
                 </tr>
-              ) : tripsSchedule.map((trip) => (
-                <tr key={trip.id} className="hover:bg-neutral-50/60 transition">
-                  <td className="py-3.5 px-4">
-                    <p className="font-bold text-neutral-800 font-mono text-[10px]">{trip.id}</p>
-                    <p className="text-[8px] text-neutral-400 flex items-center gap-1 mt-0.5">
-                      <Clock className="w-2.5 h-2.5 text-[#4B2172]" /> {trip.time}
-                    </p>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <StatusBadge variant={trip.type === 'Masuk' ? 'purple' : 'blue'}>
-                      {trip.type === 'Masuk' ? 'Masuk Pos' : 'Keluar Pos'}
-                    </StatusBadge>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <p className="font-bold text-neutral-800">{trip.partnerName}</p>
-                    <p className="text-[8px] text-neutral-400 font-mono">{trip.plateNumber}</p>
-                  </td>
-                  <td className="py-3.5 px-4 font-semibold text-neutral-700">{trip.service}</td>
-                  <td className="py-3.5 px-4">
-                    <StatusBadge variant="neutral">{trip.status}</StatusBadge>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <span className="text-[8px] text-neutral-400 italic">{trip.notes}</span>
-                  </td>
-                </tr>
-              ))}
+              ) : (
+                tripsSchedule.map((trip) => (
+                  <tr
+                    key={trip.id}
+                    className="hover:bg-neutral-50/60 transition"
+                  >
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-neutral-800 font-mono text-[10px]">
+                        {trip.id}
+                      </p>
+
+                      <p className="text-[8px] text-neutral-400 flex items-center gap-1 mt-0.5">
+                        <Clock
+                          className="w-2.5 h-2.5"
+                          style={{
+                            color: PRIMARY_COLOR,
+                          }}
+                        />
+
+                        {trip.time}
+                      </p>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <StatusBadge
+                        variant={
+                          trip.type === 'Masuk'
+                            ? 'purple'
+                            : 'blue'
+                        }
+                      >
+                        {trip.type === 'Masuk'
+                          ? 'Masuk Pos'
+                          : 'Keluar Pos'}
+                      </StatusBadge>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-neutral-800">
+                        {trip.partnerName}
+                      </p>
+
+                      <p className="text-[8px] text-neutral-400 font-mono">
+                        {trip.plateNumber}
+                      </p>
+                    </td>
+
+                    <td className="py-3.5 px-4 font-semibold text-neutral-700">
+                      {trip.service}
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <StatusBadge variant="neutral">
+                        {trip.status}
+                      </StatusBadge>
+                    </td>
+
+                    <td className="py-3.5 px-4 text-right">
+                      <span className="text-[8px] text-neutral-400 italic">
+                        {trip.notes}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -3,6 +3,21 @@ import { createContext, useCallback, useContext, useState } from 'react';
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'nebeng_auth';
 
+// FIX: sesi yang tersimpan di browser SEBELUM perbaikan regionId (lihat
+// authService.js) tidak punya field `user` sama sekali, jadi walau kode
+// sudah benar, admin yang masih memakai sesi lama (belum logout manual)
+// tetap mengalami bug lama — regionId kosong, filter wilayah jadi tidak
+// berfungsi, semua data lintas wilayah ikut tampil. Ini kemungkinan besar
+// penyebab laporan "tidak ada perubahan" meski kode sudah diperbaiki.
+//
+// SESSION_SCHEMA_VERSION menandai bentuk data sesi yang valid saat ini.
+// Setiap kali struktur sesi berubah secara berarti (seperti fix ini),
+// naikkan angkanya. Sesi lama yang tidak cocok otomatis dianggap
+// kedaluwarsa dan dibuang saat aplikasi dimuat, sehingga user WAJIB
+// login ulang dan mendapat sesi baru yang sudah membawa regionId dengan
+// benar — tanpa bergantung pada orang ingat logout manual.
+const SESSION_SCHEMA_VERSION = 2;
+
 /**
  * FIX (UI/UX -> implementasi nyata): "Ingat Saya" sebelumnya cuma tombol
  * disabled karena sesi memang selalu ditaruh di localStorage tanpa opsi
@@ -23,7 +38,12 @@ function readStoredSession() {
   try {
     const persistedRaw = localStorage.getItem(STORAGE_KEY);
     if (persistedRaw) {
-      return { session: JSON.parse(persistedRaw), persisted: true };
+      const parsed = JSON.parse(persistedRaw);
+      if (parsed?.__v === SESSION_SCHEMA_VERSION) {
+        return { session: parsed, persisted: true };
+      }
+      // Sesi berformat lama (sebelum fix regionId) — buang, paksa login ulang.
+      localStorage.removeItem(STORAGE_KEY);
     }
   } catch {
     // Data tersimpan korup/format lama — abaikan dan lanjut cek sessionStorage.
@@ -32,7 +52,11 @@ function readStoredSession() {
   try {
     const temporaryRaw = sessionStorage.getItem(STORAGE_KEY);
     if (temporaryRaw) {
-      return { session: JSON.parse(temporaryRaw), persisted: false };
+      const parsed = JSON.parse(temporaryRaw);
+      if (parsed?.__v === SESSION_SCHEMA_VERSION) {
+        return { session: parsed, persisted: false };
+      }
+      sessionStorage.removeItem(STORAGE_KEY);
     }
   } catch {
     // Sama seperti di atas — abaikan dan anggap belum login.
@@ -45,7 +69,7 @@ export function AuthProvider({ children }) {
   const [{ session, persisted }, setAuthState] = useState(readStoredSession);
 
   const login = useCallback((role, extra = {}, remember = false) => {
-    const nextSession = { role, loggedInAt: Date.now(), ...extra };
+    const nextSession = { role, loggedInAt: Date.now(), __v: SESSION_SCHEMA_VERSION, ...extra };
 
     // Bersihkan storage yang TIDAK dipakai supaya tidak ada sesi ganda yang
     // nyasar — mis. user pernah login dengan "Ingat Saya" (localStorage),
@@ -173,10 +197,32 @@ export function AuthProvider({ children }) {
     // halaman Pengaturan Akun untuk menampilkan status sesi login saat ini.
     sessionPersisted: persisted,
     isCustomerVerified: !!session?.customerVerified,
+    // FIX: banyak halaman (Pos Mitra, Operator, Trip Monitoring, Kurir,
+    // Verifikasi, Armada, Laporan Keuangan, Dashboard Regional) memakai
+    // `const { user } = useAuth()` lalu `user?.regionId` untuk memfilter
+    // data sesuai wilayah admin yang login. Sebelumnya field `user` ini
+    // tidak pernah di-expose di sini, jadi selalu `undefined` dan setiap
+    // request ke backend dikirim TANPA regionId — akibatnya data lintas
+    // wilayah (mis. pos di region lain) ikut muncul. `session.user` sendiri
+    // sekarang diisi oleh loginRequest() di authService.js (lihat fix di
+    // sana), berisi antara lain regionId milik admin yang login.
+    user: session?.user ?? null,
     customerProfile: session?.customerProfile ?? null,
     adminProfile: session?.adminProfile ?? null,
     mitraProfile: session?.mitraProfile ?? null,
     superadminProfile: session?.superadminProfile ?? null,
+    // BUG FIX: MitraDashboard.jsx dan MitraOnboarding.jsx sudah lama membaca
+    // `mitraVerificationStatus` dari useAuth() untuk menampilkan status
+    // approved/pending/rejected/unverified, tapi field ini tidak pernah
+    // di-expose di sini — hanya `mitraProfile` (object) yang ada. Akibatnya
+    // mitraVerificationStatus selalu undefined dan badge status di kedua
+    // halaman itu selalu jatuh ke default "Belum Verifikasi", walau mitra
+    // sudah disetujui Admin Regional (mitraProfile.verificationStatus sudah
+    // benar berisi 'approved', lihat updateMitraProfile di MitraOnboarding.jsx
+    // dan pengecekan yang sudah benar di MitraLayout.jsx). Sekarang
+    // diturunkan langsung dari mitraProfile.verificationStatus supaya kedua
+    // sumber selalu sinkron.
+    mitraVerificationStatus: session?.mitraProfile?.verificationStatus ?? 'unverified',
     login,
     logout,
     markCustomerVerified,

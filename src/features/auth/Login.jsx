@@ -4,7 +4,7 @@ import AuthInput from '../../components/ui/AuthInput';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
 import { loginRequest } from '../../services/authService';
-import logoImage from '../../assets/LOGO.png';
+import logoImage from '../../assets/logo.png';
 
 export default function Login({ onSwitchToRegister, onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -129,7 +129,7 @@ export default function Login({ onSwitchToRegister, onLogin }) {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-neutral-300 text-[#4B2172] focus:ring-[#4B2172] accent-[#4B2172] cursor-pointer"
+              className="w-4 h-4 rounded border-neutral-300 text-[#66CDAA] focus:ring-[#66CDAA] accent-[#66CDAA] cursor-pointer"
             />
             <span className="font-medium">Ingat saya</span>
           </label>
@@ -148,7 +148,7 @@ export default function Login({ onSwitchToRegister, onLogin }) {
           type="submit"
           disabled={isSubmitting}
           aria-busy={isSubmitting}
-          className="w-full py-3.5 px-4 bg-[#4B2172] hover:bg-[#371654] disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold rounded-full shadow-sm flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2 cursor-pointer"
+          className="w-full py-3.5 px-4 bg-[#66CDAA] hover:bg-[#4FBF99] disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold rounded-full shadow-sm flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2 cursor-pointer"
         >
           {isSubmitting ? (
             <>
@@ -191,7 +191,7 @@ export default function Login({ onSwitchToRegister, onLogin }) {
 
       <p className="text-center text-sm text-neutral-500 font-normal mt-6">
         Belum punya akun?{' '}
-        <button onClick={onSwitchToRegister} className="text-[#4B2172] font-semibold hover:underline cursor-pointer">
+        <button onClick={onSwitchToRegister} className="text-[#66CDAA] font-semibold hover:underline cursor-pointer">
           Gabung sekarang!
         </button>
       </p>

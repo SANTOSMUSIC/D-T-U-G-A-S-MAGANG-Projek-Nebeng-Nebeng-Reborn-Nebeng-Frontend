@@ -11,7 +11,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import logoImage from '../../../assets/LOGO.png';
+import logoImage from '../../../assets/logo.png';
 
 const MENU_GROUPS = [
   {
@@ -54,7 +54,7 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#4B2172]"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#66CDAA]"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -66,7 +66,7 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
         />
       )}
 
-      <aside className={`w-64 h-screen bg-[#4B2172] text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside className={`w-64 h-screen bg-[#66CDAA] text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div>
           <div className="mb-8 px-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -104,11 +104,11 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
                         onClick={() => handleMenuSelect(item.name)}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
                           isActive
-                            ? 'bg-white text-[#4B2172] font-semibold shadow-sm'
+                            ? 'bg-white text-[#66CDAA] font-semibold shadow-sm'
                             : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
                         }`}
                       >
-                        <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : 'text-white/70'}`} />
+                        <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#66CDAA]' : 'text-white/70'}`} />
                         {item.name}
                       </button>
                     );

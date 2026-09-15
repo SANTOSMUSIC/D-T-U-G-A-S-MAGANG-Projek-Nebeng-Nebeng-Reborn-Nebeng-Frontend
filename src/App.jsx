@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
-import ProtectedRoute from './components/routing/ProtectedRoute';
+import ProtectedRoute from './routes/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
 // Superadmin
