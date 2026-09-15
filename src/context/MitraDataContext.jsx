@@ -1,5 +1,5 @@
 import { useState, useCallback, useContext } from 'react';
-import { estimateFare } from '../services/mitraPricing';
+import { estimateFare } from '../utils/fareEstimator';
 import { MitraDataContext } from './mitraDataContextObject';
 
 let tripCounter = 0;

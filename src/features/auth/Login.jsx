@@ -4,7 +4,7 @@ import AuthInput from '../../components/ui/AuthInput';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
 import { loginRequest } from '../../services/authService';
-import logoImage from '../../assets/LOGO.png';
+import logoImage from '../../assets/logo.png';
 
 export default function Login({ onSwitchToRegister, onLogin }) {
   const [showPassword, setShowPassword] = useState(false);

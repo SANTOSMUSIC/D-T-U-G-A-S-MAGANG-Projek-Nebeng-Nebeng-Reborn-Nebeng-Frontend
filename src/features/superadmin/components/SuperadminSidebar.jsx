@@ -11,7 +11,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import logoImage from '../../../assets/LOGO.png';
+import logoImage from '../../../assets/logo.png';
 
 const MENU_GROUPS = [
   {

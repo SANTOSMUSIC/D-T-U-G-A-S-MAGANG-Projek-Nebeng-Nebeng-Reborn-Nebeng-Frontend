@@ -5,7 +5,7 @@ import AuthLayout from '../../components/layout/AuthLayout';
 import { useToast } from '../../context/ToastContext';
 import { registerRequest } from '../../services/authService';
 import apiClient from '../../services/apiClient';
-import logoImage from '../../assets/LOGO.png';
+import logoImage from '../../assets/logo.png';
 
 export default function Register({ onSwitchToLogin }) {
   const toast = useToast();

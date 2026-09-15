@@ -14,7 +14,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import apiClient from '../../../services/apiClient';
-import { estimateFare } from '../../../services/mitraPricing';
+import { estimateFare } from '../../../utils/fareEstimator';
 
 const PRIMARY_COLOR = '#4FBF99';
 const PRIMARY_HOVER = '#429f80';

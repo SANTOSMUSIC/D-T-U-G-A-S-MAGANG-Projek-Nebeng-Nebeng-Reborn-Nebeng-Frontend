@@ -1,5 +1,5 @@
 import { ShieldCheck } from 'lucide-react';
-import authIllustration from '../../assets/AuthIllustration.png';
+import authIllustration from '../../assets/auth-illustration.png';
 
 export default function AuthLayout({ children, title, subtitle, badgeText = "VERIFIED SECURITY SYSTEM" }) {
   return (
