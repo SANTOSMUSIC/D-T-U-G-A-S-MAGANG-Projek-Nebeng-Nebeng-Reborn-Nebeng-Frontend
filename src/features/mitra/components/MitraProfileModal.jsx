@@ -1,28 +1,68 @@
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mail, Phone, Car, MapPin, ShieldCheck, Settings, X } from 'lucide-react';
+import { Mail, Phone, Car, ShieldCheck, Settings, X } from 'lucide-react';
+import apiClient from '../../../services/apiClient';
 
 const PRIMARY_COLOR = '#4FBF99';
 const PRIMARY_HOVER = '#429f80';
 
-const DEFAULT_PROFILE = {
-  fullName: '',
-  email: '',
-  phone: '',
-  address: '',
-  vehicleType: 'Motor',
-  plateNumber: '',
-  photoDataUrl: '',
+const getFullFileUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('blob:') || path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const baseURL = apiClient.defaults.baseURL
+    ? apiClient.defaults.baseURL.replace('/api', '')
+    : 'http://localhost:3000';
+
+  return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
-export default function MitraProfileModal({ isOpen, onClose, profile, onSettingsClick }) {
+export default function MitraProfileModal({ isOpen, onClose, onSettingsClick }) {
+  const [userData, setUserData] = useState(null);
+  const [vehicleData, setVehicleData] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+
+    const fetchDataFromDb = async () => {
+      try {
+        const [userRes, vehicleRes] = await Promise.all([
+          apiClient.get('/auth/me'),
+          apiClient.get('/vehicles/me'),
+        ]);
+
+        if (isMounted) {
+          if (userRes.data) {
+            setUserData(userRes.data);
+          }
+          const vehicles = Array.isArray(vehicleRes.data) ? vehicleRes.data : [];
+          if (vehicles.length > 0) {
+            setVehicleData(vehicles[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data profil mitra dari DB:', err);
+      }
+    };
+
+    fetchDataFromDb();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const savedProfile = { ...DEFAULT_PROFILE, ...profile };
-  const displayName = savedProfile.fullName.trim() || 'Mitra Pos';
-  const photoDataUrl = savedProfile.photoDataUrl || '';
+  const displayName = userData?.name || 'Mitra Nebeng';
+  const photoUrl = getFullFileUrl(userData?.avatar);
   const initials = displayName.charAt(0).toUpperCase() || 'M';
-  const kendaraan =
-    [savedProfile.vehicleType, savedProfile.plateNumber]
+
+  const kendaraanStr =
+    [vehicleData?.type, vehicleData?.model, vehicleData?.plateNumber]
       .filter(Boolean)
       .join(' • ') || '-';
 
@@ -30,23 +70,18 @@ export default function MitraProfileModal({ isOpen, onClose, profile, onSettings
     {
       icon: Mail,
       label: 'Email',
-      value: savedProfile.email || 'Belum ada email terdaftar',
+      value: userData?.email || '-',
     },
     {
       icon: Phone,
       label: 'No. Telepon',
-      value: savedProfile.phone || '-',
+      value: userData?.phone || '-',
     },
     {
       icon: Car,
       label: 'Kendaraan',
-      value: kendaraan,
-    },
-    {
-      icon: MapPin,
-      label: 'Alamat',
-      value: savedProfile.address || '-',
-    },
+      value: kendaraanStr,
+    }
   ];
 
   return createPortal(
@@ -69,9 +104,9 @@ export default function MitraProfileModal({ isOpen, onClose, profile, onSettings
 
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center font-bold text-[18px] shrink-0 overflow-hidden">
-              {photoDataUrl ? (
+              {photoUrl ? (
                 <img
-                  src={photoDataUrl}
+                  src={photoUrl}
                   alt="Foto Profil"
                   className="w-full h-full object-cover"
                 />
@@ -94,7 +129,7 @@ export default function MitraProfileModal({ isOpen, onClose, profile, onSettings
                   className="text-[9px] font-semibold uppercase tracking-wide truncate"
                   style={{ color: '#d5f7e9' }}
                 >
-                  Mitra
+                  Mitra Terverifikasi
                 </span>
               </div>
             </div>
@@ -129,25 +164,27 @@ export default function MitraProfileModal({ isOpen, onClose, profile, onSettings
               Tutup
             </button>
 
-            <button
-              onClick={() => {
-                onClose && onClose();
-                onSettingsClick && onSettingsClick();
-              }}
-              className="px-4 py-2 text-[10px] font-bold text-white rounded-full cursor-pointer shadow-sm transition flex items-center gap-1.5"
-              style={{
-                backgroundColor: PRIMARY_COLOR,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-              }}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              Pengaturan Akun
-            </button>
+            {onSettingsClick && (
+              <button
+                onClick={() => {
+                  onClose && onClose();
+                  onSettingsClick();
+                }}
+                className="px-4 py-2 text-[10px] font-bold text-white rounded-full cursor-pointer shadow-sm transition flex items-center gap-1.5"
+                style={{
+                  backgroundColor: PRIMARY_COLOR,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                }}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Pengaturan Akun
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -19,7 +19,12 @@ const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 const TODAY_ISO = new Date().toISOString().split('T')[0];
 const PRIMARY_COLOR = '#4FBF99';
 const formatRupiah = (value) => `Rp ${Math.max(0, Math.round(value || 0)).toLocaleString('id-ID')}`;
-const inferServiceType = (trip) => (Number(trip?.maxWeightCapacityKg) > 1 ? 'barang' : 'penumpang');
+const inferServiceType = (trip) => {
+  const rawType = (trip?.serviceType || '').toLowerCase();
+  if (rawType === 'barang') return 'barang';
+  if (rawType === 'mobil' || rawType === 'motor' || rawType === 'penumpang') return 'penumpang';
+  return Number(trip?.maxWeightCapacityKg) > 15 ? 'barang' : 'penumpang';
+};
 
 export default function SearchTrip() {
   const navigate = useNavigate();
@@ -64,53 +69,58 @@ export default function SearchTrip() {
     { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  // Fetch Data aman dari cascading renders
-  useEffect(() => {
-    let ignore = false;
+  // Ganti blok useEffect pemuatan data menjadi seperti ini:
+    useEffect(() => {
+      let ignore = false;
 
-    const loadData = async () => {
-      setIsLoadingTrips(true);
-      try {
-        const params = { date: date || TODAY_ISO };
-        if (origin) params.originPointId = origin;
-        if (destination) params.destinationPointId = destination;
+      const loadData = async () => {
+        setIsLoadingTrips(true);
+        try {
+          const params = {};
+          // Hanya kirim param date jika user memilih tanggal di filter UI
+          if (date) params.date = date;
+          if (origin) params.originPointId = origin;
+          if (destination) params.destinationPointId = destination;
 
-        const [resPoints, resMyOrders, resTrips] = await Promise.all([
-          apiClient.get('/pickup-points', { params: { onlyActive: true } }).catch(() => ({ data: [] })),
-          apiClient.get('/orders/me').catch(() => ({ data: [] })),
-          apiClient.get('/trips', { params }).catch(() => ({ data: { data: [] } })),
-        ]);
+          const [resPoints, resMyOrders, resTrips] = await Promise.all([
+            apiClient.get('/pickup-points', { params: { onlyActive: true } }).catch(() => ({ data: [] })),
+            apiClient.get('/orders/me').catch(() => ({ data: [] })),
+            apiClient.get('/trips', { params }).catch(() => ({ data: { data: [] } })),
+          ]);
 
-        if (ignore) return;
+          if (ignore) return;
 
-        setPickupPoints(resPoints.data || []);
+          setPickupPoints(resPoints.data || []);
 
-        const activeOrders = (resMyOrders.data || []).filter(o => o.status !== 'cancelled');
-        const bookedIds = new Set(activeOrders.map(o => String(o.tripId || o.trip?.id)));
-        setMyBookedTripIds(bookedIds);
+          const activeOrders = (resMyOrders.data || []).filter(o => o.status !== 'cancelled');
+          const bookedIds = new Set(activeOrders.map(o => String(o.tripId || o.trip?.id)));
+          setMyBookedTripIds(bookedIds);
 
-        const list = resTrips.data?.data || resTrips.data || [];
-        const activeList = list.filter((t) => {
-          const tripDateStr = t.departureDate?.split('T')[0];
-          return tripDateStr >= TODAY_ISO && inferServiceType(t) === serviceType;
+          const list = resTrips.data?.data || resTrips.data || [];
+          
+          const activeList = list.filter((t) => {
+          if (t.status === 'cancelled' || t.status === 'CANCELLED') return false;
+
+          const tripCategory = inferServiceType(t);
+          return tripCategory === serviceType;
         });
 
-        setTrips(activeList);
-      } catch (err) {
-        console.error('Gagal memuat trip:', err);
-      } finally {
-        if (!ignore) {
-          setIsLoadingTrips(false);
+          setTrips(activeList);
+        } catch (err) {
+          console.error('Gagal memuat trip:', err);
+        } finally {
+          if (!ignore) {
+            setIsLoadingTrips(false);
+          }
         }
-      }
-    };
+      };
 
-    loadData();
+      loadData();
 
-    return () => {
-      ignore = true;
-    };
-  }, [origin, destination, date, serviceType]);
+      return () => {
+        ignore = true;
+      };
+    }, [origin, destination, date, serviceType]);
 
   const safeSeatCount = Math.max(1, seatCount || 1);
   const safeItemCount = Math.max(1, itemCount || 1);
@@ -283,7 +293,6 @@ export default function SearchTrip() {
         </div>
       </div>
 
-      {/* Filter */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-[10px]">
           <div>
@@ -314,7 +323,6 @@ export default function SearchTrip() {
         </div>
       </div>
 
-      {/* List Results */}
       <div className="space-y-3">
         <h2 className="text-[14px] font-bold text-neutral-800">Hasil Trip Tersedia ({trips.length})</h2>
         {isLoadingTrips ? (
@@ -356,7 +364,14 @@ export default function SearchTrip() {
                     <div className="flex flex-wrap gap-3 text-[9px] text-neutral-400 font-medium">
                       <span>📅 {trip.departureDate?.split('T')[0]}</span>
                       <span>🚗 {trip.vehicle ? `${trip.vehicle.model}` : '-'}</span>
-                      <span>⚡ Sisa Kuota: <strong style={{ color: PRIMARY_COLOR }}>{trip.seatAvailable} Kursi</strong></span>
+                      <span>
+                        ⚡ Sisa Kuota: {' '}
+                        <strong style={{ color: PRIMARY_COLOR }}>
+                          {serviceType === 'barang' 
+                            ? `${trip.remainingWeightCapacityKg ?? trip.maxWeightCapacityKg ?? 0} Kg` 
+                            : `${trip.seatAvailable ?? trip.totalSeats ?? 0} Kursi`}
+                        </strong>
+                      </span>
                     </div>
                   </div>
 
@@ -395,7 +410,6 @@ export default function SearchTrip() {
         )}
       </div>
 
-      {/* Booking Modal */}
       <BaseModal
         isOpen={Boolean(selectedTrip)}
         onClose={() => setSelectedTrip(null)}

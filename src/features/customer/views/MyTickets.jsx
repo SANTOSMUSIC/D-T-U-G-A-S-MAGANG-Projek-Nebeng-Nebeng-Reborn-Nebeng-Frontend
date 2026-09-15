@@ -58,7 +58,6 @@ export default function MyTickets() {
   const [qrCountdown, setQrCountdown] = useState(30);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // State Fitur Chat Backend
   const [chatConversationId, setChatConversationId] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessageText, setNewMessageText] = useState('');
@@ -74,7 +73,6 @@ export default function MyTickets() {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
-  // Mengambil Data Pesanan dan Reward secara aman di dalam useEffect tanpa triggering cascading render
   useEffect(() => {
     let isMounted = true;
 
@@ -90,7 +88,6 @@ export default function MyTickets() {
 
         if (!isMounted) return;
 
-        // 1. Process Orders / Tickets
         const ordersData = resOrders.data?.data || resOrders.data || [];
         const mappedTickets = ordersData.map((order) => {
           const isParcel = order.type === 'parcel' || order.type === 'barang';
@@ -105,8 +102,6 @@ export default function MyTickets() {
             : 'Kendaraan Resmi';
 
           let statusText = 'Aktif';
-          const currentStatusText = order.status;
-
           if (order.status === 'cancelled') {
             statusText = 'Batal';
           } else if (order.status === 'completed') {
@@ -118,6 +113,7 @@ export default function MyTickets() {
             rawId: order.id,
             tripId: trip.id,
             customerId: order.customerId,
+            revieweeId: trip.mitraId || trip.mitra?.id || trip.mitra?.userId,
             type: order.type,
             title: isParcel
               ? `Nebeng Barang (${order.itemOrders?.[0]?.itemCategory || 'Paket'})`
@@ -132,7 +128,7 @@ export default function MyTickets() {
               ? `${order.totalItemsCount || 1} Item (${order.totalWeightKg || 1} Kg)`
               : `${order.seatsBooked || 1} Kursi Penumpang`,
             status: statusText,
-            currentStatusText,
+            currentStatusText: order.status,
             otp: order.otpClaim || null,
             qrCodeTicket: order.qrCodeTicket,
             trackingLogs: [
@@ -170,7 +166,6 @@ export default function MyTickets() {
 
         setTickets(mappedTickets);
 
-        // 2. Process Reward & Points
         const rewardData = resReward.data?.data || resReward.data || {};
         setRewardSummary({
           totalPoints:
@@ -200,7 +195,6 @@ export default function MyTickets() {
     };
   }, [toast]);
 
-  // Polling Pesan Otomatis
   useEffect(() => {
     if (activeModalType !== 'chat') return;
 
@@ -216,7 +210,7 @@ export default function MyTickets() {
           setChatMessages(resMsg.data || []);
         }
       } catch {
-        // Silent catch polling errors
+        // Safe catch
       }
     };
 
@@ -228,7 +222,6 @@ export default function MyTickets() {
     };
   }, [activeModalType]);
 
-  // QR Dynamic Countdown
   useEffect(() => {
     let timer;
     if (activeModalType === 'qr') {
@@ -297,8 +290,6 @@ export default function MyTickets() {
           : 'Kendaraan Resmi';
 
         let statusText = 'Aktif';
-        const currentStatusText = order.status;
-
         if (order.status === 'cancelled') {
           statusText = 'Batal';
         } else if (order.status === 'completed') {
@@ -310,6 +301,7 @@ export default function MyTickets() {
           rawId: order.id,
           tripId: trip.id,
           customerId: order.customerId,
+          revieweeId: trip.mitraId || trip.mitra?.id || trip.mitra?.userId,
           type: order.type,
           title: isParcel
             ? `Nebeng Barang (${order.itemOrders?.[0]?.itemCategory || 'Paket'})`
@@ -324,7 +316,7 @@ export default function MyTickets() {
             ? `${order.totalItemsCount || 1} Item (${order.totalWeightKg || 1} Kg)`
             : `${order.seatsBooked || 1} Kursi Penumpang`,
           status: statusText,
-          currentStatusText,
+          currentStatusText: order.status,
           otp: order.otpClaim || null,
           qrCodeTicket: order.qrCodeTicket,
           trackingLogs: [
@@ -438,15 +430,44 @@ export default function MyTickets() {
     }
   };
 
-  const submitReview = (e) => {
-    e.preventDefault();
-    setActiveModalType(null);
-    toast.success('Ulasan berhasil dikirim!', { title: 'Terkirim' });
-  };
+  // Tambahkan state loading di komponen MyTickets
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const submitReview = async (e) => {
+      e.preventDefault();
+      if (!selectedTicket || isSubmittingReview) return;
+
+      setIsSubmittingReview(true);
+
+      try {
+        const payload = {
+          tripId: String(selectedTicket.tripId),
+          revieweeId: String(selectedTicket.revieweeId),
+          rating: Number(rating),
+          comment: reviewText.trim() || undefined,
+        };
+
+        console.log('Payload Review dikirim:', payload); // Debug payload
+
+        await apiClient.post('/reviews', payload);
+
+        toast.success('Ulasan berhasil dikirim!', { title: 'Terkirim' });
+        setActiveModalType(null);
+        setReviewText('');
+        setRating(5);
+        await refreshData();
+      } catch (err) {
+        console.error('Gagal mengirim ulasan:', err);
+        toast.error(
+          err.response?.data?.message || 'Gagal mengirim ulasan. Coba lagi nanti.',
+          { title: 'Gagal' }
+        );
+      } finally {
+        setIsSubmittingReview(false);
+      }
+    };
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -462,7 +483,6 @@ export default function MyTickets() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-sm">
         <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
@@ -474,7 +494,6 @@ export default function MyTickets() {
         />
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setActiveTab('aktif')}
@@ -508,7 +527,6 @@ export default function MyTickets() {
         </button>
       </div>
 
-      {/* Tickets List */}
       {activeTab !== 'reward' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {isLoadingTickets ? (
@@ -625,7 +643,6 @@ export default function MyTickets() {
           )}
         </div>
       ) : (
-        /* Reward Tab */
         <div className="space-y-5">
           <StatCard
             variant="primary"
@@ -660,7 +677,6 @@ export default function MyTickets() {
         </div>
       )}
 
-      {/* Modal Chat */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'chat')}
         onClose={() => {
@@ -712,7 +728,6 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      {/* Modal QR Code */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'qr')}
         onClose={() => setSelectedTicket(null)}
@@ -740,7 +755,6 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      {/* Modal Detail */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'detail')}
         onClose={() => setSelectedTicket(null)}
@@ -792,37 +806,79 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      {/* Modal Review */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'review')}
-        onClose={() => setSelectedTicket(null)}
+        onClose={() => {
+          if (!isSubmittingReview) setSelectedTicket(null);
+        }}
         title="Beri Ulasan Perjalanan"
         subtitle={`Tiket ${selectedTicket?.id}`}
         maxWidth="max-w-sm"
       >
         <form onSubmit={submitReview} className="space-y-3.5 text-[10px]">
           <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Pilih Rating</label>
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+              Pilih Rating
+            </label>
             <div className="flex gap-2 justify-center py-1">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} type="button" onClick={() => setRating(star)} className="cursor-pointer">
-                  <Star className={`w-6 h-6 ${star <= rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-300'}`} />
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  disabled={isSubmittingReview}
+                  className="cursor-pointer disabled:opacity-50"
+                >
+                  <Star
+                    className={`w-6 h-6 ${
+                      star <= rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-300'
+                    }`}
+                  />
                 </button>
               ))}
             </div>
           </div>
+
           <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Catatan Ulasan</label>
-            <textarea rows="3" value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Bagikan pengalaman Anda mengemudi bersama Mitra Pos..." className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none resize-none" />
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+              Catatan Ulasan
+            </label>
+            <textarea
+              rows="3"
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+              disabled={isSubmittingReview}
+              placeholder="Bagikan pengalaman Anda..."
+              className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none resize-none disabled:opacity-50"
+            />
           </div>
+
           <div className="flex gap-2">
-            <button type="button" onClick={() => setSelectedTicket(null)} className="flex-1 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl font-bold">Batal</button>
-            <button type="submit" className="flex-1 py-2.5 text-white rounded-xl font-bold shadow-sm" style={{ backgroundColor: PRIMARY_COLOR }}>Kirim Ulasan</button>
+            <button
+              type="button"
+              onClick={() => setSelectedTicket(null)}
+              disabled={isSubmittingReview}
+              className="flex-1 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl font-bold disabled:opacity-50"
+            >
+              Batal
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmittingReview}
+              className="flex-1 py-2.5 text-white rounded-xl font-bold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              style={{ backgroundColor: PRIMARY_COLOR }}
+            >
+              {isSubmittingReview ? (
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                'Kirim Ulasan'
+              )}
+            </button>
           </div>
         </form>
       </BaseModal>
 
-      {/* Modal Pembatalan Tiket */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'cancel')}
         onClose={() => { if (!isCancelling) setSelectedTicket(null); }}

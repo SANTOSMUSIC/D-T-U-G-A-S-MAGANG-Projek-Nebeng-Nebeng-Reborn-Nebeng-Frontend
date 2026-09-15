@@ -59,6 +59,24 @@ export default function MitraBalance() {
 
   const MIN_WITHDRAWAL = 50000;
 
+  const calculateTripEscrowAmount = (trip) => {
+    // 1. Jika backend mengembalikan harga/total langsung
+    if (trip.totalEscrow !== undefined) return Number(trip.totalEscrow);
+    if (trip.price !== undefined && !Array.isArray(trip.orders)) return Number(trip.price);
+
+    // 2. Akumulasi dari pesanan (orders) aktif yang terikat pada trip
+    if (Array.isArray(trip.orders) && trip.orders.length > 0) {
+      return trip.orders.reduce((sum, order) => {
+        if (order.status !== 'cancelled') {
+          return sum + Number(order.totalPrice || order.price || 0);
+        }
+        return sum;
+      }, 0);
+    }
+
+    return Number(trip.price || 0);
+  };
+
   const fetchWalletData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -87,8 +105,8 @@ export default function MitraBalance() {
         }
       }
 
-      // 3. Ambil data trip mitra dengan paginasi dan limit
-      const tripsRes = await apiClient.get('/trips', {
+      // 3. Ambil data trip milik mitra sendiri (sesuai endpoint GET /api/trips/me)
+      const tripsRes = await apiClient.get('/trips/me', {
         params: {
           page: escrowPage,
           limit: escrowLimit,
@@ -97,6 +115,8 @@ export default function MitraBalance() {
 
       if (tripsRes.data) {
         const allTrips = Array.isArray(tripsRes.data) ? tripsRes.data : tripsRes.data.data || [];
+        
+        // Filter trip dengan status escrow aktif
         const activeEscrows = allTrips.filter(
           (t) => ['scheduled', 'in_origin_pos', 'in_transit', 'arrived_dest_pos'].includes(t.status)
         );
@@ -466,7 +486,7 @@ export default function MitraBalance() {
                           {tx.originPoint?.name || '-'} → {tx.destinationPoint?.name || '-'}
                         </td>
                         <td className="py-3.5 px-3 font-bold text-neutral-800">
-                          Rp {Number(tx.price || 0).toLocaleString('id-ID')}
+                          Rp {calculateTripEscrowAmount(tx).toLocaleString('id-ID')}
                         </td>
                         <td className="py-3.5 px-3">
                           <StatusBadge variant="amber">

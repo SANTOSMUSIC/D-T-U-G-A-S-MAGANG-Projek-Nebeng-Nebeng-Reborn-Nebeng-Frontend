@@ -79,7 +79,7 @@ export default function MitraQrDisplay() {
       canvasRef.current,
       qrPayload,
       {
-        width: 160,
+        width: 140,
         margin: 1
       },
       (err) => {
@@ -166,7 +166,7 @@ export default function MitraQrDisplay() {
                   >
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="font-bold text-[10px] text-neutral-800 font-mono">
-                        TRIP-{trip.id}
+                        {trip.qrCodeTrip}
                       </span>
                       {trip.status === 'in_transit' ? (
                         <StatusBadge variant="amber">{trip.status}</StatusBadge>

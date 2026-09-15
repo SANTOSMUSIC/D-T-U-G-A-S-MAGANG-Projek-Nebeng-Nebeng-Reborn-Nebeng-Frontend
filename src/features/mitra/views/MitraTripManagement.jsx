@@ -19,14 +19,16 @@ export default function MitraTripManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Ubah modeLayanan ke state lokal visual ('penumpang' | 'barang')
+  const [layananCategory, setLayananCategory] = useState('penumpang');
+
   const [formData, setFormData] = useState({
     originPointId: '',
     destinationPointId: '',
     date: '',
     time: '08:00',
     vehicleId: '',
-    serviceType: 'barang',
-    price: 175000,
+    price: 20000,
     totalSeats: 1,
     maxWeightCapacityKg: 15,
   });
@@ -70,7 +72,8 @@ export default function MitraTripManagement() {
         const initialOrigin = String(allPoints[0].id);
         const initialDestination = String(allPoints[1].id);
         const initialVehicleId = String(myVehicles[0].id);
-        const initialSeats = myVehicles[0].capacitySeats || 1;
+        const isMotor = myVehicles[0].type?.toLowerCase() === 'motor';
+        const initialSeats = isMotor ? 1 : (myVehicles[0].capacitySeats || 1);
         const initialMaxWeight = Number(myVehicles[0].maxWeightCapacityKg) || 15;
 
         let initialPrice = 175000;
@@ -101,20 +104,16 @@ export default function MitraTripManagement() {
     }
   };
 
-  // Safe Effect Lifecycle Call
   useEffect(() => {
     let isMounted = true;
-
     const initData = async () => {
       await loadMitraData(isMounted);
     };
-
     initData();
 
     return () => {
       isMounted = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (e) => {
@@ -145,11 +144,12 @@ export default function MitraTripManagement() {
     const vId = e.target.value;
     const selectedVeh = vehicles.find(v => String(v.id) === vId);
     if (selectedVeh) {
+      const isMotor = selectedVeh.type?.toLowerCase() === 'motor';
       setFormData(prev => {
         const updated = {
           ...prev,
           vehicleId: vId,
-          totalSeats: selectedVeh.capacitySeats || 1,
+          totalSeats: isMotor ? 1 : (selectedVeh.capacitySeats || 1),
           maxWeightCapacityKg: Number(selectedVeh.maxWeightCapacityKg) || 15,
         };
         if (!isPriceManual) {
@@ -182,20 +182,33 @@ export default function MitraTripManagement() {
 
     setIsSubmitting(true);
     try {
-      const departureDateTime = new Date(`${formData.date}T${formData.time}:00Z`).toISOString();
-      const isPenumpang = formData.serviceType === 'penumpang';
-      const totalSeatsPayload = isPenumpang ? Math.max(1, Number(formData.totalSeats) || 1) : 1;
-      const maxWeightCapacityKgPayload = isPenumpang ? 1 : Math.max(1, Number(formData.maxWeightCapacityKg) || 1);
+      const selectedVeh = vehicles.find(v => String(v.id) === String(formData.vehicleId));
+      const vehType = selectedVeh?.type?.toLowerCase() || 'mobil';
+      const isMotor = vehType === 'motor';
+
+      // Menyesuaikan serviceType yang valid untuk backend: mobil | motor | barang
+      const finalServiceType = layananCategory === 'barang' ? 'barang' : vehType;
+
+      const isPenumpang = layananCategory === 'penumpang';
+
+      const totalSeatsPayload = isPenumpang 
+        ? (isMotor ? 1 : Math.max(1, Number(formData.totalSeats) || 1)) 
+        : (selectedVeh?.capacitySeats || 1);
+
+      const maxWeightCapacityKgPayload = isPenumpang 
+        ? Number(selectedVeh?.maxWeightCapacityKg || 15) 
+        : Math.max(1, Number(formData.maxWeightCapacityKg) || 1);
 
       await apiClient.post('/trips', {
         vehicleId: String(formData.vehicleId),
         originPointId: String(formData.originPointId),
         destinationPointId: String(formData.destinationPointId),
-        departureDate: departureDateTime,
-        departureTime: departureDateTime,
+        departureDate: formData.date,
+        departureTime: `${formData.date}T${formData.time}:00.000Z`,
         price: Number(formData.price),
         totalSeats: totalSeatsPayload,
         maxWeightCapacityKg: maxWeightCapacityKgPayload,
+        serviceType: finalServiceType, // Menyesuaikan enum Prisma (mobil | motor | barang)
       });
 
       toast.success('Trip baru berhasil dibuat dan dipublikasikan!', { title: 'Sukses' });
@@ -253,25 +266,42 @@ export default function MitraTripManagement() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, serviceType: 'penumpang' }))}
+                  onClick={() => {
+                    const selectedVeh = vehicles.find(v => String(v.id) === String(formData.vehicleId));
+                    const isMotor = selectedVeh?.type?.toLowerCase() === 'motor';
+                    setLayananCategory('penumpang');
+                    setFormData(prev => ({
+                      ...prev,
+                      totalSeats: isMotor ? 1 : (selectedVeh?.capacitySeats || 1),
+                      maxWeightCapacityKg: Number(selectedVeh?.maxWeightCapacityKg) || 15
+                    }));
+                  }}
                   className={`py-2 px-3 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                    formData.serviceType === 'penumpang' 
+                    layananCategory === 'penumpang' 
                       ? 'text-white shadow-sm' 
                       : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
                   }`}
-                  style={formData.serviceType === 'penumpang' ? { backgroundColor: PRIMARY_COLOR } : undefined}
+                  style={layananCategory === 'penumpang' ? { backgroundColor: PRIMARY_COLOR } : undefined}
                 >
                   <Users className="w-3 h-3" /> Penumpang
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, serviceType: 'barang' }))}
+                  onClick={() => {
+                    const selectedVeh = vehicles.find(v => String(v.id) === String(formData.vehicleId));
+                    setLayananCategory('barang');
+                    setFormData(prev => ({
+                      ...prev,
+                      totalSeats: selectedVeh?.capacitySeats || 1,
+                      maxWeightCapacityKg: Number(selectedVeh?.maxWeightCapacityKg) || 15
+                    }));
+                  }}
                   className={`py-2 px-3 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                    formData.serviceType === 'barang' 
+                    layananCategory === 'barang' 
                       ? 'text-white shadow-sm' 
                       : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
                   }`}
-                  style={formData.serviceType === 'barang' ? { backgroundColor: PRIMARY_COLOR } : undefined}
+                  style={layananCategory === 'barang' ? { backgroundColor: PRIMARY_COLOR } : undefined}
                 >
                   <Package className="w-3 h-3" /> Barang
                 </button>
@@ -356,33 +386,55 @@ export default function MitraTripManagement() {
               </select>
             </div>
 
-            {formData.serviceType === 'penumpang' ? (
-              <div>
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Kapasitas Kursi</label>
-                <input 
-                  type="number" 
-                  name="totalSeats" 
-                  min={1}
-                  required
-                  value={formData.totalSeats} 
-                  onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
-                />
-              </div>
-            ) : (
-              <div>
-                <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Kapasitas Bagasi (Kg)</label>
-                <input 
-                  type="number" 
-                  name="maxWeightCapacityKg" 
-                  min={1}
-                  required
-                  value={formData.maxWeightCapacityKg} 
-                  onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
-                />
-              </div>
-            )}
+            {(() => {
+              const selectedVehicle = vehicles.find(v => String(v.id) === String(formData.vehicleId));
+              const isMotor = selectedVehicle?.type?.toLowerCase() === 'motor';
+              const maxSeatsAllowed = isMotor ? 1 : (selectedVehicle?.capacitySeats || 6);
+              const maxWeightAllowed = Number(selectedVehicle?.maxWeightCapacityKg) || 15;
+
+              if (layananCategory === 'penumpang') {
+                return (
+                  <div>
+                    <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                      Kapasitas Kursi {isMotor ? '(Terkunci 1 Kursi untuk Motor)' : `(Maks: ${maxSeatsAllowed} Kursi)`}
+                    </label>
+                    <input 
+                      type="number" 
+                      name="totalSeats" 
+                      min={1}
+                      max={maxSeatsAllowed}
+                      disabled={isMotor}
+                      required
+                      value={isMotor ? 1 : formData.totalSeats} 
+                      onChange={handleChange}
+                      className={`w-full px-3.5 py-2.5 border rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99] ${
+                        isMotor 
+                          ? 'bg-neutral-100 border-neutral-200 opacity-60 cursor-not-allowed' 
+                          : 'bg-neutral-50 border-neutral-200'
+                      }`}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                    Kapasitas Bagasi (Kg) {selectedVehicle ? `(Maks: ${maxWeightAllowed} Kg)` : ''}
+                  </label>
+                  <input 
+                    type="number" 
+                    name="maxWeightCapacityKg" 
+                    min={1}
+                    max={maxWeightAllowed}
+                    required
+                    value={formData.maxWeightCapacityKg} 
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
+                  />
+                </div>
+              );
+            })()}
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Tarif Trip (Rp)</label>
@@ -452,13 +504,13 @@ export default function MitraTripManagement() {
                         {trip.vehicle?.type === 'motor' ? <Bike className="w-2.5 h-2.5" /> : <Car className="w-2.5 h-2.5" />} {trip.vehicle?.model || 'Kendaraan'}
                       </span>
 
-                      {Number(trip.maxWeightCapacityKg) > 1 ? (
-                        <span className="px-2 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-1" style={{ backgroundColor: `${PRIMARY_ACCENT}18`, color: PRIMARY_COLOR, border: `1px solid ${PRIMARY_ACCENT}35` }}>
-                          <Package className="w-2.5 h-2.5" /> Barang • {trip.maxWeightCapacityKg} Kg
-                        </span>
+                      {trip.serviceType === 'barang' ? (
+                        <StatusBadge variant="purple">
+                          <Package className="w-2.5 h-2.5" /> Barang • Kursi: {trip.seatTotal ?? trip.totalSeats} | Bagasi: {trip.remainingWeightCapacityKg ?? trip.maxWeightCapacityKg} Kg
+                        </StatusBadge>
                       ) : (
                         <span className="px-2 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-1" style={{ backgroundColor: `${PRIMARY_ACCENT}18`, color: PRIMARY_COLOR, border: `1px solid ${PRIMARY_ACCENT}35` }}>
-                          <Users className="w-2.5 h-2.5" /> Penumpang • {trip.seatTotal} Kursi
+                          <Users className="w-2.5 h-2.5" /> {trip.serviceType?.toUpperCase()} • Kursi: {trip.seatTotal ?? trip.totalSeats}
                         </span>
                       )}
                     </div>
@@ -470,7 +522,7 @@ export default function MitraTripManagement() {
 
                     <div className="flex items-center gap-3 text-[9px] text-neutral-400 font-medium">
                       <span>{trip.departureDate?.split('T')[0]} • {trip.departureTime ? trip.departureTime.split('T')[1]?.substring(0,5) : '-'} WIB</span>
-                      <span>Kursi: {trip.seatAvailable}/{trip.seatTotal} | Bagasi: {trip.remainingWeightCapacityKg} Kg</span>
+                      <span>Kursi: {trip.seatAvailable ?? trip.totalSeats}/{trip.seatTotal ?? trip.totalSeats} | Bagasi: {trip.remainingWeightCapacityKg ?? trip.maxWeightCapacityKg} Kg</span>
                     </div>
                   </div>
 

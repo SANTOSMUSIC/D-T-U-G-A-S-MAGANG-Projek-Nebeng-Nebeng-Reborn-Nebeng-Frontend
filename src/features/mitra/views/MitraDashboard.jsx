@@ -51,36 +51,55 @@ function formatTripSchedule(dateStr, timeStr) {
 
 export default function MitraDashboard() {
   const [trips, setTrips] = useState([]);
+  const [ratingStats, setRatingStats] = useState({ averageRating: 0, totalReviews: 0 });
   const [wallet, setWallet] = useState({
     balance: 0,
     heldEscrowBalance: 0
   });
   const [isLoading, setIsLoading] = useState(false);
 
+  // MitraDashboard.jsx
   useEffect(() => {
     let isMounted = true;
 
     const fetchMitraData = async () => {
       setIsLoading(true);
-
       try {
-        const [resMyTrips, resWallet] = await Promise.all([
+        const [resMyTrips, resWallet, resRating] = await Promise.all([
           apiClient.get('/trips/me').catch(() => ({ data: [] })),
           apiClient.get('/wallets/me').catch(() => ({
             data: { balance: 0, heldEscrowBalance: 0 }
           })),
+          apiClient.get('/reviews/me').catch(() => ({
+            data: { averageRating: 0, totalReviews: 0, reviews: [] }
+          })),
         ]);
 
-        const myTrips = resMyTrips.data?.data || resMyTrips.data || [];
+        const rawTrips = resMyTrips.data?.data || resMyTrips.data || [];
+        const ratingData = resRating.data || { averageRating: 0, totalReviews: 0, reviews: [] };
+        const reviewsList = ratingData.reviews || [];
+
+        // 💡 Petakan rating ulasan ke tiap-tiap trip yang sesuai
+        const mappedTrips = rawTrips.map((trip) => {
+          const tripReview = reviewsList.find(
+            (rev) => String(rev.tripId) === String(trip.id)
+          );
+          return {
+            ...trip,
+            rating: tripReview ? tripReview.rating : null
+          };
+        });
 
         if (isMounted) {
-          setTrips(myTrips);
-          setWallet(
-            resWallet.data || { balance: 0, heldEscrowBalance: 0 }
-          );
+          setTrips(mappedTrips);
+          setWallet(resWallet.data || { balance: 0, heldEscrowBalance: 0 });
+          setRatingStats({
+            averageRating: ratingData.averageRating || 0,
+            totalReviews: ratingData.totalReviews ?? ratingData.totalReviewa ?? 0
+          });
         }
       } catch (err) {
-        console.error('Gagal memuat data dashboard mitra dari server:', err);
+        console.error('Gagal memuat data dashboard mitra:', err);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -90,8 +109,12 @@ export default function MitraDashboard() {
 
     fetchMitraData();
 
+    const handleFocus = () => fetchMitraData();
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -103,16 +126,18 @@ export default function MitraDashboard() {
 
   const recentHistory = trips
     .filter((t) => t.status === 'completed')
-    .slice(0, 2);
+    .sort((a, b) => Number(b.id) - Number(a.id))
+    .slice(0, 3);
 
   const availableBalance = Number(wallet.balance || 0);
   const escrowHold = Number(wallet.heldEscrowBalance || 0);
   const totalWallet = availableBalance + escrowHold;
 
-  const completedCount = trips.filter((t) => t.status === 'completed').length;
-  const ratingDisplay = completedCount > 0 ? '5.0 / 5.0' : 'Belum ada rating';
-  const ratingSubtitle = completedCount > 0
-    ? `Berdasarkan ${completedCount} trip selesai`
+  const ratingDisplay = ratingStats.totalReviews > 0 
+    ? `${Number(ratingStats.averageRating).toFixed(1)} / 5.0` 
+    : 'Belum ada rating';
+  const ratingSubtitle = ratingStats.totalReviews > 0
+    ? `Berdasarkan ${ratingStats.totalReviews} ulasan`
     : 'Belum ada ulasan perjalanan';
 
   return (
@@ -335,10 +360,16 @@ export default function MitraDashboard() {
                     <span>
                       {history.departureDate?.split('T')[0]}
                     </span>
-                    <div className="flex items-center gap-1 text-amber-500 font-bold">
-                      <Star className="w-2.5 h-2.5 fill-current" />
-                      <span>5.0</span>
-                    </div>
+                    {history.rating ? (
+                      <div className="flex items-center gap-1 text-amber-500 font-bold">
+                        <Star className="w-2.5 h-2.5 fill-current" />
+                        <span>{Number(history.rating).toFixed(1)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[8px] text-neutral-400 italic">
+                        Belum ada ulasan
+                      </span>
+                    )}
                   </div>
                 </div>
               ))
