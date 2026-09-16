@@ -14,6 +14,8 @@ const PRIMARY_ACCENT = '#66CDAA';
 export default function OperatorFinancial() {
   const { user } = useAuth();
   const [dailyTransactions, setDailyTransactions] = useState([]);
+  const [serverTotalRevenue, setServerTotalRevenue] = useState(0); // Penyesuaian: Total Revenue dari Server
+  const [posInfo, setPosInfo] = useState(null); // Penyesuaian: Informasi Pos dari Server
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
   useEffect(() => {
@@ -24,7 +26,16 @@ export default function OperatorFinancial() {
         if (isMounted) setIsLoadingTransactions(true);
 
         const responseData = await operatorService.getPayments();
-        const dataArray = Array.isArray(responseData) ? responseData : responseData?.data || [];
+
+        // Penyesuaian: Mengekstrak data array dan posSummary dari struktur API baru
+        const dataArray = Array.isArray(responseData)
+          ? responseData
+          : responseData?.data || [];
+
+        if (responseData?.posSummary) {
+          setPosInfo(responseData.posSummary);
+          setServerTotalRevenue(responseData.posSummary.totalRevenue || 0);
+        }
 
         const formatted = dataArray.map((trx, index) => {
           const gateway = trx.paymentGateway || 'MANUAL_SIMULATION';
@@ -53,10 +64,18 @@ export default function OperatorFinancial() {
 
         if (isMounted) {
           setDailyTransactions(formatted);
+          // Fallback kalkulasi manual jika posSummary dari server kosong
+          if (!responseData?.posSummary) {
+            const calculatedTotal = formatted.reduce((acc, curr) => acc + curr.amount, 0);
+            setServerTotalRevenue(calculatedTotal);
+          }
         }
       } catch (error) {
         console.error('Gagal mengambil data keuangan dari database:', error);
-        if (isMounted) setDailyTransactions([]);
+        if (isMounted) {
+          setDailyTransactions([]);
+          setServerTotalRevenue(0);
+        }
       } finally {
         if (isMounted) setIsLoadingTransactions(false);
       }
@@ -69,7 +88,8 @@ export default function OperatorFinancial() {
     };
   }, []);
 
-  const totalRevenue = dailyTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+  // Penyesuaian: Menggunakan total revenue gabungan dari server
+  const totalRevenue = serverTotalRevenue;
   const qrisRevenue = dailyTransactions
     .filter((t) => t.type === 'QRIS')
     .reduce((acc, curr) => acc + curr.amount, 0);
@@ -86,19 +106,14 @@ export default function OperatorFinancial() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      {/* CSS Khusus untuk Mengatur Skenario Print Formats Resmi */}
       <style>{`
         @media print {
-          /* Sembunyikan SEMUA elemen layout luar (Sidebar, Topbar, dll) */
           body * {
             visibility: hidden;
           }
-          
-          /* Hanya tampilkan kontainer printable */
           #print-area, #print-area * {
             visibility: visible;
           }
-
           #print-area {
             position: absolute;
             left: 0;
@@ -109,19 +124,17 @@ export default function OperatorFinancial() {
             background: white !important;
             color: black !important;
           }
-
           @page {
             size: A4 portrait;
             margin: 15mm;
           }
-
           .no-print {
             display: none !important;
           }
         }
       `}</style>
 
-      {/* TAMPILAN WEB (Aplikasi Layar) */}
+      {/* TAMPILAN WEB */}
       <div className="space-y-6 no-print">
         {/* Header Dashboard */}
         <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -136,7 +149,7 @@ export default function OperatorFinancial() {
                 style={{ color: PRIMARY_COLOR }}
               >
                 <FileText className="w-3 h-3" />
-                REKAPITULASI KAS & PENDAPATAN POS (DATABASE)
+                REKAPITULASI KAS & PENDAPATAN POS ({posInfo?.posName || 'TERMINAL'})
               </span>
             </div>
             <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
@@ -168,7 +181,7 @@ export default function OperatorFinancial() {
           <StatCard
             title="TOTAL PENDAPATAN POS"
             value={`Rp ${totalRevenue.toLocaleString('id-ID')}`}
-            subtitle={`${dailyTransactions.length} transaksi hari ini`}
+            subtitle={`Total omzet terdaftar`}
             icon={DollarSign}
           />
           <StatCard
@@ -242,15 +255,14 @@ export default function OperatorFinancial() {
         </div>
       </div>
 
-      {/* LAYOUT KHUSUS CETAK DOKUMEN RESMI (Hanya Tampil Saat Print) */}
+      {/* LAYOUT KHUSUS CETAK DOKUMEN RESMI */}
       <div id="print-area" className="hidden print:block text-black">
-        {/* Kop Surat Dokumen Resmi */}
         <div className="border-b-2 border-black pb-4 mb-5 flex justify-between items-end">
           <div>
             <h1 className="text-xl font-black tracking-wide uppercase">NEBENG SYSTEM</h1>
             <p className="text-xs font-semibold uppercase">Laporan Rekapitulasi Kasir & Kas Pos Operasional</p>
             <p className="text-[10px] text-gray-600">
-              Pos: {user?.assignedPickupPointName || user?.posName || 'Pos Terminal Utama'}
+              Pos: {posInfo?.posName || user?.assignedPickupPointName || user?.posName || 'Pos Terminal Utama'}
             </p>
           </div>
           <div className="text-right text-[10px]">
@@ -259,7 +271,6 @@ export default function OperatorFinancial() {
           </div>
         </div>
 
-        {/* Ringkasan Angka Kas (KOTAK RINGKASAN RESMI) */}
         <div className="grid grid-cols-3 gap-4 mb-6 text-center">
           <div className="border border-black p-2.5 rounded">
             <p className="text-[9px] font-bold uppercase text-gray-700">Total Transaksi Pos</p>
@@ -278,7 +289,6 @@ export default function OperatorFinancial() {
           </div>
         </div>
 
-        {/* Tabel Rincian Transaksi */}
         <div className="mb-8">
           <h2 className="text-xs font-bold uppercase mb-2 border-b border-gray-400 pb-1">
             Rincian Transaksi Shift
@@ -315,7 +325,6 @@ export default function OperatorFinancial() {
           </table>
         </div>
 
-        {/* Kolom Tanda Tangan Pengesahan (Persyaratan Dokumen Keuangan) */}
         <div className="grid grid-cols-2 gap-8 text-center text-[10px] pt-4 mt-8 break-inside-avoid">
           <div>
             <p className="font-bold">Diserahkan Oleh (Operator Shift),</p>

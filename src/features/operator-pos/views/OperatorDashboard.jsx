@@ -50,10 +50,11 @@ export default function OperatorDashboard() {
     const loadOperatorData = async () => {
       setIsLoadingTrips(true);
       try {
+        // Panggil API dengan operatorPosId (jika ada)
         const result = await operatorService.getTrips({
           page: currentPage,
           limit: limit,
-          posId: operatorPosId,
+          ...(operatorPosId && { posId: operatorPosId }),
         });
 
         if (!isMounted) return;
@@ -73,9 +74,11 @@ export default function OperatorDashboard() {
             }
           }
 
-          const isIncoming = operatorPosId
-            ? String(t.destinationPointId) === String(operatorPosId)
-            : false;
+          // Cek apakah trip menuju pos operator ini
+          const isIncoming =
+            operatorPosId && t.destinationPointId
+              ? String(t.destinationPointId) === String(operatorPosId)
+              : false;
 
           return {
             id: String(t.id),

@@ -217,7 +217,7 @@ export default function MitraQrDisplay() {
                   )}
                 </div>
                 <p className="text-neutral-900 font-bold text-[12px] font-mono mt-2">
-                  TRIP-{current?.id}
+                  {current?.qrCodeTrip}
                 </p>
                 <p className="text-neutral-400 text-[9px] font-medium">
                   {current?.originPoint?.name} &rarr; {current?.destinationPoint?.name}

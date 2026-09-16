@@ -90,6 +90,7 @@ export default function CustomerLayout() {
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
           profile={customerProfile}
+          onSettingsClick={() => navigate('/customer/profile/pengaturan')}
         />
       )}
     </div>
