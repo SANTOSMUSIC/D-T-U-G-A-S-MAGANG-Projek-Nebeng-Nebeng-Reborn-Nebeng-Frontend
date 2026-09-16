@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react';
+import apiClient from '../services/apiClient';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'nebeng_auth';
@@ -42,10 +43,37 @@ export function AuthProvider({ children }) {
     setAuthState({ session: nextSession, persisted: remember });
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_KEY);
-    setAuthState({ session: null, persisted: false });
+  const checkAuthStatus = useCallback(async () => {
+      try {
+        const res = await apiClient.get('/auth/me');
+        if (res.data) {
+          setAuthState((prev) => {
+            if (!prev.session) return prev;
+            const nextSession = {
+              ...prev.session,
+              customerVerified: res.data.statusVerification === 'approved',
+              customerProfile: { ...prev.session.customerProfile, ...res.data },
+            };
+            const storage = prev.persisted ? localStorage : sessionStorage;
+            storage.setItem(STORAGE_KEY, JSON.stringify(nextSession));
+            return { ...prev, session: nextSession };
+          });
+        }
+      } catch (err) {
+        console.error('Gagal memperbarui AuthStatus:', err);
+      }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await apiClient.post('/auth/logout/');
+    } catch (err) {
+      console.error('Gagal mengirim permintaan logout ke server:', err);
+    } finally {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
+      setAuthState({ session: null, persisted: false });
+    }
   }, []);
 
   const markCustomerVerified = useCallback((profileData = {}) => {
@@ -128,6 +156,7 @@ export function AuthProvider({ children }) {
     login,
     logout,
     markCustomerVerified,
+    checkAuthStatus,
     updateCustomerProfile,
     updateAdminProfile,
     updateMitraProfile,

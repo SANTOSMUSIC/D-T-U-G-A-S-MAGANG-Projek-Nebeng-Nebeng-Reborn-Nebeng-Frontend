@@ -27,14 +27,16 @@ export default function CustomerSidebar({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    {
-      name: 'Onboarding Biometrik',
-      icon: UserCheck,
-      locked: isCustomerVerified,
-      label: isCustomerVerified
-        ? 'Terverifikasi (Selesai)'
-        : 'Onboarding Biometrik',
-    },
+    ...(!isCustomerVerified
+      ? [
+          {
+            name: 'Onboarding Biometrik',
+            icon: UserCheck,
+            locked: false,
+            label: 'Onboarding Biometrik',
+          },
+        ]
+      : []),
     {
       name: 'Cari & Booking Trip',
       icon: Compass,
@@ -52,12 +54,16 @@ export default function CustomerSidebar({
     },
   ];
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
-
-    setTimeout(() => {
-      if (onLogout) onLogout();
-    }, 400);
+    try {
+      if (onLogout) {
+        await onLogout();
+      }
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
   };
 
   const handleMenuSelect = (item) => {

@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Compass, 
   Search, 
-  ArrowRight,   
+  ArrowRight,    
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  KeyRound 
 } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -19,6 +20,7 @@ const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
 const TODAY_ISO = new Date().toISOString().split('T')[0];
 const PRIMARY_COLOR = '#4FBF99';
 const formatRupiah = (value) => `Rp ${Math.max(0, Math.round(value || 0)).toLocaleString('id-ID')}`;
+
 const inferServiceType = (trip) => {
   const rawType = (trip?.serviceType || '').toLowerCase();
   if (rawType === 'barang') return 'barang';
@@ -40,6 +42,9 @@ export default function SearchTrip() {
   const [trips, setTrips] = useState([]);
   const [myBookedTripIds, setMyBookedTripIds] = useState(new Set());
   const [isLoadingTrips, setIsLoadingTrips] = useState(false);
+
+  const [userProfile, setUserProfile] = useState(null);
+  const [showPinWarningModal, setShowPinWarningModal] = useState(false);
 
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [bookingStep, setBookingStep] = useState('form');
@@ -69,73 +74,76 @@ export default function SearchTrip() {
     { code: 'XL', label: 'XL (> 20 kg)', weight: 25 },
   ];
 
-  // Ganti blok useEffect pemuatan data menjadi seperti ini:
-    useEffect(() => {
-      let ignore = false;
+  useEffect(() => {
+    let ignore = false;
 
-      const loadData = async () => {
-        setIsLoadingTrips(true);
-        try {
-          const params = {};
-          // Hanya kirim param date jika user memilih tanggal di filter UI
-          if (date) params.date = date;
-          if (origin) params.originPointId = origin;
-          if (destination) params.destinationPointId = destination;
+    const loadData = async () => {
+      setIsLoadingTrips(true);
+      try {
+        const params = {};
+        if (date) params.date = date;
+        if (origin) params.originPointId = origin;
+        if (destination) params.destinationPointId = destination;
 
-          const [resPoints, resMyOrders, resTrips] = await Promise.all([
-            apiClient.get('/pickup-points', { params: { onlyActive: true } }).catch(() => ({ data: [] })),
-            apiClient.get('/orders/me').catch(() => ({ data: [] })),
-            apiClient.get('/trips', { params }).catch(() => ({ data: { data: [] } })),
-          ]);
+        const [resMe, resPoints, resMyOrders, resTrips] = await Promise.all([
+          apiClient.get('/auth/me').catch(() => ({ data: null })),
+          apiClient.get('/pickup-points', { params: { onlyActive: true } }).catch(() => ({ data: [] })),
+          apiClient.get('/orders/me').catch(() => ({ data: [] })),
+          apiClient.get('/trips', { params }).catch(() => ({ data: { data: [] } })),
+        ]);
 
-          if (ignore) return;
+        if (ignore) return;
 
-          setPickupPoints(resPoints.data || []);
+        if (resMe.data) {
+          setUserProfile(resMe.data);
+        }
 
-          const activeOrders = (resMyOrders.data || []).filter(o => o.status !== 'cancelled');
-          const bookedIds = new Set(activeOrders.map(o => String(o.tripId || o.trip?.id)));
-          setMyBookedTripIds(bookedIds);
+        setPickupPoints(resPoints.data || []);
 
-          const list = resTrips.data?.data || resTrips.data || [];
-          
-          const activeList = list.filter((t) => {
+        const activeOrders = (resMyOrders.data || []).filter(o => o.status !== 'cancelled');
+        const bookedIds = new Set(activeOrders.map(o => String(o.tripId || o.trip?.id)));
+        setMyBookedTripIds(bookedIds);
+
+        const list = resTrips.data?.data || resTrips.data || [];
+        
+        const activeList = list.filter((t) => {
           if (t.status === 'cancelled' || t.status === 'CANCELLED') return false;
-
           const tripCategory = inferServiceType(t);
           return tripCategory === serviceType;
         });
 
-          setTrips(activeList);
-        } catch (err) {
-          console.error('Gagal memuat trip:', err);
-        } finally {
-          if (!ignore) {
-            setIsLoadingTrips(false);
-          }
+        setTrips(activeList);
+      } catch (err) {
+        console.error('Gagal memuat trip:', err);
+      } finally {
+        if (!ignore) {
+          setIsLoadingTrips(false);
         }
-      };
+      }
+    };
 
-      loadData();
+    loadData();
 
-      return () => {
-        ignore = true;
-      };
-    }, [origin, destination, date, serviceType]);
+    return () => {
+      ignore = true;
+    };
+  }, [origin, destination, date, serviceType]);
 
-  const safeSeatCount = Math.max(1, seatCount || 1);
+  const maxAllowedSeats = selectedTrip?.vehicle?.type === 'motor' 
+    ? 1 
+    : (selectedTrip?.seatAvailable ?? selectedTrip?.totalSeats ?? 1);
+
+  const safeSeatCount = Math.min(Math.max(1, seatCount || 1), maxAllowedSeats);
   const safeItemCount = Math.max(1, itemCount || 1);
   const safeItemWeight = Math.max(1, itemWeight || 1);
   const totalAccumulatedWeight = safeItemCount * safeItemWeight;
 
   const isOverWeightCapacity =
     serviceType === 'barang' &&
-    totalAccumulatedWeight > (selectedTrip?.remainingWeightCapacityKg || 0);
-
-  const maxAllowedSeats =
-    selectedTrip?.vehicle?.type === 'motor' ? 1 : selectedTrip?.seatAvailable || 1;
+    totalAccumulatedWeight > (selectedTrip?.remainingWeightCapacityKg || selectedTrip?.maxWeightCapacityKg || 0);
 
   const isOverSeatCapacity =
-    serviceType === 'penumpang' && safeSeatCount > maxAllowedSeats;
+    serviceType === 'penumpang' && (seatCount > maxAllowedSeats || seatCount < 1);
 
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
@@ -157,6 +165,24 @@ export default function SearchTrip() {
   const basePrice = selectedTrip?.price || 0;
   const totalPrice = basePrice * quantity;
 
+  const handleSeatChange = (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (isNaN(val) || val < 1) {
+      setSeatCount(1);
+    } else if (val > maxAllowedSeats) {
+      setSeatCount(maxAllowedSeats);
+    } else {
+      setSeatCount(val);
+    }
+  };
+
+  const handlePhoneChange = (val, setter) => {
+    const cleaned = val.replace(/[^0-9+]/g, '');
+    if (cleaned.length <= 14) {
+      setter(cleaned);
+    }
+  };
+
   const handleSizeChange = (sizeCode) => {
     setItemSize(sizeCode);
     const selectedOpt = sizeOptions.find((opt) => opt.code === sizeCode);
@@ -164,13 +190,20 @@ export default function SearchTrip() {
   };
 
   const handleOpenBooking = (trip) => {
+    const hasPinConfigured = Boolean(userProfile?.hasPin || userProfile?.pinHash);
+
+    if (!hasPinConfigured) {
+      setShowPinWarningModal(true);
+      return;
+    }
+
     setSelectedTrip(trip);
     setBookingStep('form');
     setPin(['', '', '', '', '', '']);
     setIsCheckingOut(false);
     setSeatCount(1);
-    setPassengerName('');
-    setPassengerPhone('');
+    setPassengerName(userProfile?.name || '');
+    setPassengerPhone(userProfile?.phone || '');
     setItemCategory('Elektronik');
     setItemCount(1);
     setItemWeight(7);
@@ -268,9 +301,14 @@ export default function SearchTrip() {
       });
 
       setBookingStep('success');
-      toast.success('Pembayaran sukses!', { title: 'Sukses' });
+      toast.success('Pemesanan & Otorisasi PIN berhasil!', { title: 'Sukses' });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Gagal memproses pembayaran.', { title: 'Gagal' });
+      const errorMsg = error.response?.data?.message || 'Gagal memproses transaksi.';
+      toast.error(errorMsg, { title: 'Gagal' });
+
+      if (errorMsg.toLowerCase().includes('pin')) {
+        setBookingStep('pin');
+      }
     } finally {
       setIsCheckingOut(false);
     }
@@ -411,9 +449,46 @@ export default function SearchTrip() {
       </div>
 
       <BaseModal
+        isOpen={showPinWarningModal}
+        onClose={() => setShowPinWarningModal(false)}
+        title="PIN Transaksi Belum Dibuat"
+        subtitle="Keamanan Akun"
+        maxWidth="max-w-sm"
+      >
+        <div className="text-center space-y-4 text-[11px] py-2">
+          <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-200">
+            <KeyRound className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="font-bold text-neutral-800 text-[13px]">Atur PIN Transaksi Anda</p>
+            <p className="text-neutral-500 leading-relaxed text-[10px]">
+              Untuk alasan keamanan transaksi, Anda diwajibkan membuat 6-digit PIN Transaksi terlebih dahulu sebelum melakukan pemesanan.
+            </p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setShowPinWarningModal(false)}
+              className="w-1/2 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl font-bold transition"
+            >
+              Batal
+            </button>
+            <button
+              onClick={() => {
+                setShowPinWarningModal(false);
+                navigate('/customer/profile/pengaturan');
+              }}
+              className="w-1/2 py-2.5 bg-[#4FBF99] hover:bg-[#429f80] text-white rounded-xl font-bold transition shadow-sm"
+            >
+              Buat PIN Sekarang
+            </button>
+          </div>
+        </div>
+      </BaseModal>
+
+      <BaseModal
         isOpen={Boolean(selectedTrip)}
         onClose={() => setSelectedTrip(null)}
-        title={bookingStep === 'form' ? 'Formulir Pemesanan' : bookingStep === 'pin' ? 'Checkout & PIN' : 'Selesai'}
+        title={bookingStep === 'form' ? 'Formulir Pemesanan' : bookingStep === 'pin' ? 'Konfirmasi PIN' : 'Selesai'}
         subtitle="Booking Engine"
         maxWidth="max-w-md"
       >
@@ -422,17 +497,45 @@ export default function SearchTrip() {
             {serviceType === 'penumpang' ? (
               <>
                 <div>
-                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Jumlah Kursi</label>
-                  <input type="number" min="1" max={maxAllowedSeats} value={seatCount} onChange={(e) => setSeatCount(parseInt(e.target.value, 10) || 1)} className="w-full p-2 bg-neutral-50 border rounded-xl font-bold" />
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">
+                    Jumlah Kursi (Maks: {maxAllowedSeats})
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={maxAllowedSeats}
+                    value={seatCount}
+                    onChange={handleSeatChange}
+                    className="w-full p-2 bg-neutral-50 border rounded-xl font-bold"
+                  />
+                  {seatCount > maxAllowedSeats && (
+                    <p className="text-[9px] text-rose-500 mt-0.5">Jumlah kursi melebihi sisa kuota!</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Nama Penumpang</label>
-                    <input type="text" required value={passengerName} onChange={(e) => setPassengerName(e.target.value)} className="w-full p-2 bg-neutral-50 border rounded-xl font-bold" />
+                    <input
+                      type="text"
+                      required
+                      value={passengerName}
+                      onChange={(e) => setPassengerName(e.target.value)}
+                      className="w-full p-2 bg-neutral-50 border rounded-xl font-bold"
+                    />
                   </div>
                   <div>
                     <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">No. WhatsApp</label>
-                    <input type="text" required value={passengerPhone} onChange={(e) => setPassengerPhone(e.target.value)} className="w-full p-2 bg-neutral-50 border rounded-xl font-bold" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="08123456789"
+                      value={passengerPhone}
+                      onChange={(e) => handlePhoneChange(e.target.value, setPassengerPhone)}
+                      className="w-full p-2 bg-neutral-50 border rounded-xl font-bold"
+                    />
+                    {!isPassengerPhoneValid && passengerPhone.length > 0 && (
+                      <p className="text-[9px] text-rose-500 mt-0.5">Format nomor tidak valid</p>
+                    )}
                   </div>
                 </div>
               </>
@@ -461,43 +564,90 @@ export default function SearchTrip() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Nama Penerima</label>
-                    <input type="text" required value={receiverName} onChange={(e) => setReceiverName(e.target.value)} className="w-full p-2 bg-neutral-50 border rounded-xl font-bold" />
+                    <input
+                      type="text"
+                      required
+                      value={receiverName}
+                      onChange={(e) => setReceiverName(e.target.value)}
+                      className="w-full p-2 bg-neutral-50 border rounded-xl font-bold"
+                    />
                   </div>
                   <div>
                     <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">No. HP Penerima</label>
-                    <input type="text" required value={receiverPhone} onChange={(e) => setReceiverPhone(e.target.value)} className="w-full p-2 bg-neutral-50 border rounded-xl font-bold" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="08123456789"
+                      value={receiverPhone}
+                      onChange={(e) => handlePhoneChange(e.target.value, setReceiverPhone)}
+                      className="w-full p-2 bg-neutral-50 border rounded-xl font-bold"
+                    />
+                    {!isReceiverPhoneValid && receiverPhone.length > 0 && (
+                      <p className="text-[9px] text-rose-500 mt-0.5">Format nomor tidak valid</p>
+                    )}
                   </div>
                 </div>
               </>
             )}
 
             <div className="p-3 bg-emerald-50 rounded-xl flex justify-between font-bold">
-              <span>Total:</span>
+              <span>Total Biaya:</span>
               <span style={{ color: PRIMARY_COLOR }}>{formatRupiah(totalPrice)}</span>
             </div>
 
-            <button type="submit" disabled={!isFormValid} className="w-full py-2.5 bg-[#4FBF99] text-white rounded-xl font-bold shadow-sm">Lanjut Pembayaran</button>
+            <button
+              type="submit"
+              disabled={!isFormValid}
+              className={`w-full py-2.5 text-white rounded-xl font-bold shadow-sm transition ${
+                isFormValid ? 'bg-[#4FBF99] hover:bg-[#429f80]' : 'bg-neutral-300 cursor-not-allowed'
+              }`}
+            >
+              Lanjut ke Konfirmasi PIN
+            </button>
           </form>
         )}
 
         {bookingStep === 'pin' && (
-          <div className="space-y-3 text-center text-[10px]">
-            <p>Masukkan PIN 6 Digit Anda:</p>
+          <div className="space-y-4 text-center text-[10px]">
+            <p className="text-neutral-600 font-medium">Masukkan PIN 6 Digit Anda untuk mengonfirmasi pemesanan:</p>
             <div className="flex justify-center gap-1.5">
               {pin.map((digit, index) => (
-                <input key={index} id={`pin-input-${index}`} type="password" maxLength="1" value={digit} onChange={(e) => handlePinChange(e.target.value, index)} onKeyDown={(e) => handlePinKeyDown(e, index)} className="w-8 h-9 text-center bg-neutral-50 border rounded-xl font-bold" />
+                <input
+                  key={index}
+                  id={`pin-input-${index}`}
+                  type="password"
+                  maxLength="1"
+                  value={digit}
+                  onChange={(e) => handlePinChange(e.target.value, index)}
+                  onKeyDown={(e) => handlePinKeyDown(e, index)}
+                  className="w-8 h-9 text-center bg-neutral-50 border rounded-xl font-bold focus:border-[#4FBF99] focus:outline-none"
+                />
               ))}
             </div>
-            <button onClick={handleVerifyPinAndCheckout} disabled={pin.some(p => p === '') || isCheckingOut} className="w-full py-2.5 bg-[#4FBF99] text-white rounded-xl font-bold">
-              {isCheckingOut ? 'Memproses...' : 'Bayar Sekarang'}
+            <button
+              onClick={handleVerifyPinAndCheckout}
+              disabled={pin.some(p => p === '') || isCheckingOut}
+              className={`w-full py-2.5 text-white rounded-xl font-bold transition ${
+                pin.some(p => p === '') || isCheckingOut
+                  ? 'bg-neutral-300 cursor-not-allowed'
+                  : 'bg-[#4FBF99] hover:bg-[#429f80]'
+              }`}
+            >
+              {isCheckingOut ? 'Memproses Pesanan...' : 'Konfirmasi Pemesanan'}
             </button>
           </div>
         )}
 
         {bookingStep === 'success' && (
-          <div className="text-center py-2 space-y-3 text-[10px]">
-            <p className="font-bold text-emerald-600">Booking Berhasil!</p>
-            <button onClick={() => { setSelectedTrip(null); navigate('/customer/tickets'); }} className="py-2.5 px-4 bg-[#4FBF99] text-white rounded-xl font-bold">Lihat Tiket Saya</button>
+          <div className="text-center py-4 space-y-3 text-[10px]">
+            <p className="font-bold text-emerald-600 text-[14px]">Pemesanan Berhasil!</p>
+            <p className="text-neutral-500">Tiket dan kode OTP Anda telah terbit.</p>
+            <button
+              onClick={() => { setSelectedTrip(null); navigate('/customer/tickets'); }}
+              className="py-2.5 px-6 bg-[#4FBF99] hover:bg-[#429f80] text-white rounded-xl font-bold transition"
+            >
+              Lihat Tiket Saya
+            </button>
           </div>
         )}
       </BaseModal>
