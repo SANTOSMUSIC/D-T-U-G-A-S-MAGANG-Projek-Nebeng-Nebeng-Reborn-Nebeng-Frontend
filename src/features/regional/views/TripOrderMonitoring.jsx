@@ -10,8 +10,10 @@ import {
   Award,
   MapPin, 
   ArrowRight,
-  Car
+  Car,
+  Radio
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
@@ -22,27 +24,28 @@ import apiClient from '../../../services/apiClient';
 
 export default function RegionalTripMonitoringPage() {
   const { user } = useAuth();
-
   const leafletMapInstance = useRef(null);
   const movingMarkerRef = useRef(null);
   const traveledLineRef = useRef(null);
   const fullLineRef = useRef(null);
-
+  const socketRef = useRef(null);
   const [tripList, setTripList] = useState([]);
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [paginationMeta, setPaginationMeta] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
-
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [currentTrip, setCurrentTrip] = useState(null);
   const [activeTab, setActiveTab] = useState('replay');
   const [routedCoordinates, setRoutedCoordinates] = useState([]);
   const [isFetchingRoute, setIsFetchingRoute] = useState(false);
-
   const [isPlayingReplay, setIsPlayingReplay] = useState(false);
   const [replayProgress, setReplayProgress] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isLiveTrackingActive, setIsLiveTrackingActive] = useState(false);
+  const [livePosition, setLivePosition] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,13 +55,21 @@ export default function RegionalTripMonitoringPage() {
         if (isMounted) setIsLoadingTrips(true);
         const currentRegionId = user?.regionId ? String(user.regionId) : null;
 
-        const response = await apiClient.get('/trips', {
-          params: currentRegionId ? { regionId: currentRegionId } : {}
-        }).catch(() => ({ data: [] }));
+        const params = {
+          page: currentPage,
+          limit: limit,
+          ...(currentRegionId ? { regionId: currentRegionId } : {}),
+          ...(statusFilter !== 'Semua' ? { status: statusFilter } : {}),
+          ...(searchQuery.trim() !== '' ? { search: searchQuery } : {})
+        };
+
+        const response = await apiClient.get('/trips', { params }).catch(() => ({ data: { data: [], meta: null } }));
 
         const rawData = Array.isArray(response.data)
           ? response.data
           : (response.data?.data || []);
+
+        const metaData = response.data?.meta || null;
 
         const formatted = rawData.map(t => {
           const STATUS_MAP = {
@@ -75,44 +86,24 @@ export default function RegionalTripMonitoringPage() {
             (t.status ? String(t.status) : 'Terjadwal');
 
           return {
-            id: String(
-              t.id || `TRIP-${Math.floor(Math.random() * 9000 + 1000)}`
-            ),
+            id: String(t.id),
+            rawStatus: t.status,
             passenger: t.customer?.name || t.passengerName || 'Pelanggan Umum',
             driver: t.driver?.name || t.mitraName || 'Driver Mitra',
             vehicle: t.vehicle
               ? `${t.vehicle.type} (${t.vehicle.plateNumber})`
               : 'Kendaraan Standar',
-            originPos: t.originPickupPoint?.name || 'Pos Asal',
-            destinationPos: t.destinationPickupPoint?.name || 'Pos Tujuan',
+            originPos: t.originPoint?.name || 'Pos Asal',
+            destinationPos: t.destinationPoint?.name || 'Pos Tujuan',
             status: mappedStatus,
-            fare: t.fare
-              ? `Rp ${Number(t.fare).toLocaleString('id-ID')}`
+            fare: t.price
+              ? `Rp ${Number(t.price).toLocaleString('id-ID')}`
               : 'Rp 35.000',
             time: t.createdAt
               ? new Date(t.createdAt).toLocaleString('id-ID')
               : 'Hari ini',
-            baseSpeed: 45,
-            originCoord: t.originCoord || {
-              lat: -7.5623,
-              lng: 110.8122
-            },
-            destinationCoord: t.destinationCoord || {
-              lat: -7.5753,
-              lng: 110.8278
-            },
-            checkpoints: [
-              {
-                label: `Start: ${t.originPickupPoint?.name || 'Pos Asal'}`,
-                street: 'Titik Penjemputan',
-                time: '09:30'
-              },
-              {
-                label: `Finish: ${t.destinationPickupPoint?.name || 'Pos Tujuan'}`,
-                street: 'Titik Tujuan',
-                time: '09:45'
-              }
-            ],
+            originCoord: t.originCoord || { lat: -7.5623, lng: 110.8122 },
+            destinationCoord: t.destinationCoord || { lat: -7.5753, lng: 110.8278 },
             dms: {
               fatigueStatus: 'Aman / Normal',
               distractionAlerts: 0,
@@ -121,12 +112,6 @@ export default function RegionalTripMonitoringPage() {
               lastAiLog: 'AI Camera: Mata fokus & berkonsentrasi'
             },
             driverScore: 92,
-            behaviorStats: {
-              harshBraking: 0,
-              rapidAcceleration: 0,
-              corneringViolation: 0,
-              speedViolation: 0
-            },
             geofenceZone: 'Zona Regional Wilayah',
             geofenceStatus: 'Inside Boundary',
             speedLimit: '50 km/jam'
@@ -135,6 +120,7 @@ export default function RegionalTripMonitoringPage() {
 
         if (isMounted) {
           setTripList(formatted);
+          setPaginationMeta(metaData);
         }
       } catch (error) {
         if (isMounted) {
@@ -153,7 +139,7 @@ export default function RegionalTripMonitoringPage() {
     return () => {
       isMounted = false;
     };
-  }, [user?.regionId]);
+  }, [user?.regionId, currentPage, limit, statusFilter, searchQuery]);
 
   useEffect(() => {
     if (!document.getElementById('leaflet-css')) {
@@ -169,10 +155,31 @@ export default function RegionalTripMonitoringPage() {
     if (!currentTrip || !isDetailOpen) return;
 
     let isSubscribed = true;
+    const baseURL = apiClient.defaults.baseURL
+      ? apiClient.defaults.baseURL.replace(/\/api\/?$/, '')
+      : 'http://localhost:3000';
+
+    const socket = io(`${baseURL}/tracking`, {
+      transports: ['websocket', 'polling']
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('joinTripRoom', { tripId: currentTrip.id });
+    });
+
+    socket.on('locationUpdated', (data) => {
+      if (isSubscribed && data.tripId === currentTrip.id) {
+        setLivePosition({
+          lat: Number(data.latitude),
+          lng: Number(data.longitude)
+        });
+      }
+    });
 
     const fetchOSRMRoute = async () => {
       setIsFetchingRoute(true);
-
       try {
         const start = currentTrip.originCoord;
         const end = currentTrip.destinationCoord;
@@ -180,7 +187,6 @@ export default function RegionalTripMonitoringPage() {
         const response = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`
         );
-
         const data = await response.json();
 
         if (isSubscribed) {
@@ -189,7 +195,6 @@ export default function RegionalTripMonitoringPage() {
               lat: c[1],
               lng: c[0]
             }));
-
             setRoutedCoordinates(coords);
           } else {
             setRoutedCoordinates([start, end]);
@@ -197,10 +202,7 @@ export default function RegionalTripMonitoringPage() {
         }
       } catch {
         if (isSubscribed) {
-          setRoutedCoordinates([
-            currentTrip.originCoord,
-            currentTrip.destinationCoord
-          ]);
+          setRoutedCoordinates([currentTrip.originCoord, currentTrip.destinationCoord]);
         }
       } finally {
         if (isSubscribed) setIsFetchingRoute(false);
@@ -211,16 +213,14 @@ export default function RegionalTripMonitoringPage() {
 
     return () => {
       isSubscribed = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     };
   }, [currentTrip, isDetailOpen]);
 
   useEffect(() => {
-    if (
-      activeTab !== 'replay' ||
-      !currentTrip ||
-      routedCoordinates.length === 0 ||
-      !isDetailOpen
-    ) {
+    if (activeTab !== 'replay' || !currentTrip || routedCoordinates.length === 0 || !isDetailOpen) {
       return;
     }
 
@@ -242,7 +242,6 @@ export default function RegionalTripMonitoringPage() {
       const container = document.getElementById('real-leaflet-map');
 
       if (!container) return;
-
       if (container._leaflet_id) {
         container._leaflet_id = null;
       }
@@ -253,7 +252,6 @@ export default function RegionalTripMonitoringPage() {
       }
 
       const coords = routedCoordinates.map(c => [c.lat, c.lng]);
-
       const map = L.map('real-leaflet-map', {
         center: coords[0],
         zoom: 14,
@@ -262,12 +260,9 @@ export default function RegionalTripMonitoringPage() {
 
       leafletMapInstance.current = map;
 
-      L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-          attribution: '&copy; OpenStreetMap'
-        }
-      ).addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
 
       fullLineRef.current = L.polyline(coords, {
         color: '#4B5563',
@@ -320,34 +315,17 @@ export default function RegionalTripMonitoringPage() {
 
     return () => {
       isMounted = false;
-
       if (leafletMapInstance.current) {
         leafletMapInstance.current.remove();
         leafletMapInstance.current = null;
       }
     };
-  }, [
-    activeTab,
-    currentTrip,
-    routedCoordinates,
-    isDetailOpen
-  ]);
+  }, [activeTab, currentTrip, routedCoordinates, isDetailOpen]);
 
   const getCurrentTelemetry = (points, progress) => {
-    if (!points || points.length === 0) {
-      return {
-        lat: -7.5623,
-        lng: 110.8122
-      };
-    }
-
-    if (points.length === 1 || progress <= 0) {
-      return points[0];
-    }
-
-    if (progress >= 100) {
-      return points[points.length - 1];
-    }
+    if (!points || points.length === 0) return { lat: -7.5623, lng: 110.8122 };
+    if (points.length === 1 || progress <= 0) return points[0];
+    if (progress >= 100) return points[points.length - 1];
 
     const totalSegments = points.length - 1;
     const scaledProgress = (progress / 100) * totalSegments;
@@ -364,79 +342,59 @@ export default function RegionalTripMonitoringPage() {
   };
 
   useEffect(() => {
-    if (
-      !currentTrip ||
-      routedCoordinates.length === 0 ||
-      !leafletMapInstance.current ||
-      !isDetailOpen
-    ) {
+    if (!currentTrip || routedCoordinates.length === 0 || !leafletMapInstance.current || !isDetailOpen) {
       return;
     }
 
-    const currentPos = getCurrentTelemetry(
-      routedCoordinates,
-      replayProgress
-    );
+    const currentPos = isLiveTrackingActive && livePosition 
+      ? livePosition 
+      : getCurrentTelemetry(routedCoordinates, replayProgress);
 
     if (movingMarkerRef.current) {
-      movingMarkerRef.current.setLatLng([
-        currentPos.lat,
-        currentPos.lng
-      ]);
+      movingMarkerRef.current.setLatLng([currentPos.lat, currentPos.lng]);
+      leafletMapInstance.current.panTo([currentPos.lat, currentPos.lng]);
     }
 
-    if (traveledLineRef.current) {
+    if (traveledLineRef.current && !isLiveTrackingActive) {
       const totalSegments = routedCoordinates.length - 1;
-      const scaledProgress =
-        (replayProgress / 100) * totalSegments;
-
+      const scaledProgress = (replayProgress / 100) * totalSegments;
       const currentIndex = Math.floor(scaledProgress);
 
       const traveledPoints = routedCoordinates
         .slice(0, currentIndex + 1)
         .map(c => [c.lat, c.lng]);
 
-      traveledPoints.push([
-        currentPos.lat,
-        currentPos.lng
-      ]);
-
+      traveledPoints.push([currentPos.lat, currentPos.lng]);
       traveledLineRef.current.setLatLngs(traveledPoints);
     }
-  }, [
-    replayProgress,
-    currentTrip,
-    routedCoordinates,
-    isDetailOpen
-  ]);
+  }, [replayProgress, livePosition, isLiveTrackingActive, currentTrip, routedCoordinates, isDetailOpen]);
 
   useEffect(() => {
     let interval;
-
-    if (isPlayingReplay && isDetailOpen) {
+    if (isPlayingReplay && isDetailOpen && !isLiveTrackingActive) {
       interval = setInterval(() => {
         setReplayProgress((prev) => {
           if (prev >= 100) {
             setIsPlayingReplay(false);
             return 100;
           }
-
           return prev + (0.4 * playbackSpeed);
         });
       }, 50);
     }
-
     return () => clearInterval(interval);
-  }, [
-    isPlayingReplay,
-    playbackSpeed,
-    isDetailOpen
-  ]);
+  }, [isPlayingReplay, playbackSpeed, isDetailOpen, isLiveTrackingActive]);
 
   const handleCloseDetailModal = () => {
     setIsPlayingReplay(false);
     setReplayProgress(0);
+    setIsLiveTrackingActive(false);
+    setLivePosition(null);
     setIsDetailOpen(false);
+
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
 
     if (leafletMapInstance.current) {
       leafletMapInstance.current.remove();
@@ -451,21 +409,10 @@ export default function RegionalTripMonitoringPage() {
     setReplayProgress(0);
     setIsPlayingReplay(false);
     setPlaybackSpeed(1);
+    setIsLiveTrackingActive(false);
+    setLivePosition(null);
     setIsDetailOpen(true);
   };
-
-  const filteredTrips = tripList.filter(t => {
-    const matchesSearch =
-      t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.passenger.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.driver.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === 'Semua' ||
-      t.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -474,9 +421,8 @@ export default function RegionalTripMonitoringPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-[#66CDAA] animate-pulse"></span>
-
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#4FBF99]">
-              MONITORING CERDAS WILAYAH
+              MONITORING CERDAS WILAYAH (SERVER-SIDE & WEBSOCKET)
             </span>
           </div>
 
@@ -485,7 +431,7 @@ export default function RegionalTripMonitoringPage() {
           </h1>
 
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pelacakan visual replay rute real-time dari database wilayah Anda.
+            Pelacakan visual replay dan live tracking real-time dari database wilayah Anda.
           </p>
         </div>
       </div>
@@ -493,25 +439,22 @@ export default function RegionalTripMonitoringPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
           title="TOTAL TRIP TERCATAT"
-          value={`${tripList.length} Trip`}
-          subtitle="Data riil database"
+          value={`${paginationMeta?.total || tripList.length} Trip`}
+          subtitle="Data riil database terfilter"
           icon={Car}
         />
-
         <StatCard
           title="RATA-RATA DRIVER SCORE"
           value="92.0 / 100"
           subtitle="Kategori Sangat Aman"
           icon={Award}
         />
-
         <StatCard
           title="PERINGATAN AI DMS"
           value="0 Deteksi"
           subtitle="Aman terkontrol"
           icon={BrainCircuit}
         />
-
         <StatCard
           title="STATUS GEOFENCE"
           value="Aman"
@@ -520,35 +463,54 @@ export default function RegionalTripMonitoringPage() {
         />
       </div>
 
+      {/* FILTER & LIMIT CONTROL */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative flex-1 w-full max-w-md">
-          <Search
-            size={15}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400"
-          />
-
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
-            placeholder="Cari ID, driver, penumpang..."
+            placeholder="Cari pos asal, tujuan..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] transition"
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-neutral-50 border border-neutral-200 rounded-full px-3 py-1.5 text-[10px] font-semibold text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] cursor-pointer"
-        >
-          <option value="Semua">Semua Status</option>
-          <option value="Terjadwal">Terjadwal</option>
-          <option value="Sedang Berjalan">Sedang Berjalan</option>
-          <option value="Selesai">Selesai</option>
-          <option value="Dibatalkan">Dibatalkan</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="bg-neutral-50 border border-neutral-200 rounded-full px-3 py-1.5 text-[10px] font-semibold text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] cursor-pointer"
+          >
+            <option value="Semua">Semua Status</option>
+            <option value="scheduled">Terjadwal (Scheduled)</option>
+            <option value="in_transit">Sedang Berjalan (In Transit)</option>
+            <option value="completed">Selesai (Completed)</option>
+            <option value="cancelled">Dibatalkan (Cancelled)</option>
+          </select>
+
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 font-bold text-neutral-800 text-[10px] focus:outline-none cursor-pointer"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+          </select>
+        </div>
       </div>
 
+      {/* TABLE */}
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -557,7 +519,7 @@ export default function RegionalTripMonitoringPage() {
                 <th className="py-3 px-5">ID & Waktu</th>
                 <th className="py-3 px-5">Driver & Armada</th>
                 <th className="py-3 px-5">Rute (Asal &rarr; Tujuan)</th>
-                <th className="py-3 px-5">AI DMS Status</th>
+                <th className="py-3 px-5">Status Trip</th>
                 <th className="py-3 px-5 text-center">Driver Score</th>
                 <th className="py-3 px-5 text-center">Aksi Cerdas</th>
               </tr>
@@ -566,71 +528,38 @@ export default function RegionalTripMonitoringPage() {
             <tbody className="divide-y divide-gray-100 text-[9px]">
               {isLoadingTrips ? (
                 <SkeletonTableRows rows={4} columns={6} />
-              ) : filteredTrips.length > 0 ? (
-                filteredTrips.map((trip) => (
-                  <tr
-                    key={trip.id}
-                    className="hover:bg-[#66CDAA]/5 transition"
-                  >
+              ) : tripList.length > 0 ? (
+                tripList.map((trip) => (
+                  <tr key={trip.id} className="hover:bg-[#66CDAA]/5 transition">
                     <td className="py-3.5 px-5">
-                      <div className="font-bold text-neutral-800 font-mono text-[10px]">
-                        {trip.id}
-                      </div>
-
-                      <div className="text-[8px] text-neutral-400">
-                        {trip.time}
-                      </div>
+                      <div className="font-bold text-neutral-800 font-mono text-[10px]">{trip.id}</div>
+                      <div className="text-[8px] text-neutral-400">{trip.time}</div>
                     </td>
-
                     <td className="py-3.5 px-5">
-                      <div className="font-bold text-neutral-800">
-                        {trip.driver}
-                      </div>
-
-                      <div className="text-[8px] text-neutral-400 font-mono">
-                        {trip.vehicle}
-                      </div>
+                      <div className="font-bold text-neutral-800">{trip.driver}</div>
+                      <div className="text-[8px] text-neutral-400 font-mono">{trip.vehicle}</div>
                     </td>
-
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-1 font-semibold text-neutral-700">
-                        <MapPin
-                          size={11}
-                          className="text-[#4FBF99] shrink-0"
-                        />
-
-                        <span className="truncate">
-                          {trip.originPos}
-                        </span>
-
-                        <ArrowRight
-                          size={10}
-                          className="text-[#4FBF99] shrink-0"
-                        />
-
-                        <span className="truncate">
-                          {trip.destinationPos}
-                        </span>
+                        <MapPin size={11} className="text-[#4FBF99] shrink-0" />
+                        <span className="truncate">{trip.originPos}</span>
+                        <ArrowRight size={10} className="text-[#4FBF99] shrink-0" />
+                        <span className="truncate">{trip.destinationPos}</span>
                       </div>
                     </td>
-
                     <td className="py-3.5 px-5">
-                      <StatusBadge variant="emerald">
-                        {trip.dms.fatigueStatus}
+                      <StatusBadge variant={trip.rawStatus === 'in_transit' ? 'emerald' : 'amber'}>
+                        {trip.status}
                       </StatusBadge>
                     </td>
-
                     <td className="py-3.5 px-5 text-center">
-                      <StatusBadge variant="emerald">
-                        ★ {trip.driverScore}/100
-                      </StatusBadge>
+                      <StatusBadge variant="emerald">★ {trip.driverScore}/100</StatusBadge>
                     </td>
-
                     <td className="py-3.5 px-5 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleOpenDetail(trip, 'replay')}
-                          title="Visual Replay Rute"
+                          title="Visual Replay & Live Tracking"
                           className="p-1.5 bg-[#66CDAA]/10 hover:bg-[#66CDAA]/20 text-[#4FBF99] rounded-lg transition cursor-pointer"
                         >
                           <Play size={13} />
@@ -645,7 +574,7 @@ export default function RegionalTripMonitoringPage() {
                     <EmptyState
                       icon={Navigation}
                       title="Trip Tidak Ditemukan"
-                      description="Belum ada data trip di database."
+                      description="Belum ada data trip di database untuk filter ini."
                     />
                   </td>
                 </tr>
@@ -653,8 +582,35 @@ export default function RegionalTripMonitoringPage() {
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION FOOTER */}
+        {paginationMeta && paginationMeta.totalPages > 1 && (
+          <div className="flex items-center justify-between p-4 bg-neutral-50/50 border-t border-neutral-200 text-[10px]">
+            <span className="text-neutral-500">
+              Halaman <strong>{paginationMeta.page}</strong> dari <strong>{paginationMeta.totalPages}</strong> (Total: {paginationMeta.total} Trip)
+            </span>
+
+            <div className="flex items-center gap-1">
+              <button
+                disabled={currentPage <= 1 || isLoadingTrips}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+              >
+                Sebelumnya
+              </button>
+              <button
+                disabled={currentPage >= paginationMeta.totalPages || isLoadingTrips}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* MODAL MONITORING & WEBSOCKET LIVE TRACKING */}
       <BaseModal
         isOpen={Boolean(isDetailOpen && currentTrip)}
         onClose={handleCloseDetailModal}
@@ -664,60 +620,62 @@ export default function RegionalTripMonitoringPage() {
       >
         {currentTrip && (
           <div className="space-y-4">
-
             <div className="relative rounded-2xl overflow-hidden border border-neutral-300 bg-[#E5ECE7] shadow-inner">
-              <div
-                id="real-leaflet-map"
-                className="w-full h-64 z-0"
-              />
+              <div id="real-leaflet-map" className="w-full h-64 z-0" />
 
               <div className="bg-neutral-900 p-3 text-white space-y-2 relative z-10">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  disabled={isFetchingRoute}
-                  value={replayProgress}
-                  onChange={(e) => {
-                    setReplayProgress(Number(e.target.value));
-                    setIsPlayingReplay(false);
-                  }}
-                  className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-[#66CDAA] disabled:opacity-50"
-                />
+                <div className="flex items-center justify-between text-[9px] pb-1">
+                  <span className="text-neutral-400">Mode Tampilan Peta:</span>
+                  <button
+                    onClick={() => setIsLiveTrackingActive(!isLiveTrackingActive)}
+                    className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 transition ${
+                      isLiveTrackingActive ? 'bg-rose-600 text-white animate-pulse' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                    }`}
+                  >
+                    <Radio size={10} />
+                    <span>{isLiveTrackingActive ? 'Live Tracking (WebSocket Aktif)' : 'Mode Replay Simulasi'}</span>
+                  </button>
+                </div>
+
+                {!isLiveTrackingActive && (
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    disabled={isFetchingRoute}
+                    value={replayProgress}
+                    onChange={(e) => {
+                      setReplayProgress(Number(e.target.value));
+                      setIsPlayingReplay(false);
+                    }}
+                    className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-[#66CDAA] disabled:opacity-50"
+                  />
+                )}
 
                 <div className="flex items-center justify-between pt-1">
                   <div className="flex items-center gap-2">
+                    {!isLiveTrackingActive && (
+                      <>
+                        <button
+                          onClick={() => setIsPlayingReplay(!isPlayingReplay)}
+                          disabled={isFetchingRoute}
+                          className="px-4 py-1.5 bg-[#66CDAA] hover:bg-[#4FBF99] text-white rounded-full text-[9px] font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-50"
+                        >
+                          {isPlayingReplay ? <Pause size={12} /> : <Play size={12} />}
+                          <span>{isPlayingReplay ? 'Pause' : 'Mulai Replay'}</span>
+                        </button>
 
-                    <button
-                      onClick={() =>
-                        setIsPlayingReplay(!isPlayingReplay)
-                      }
-                      disabled={isFetchingRoute}
-                      className="px-4 py-1.5 bg-[#66CDAA] hover:bg-[#4FBF99] text-white rounded-full text-[9px] font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-50"
-                    >
-                      {isPlayingReplay ? (
-                        <Pause size={12} />
-                      ) : (
-                        <Play size={12} />
-                      )}
-
-                      <span>
-                        {isPlayingReplay
-                          ? 'Pause'
-                          : 'Mulai Replay'}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setReplayProgress(0);
-                        setIsPlayingReplay(false);
-                      }}
-                      className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-full transition cursor-pointer"
-                    >
-                      <RotateCcw size={12} />
-                    </button>
-
+                        <button
+                          onClick={() => {
+                            setReplayProgress(0);
+                            setIsPlayingReplay(false);
+                          }}
+                          className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-full transition cursor-pointer"
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -731,7 +689,6 @@ export default function RegionalTripMonitoringPage() {
                 Tutup
               </button>
             </div>
-
           </div>
         )}
       </BaseModal>

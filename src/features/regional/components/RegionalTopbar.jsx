@@ -29,7 +29,6 @@ export default function RegionalTopbar({
 
   const dropdownRef = useRef(null);
 
-  // Mengambil profil terbaru apabila data user awal belum lengkap
   useEffect(() => {
     let isMounted = true;
 
@@ -60,7 +59,6 @@ export default function RegionalTopbar({
     };
   }, [initialUser]);
 
-  // Menggunakan data terbaru jika tersedia
   const currentUser =
     fetchedUser ||
     initialUser ||
@@ -77,7 +75,6 @@ export default function RegionalTopbar({
     currentUser?.role?.trim() ||
     'Admin Regional';
 
-  // Avatar
   const rawAvatar =
     currentUser?.avatar ||
     currentUser?.photoDataUrl ||
@@ -100,7 +97,6 @@ export default function RegionalTopbar({
   const photoDataUrl =
     formattedAvatar;
 
-  // Initials
   const initials =
     displayName
       .split(' ')
@@ -110,7 +106,6 @@ export default function RegionalTopbar({
       .join('')
       .toUpperCase() || 'AR';
 
-  // Close dropdown ketika klik di luar
   useEffect(() => {
     if (!isDropdownOpen) {
       return undefined;

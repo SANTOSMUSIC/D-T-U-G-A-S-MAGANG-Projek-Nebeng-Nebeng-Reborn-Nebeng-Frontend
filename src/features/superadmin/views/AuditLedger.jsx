@@ -19,27 +19,27 @@ export default function AuditFinancialReport() {
   const [activeTab, setActiveTab] = useState('escrow');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-
-  // State Paginasi Ledger
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationMeta, setPaginationMeta] = useState(null);
-
-  // Murni data dari backend
   const [escrowLedger, setEscrowLedger] = useState([]);
   const [financialStats, setFinancialStats] = useState({
     totalHeldEscrow: 0,
     totalReleasedEscrow: 0,
     totalTransactions: 0
   });
-
   const [isLoadingLedger, setIsLoadingLedger] = useState(true);
+  const [isFetchingPage, setIsFetchingPage] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadAuditData() {
+    async function loadAuditData(isInitial = false) {
       try {
-        setIsLoadingLedger(true);
+        if (isInitial) {
+          setIsLoadingLedger(true);
+        } else {
+          setIsFetchingPage(true);
+        }
 
         const res = await getEscrowLedgerData(currentPage, 20);
 
@@ -47,20 +47,8 @@ export default function AuditFinancialReport() {
           const rawTransactions =
             res.recentTransactions || res.transactions || (Array.isArray(res) ? res : []);
 
-          let calculatedHeld = 0;
-          let calculatedReleased = 0;
-
-          rawTransactions.forEach((tx) => {
-            const amt = Number(tx.amount || 0);
-            if (tx.type === 'escrow_hold') {
-              calculatedHeld += amt;
-            } else if (tx.type === 'escrow_release') {
-              calculatedReleased += amt;
-            }
-          });
-
-          const held = Number(res.totalHeldEscrow ?? calculatedHeld);
-          const released = Number(res.totalReleasedEscrow ?? calculatedReleased);
+          const held = Number(res.summary?.totalHeldEscrow ?? res.totalHeldEscrow ?? 0);
+          const released = Number(res.summary?.totalReleasedEscrow ?? res.totalReleasedEscrow ?? 0);
 
           setFinancialStats({
             totalHeldEscrow: held,
@@ -77,7 +65,7 @@ export default function AuditFinancialReport() {
             orderId: tx.orderId
               ? `ORD-${String(tx.orderId)}`
               : 'SYS-TX',
-            client: tx.reference || 'Sistem Escrow',
+            client: tx.reference || tx.description || 'Sistem Escrow',
             amount: `Rp ${Number(tx.amount || 0).toLocaleString('id-ID')}`,
             type:
               tx.type === 'escrow_hold'
@@ -108,15 +96,17 @@ export default function AuditFinancialReport() {
       } finally {
         if (isMounted) {
           setIsLoadingLedger(false);
+          setIsFetchingPage(false);
         }
       }
     }
 
-    loadAuditData();
+    loadAuditData(currentPage === 1 && escrowLedger.length === 0);
 
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
   const filteredEscrow = escrowLedger.filter((item) => {
@@ -136,40 +126,30 @@ export default function AuditFinancialReport() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter'] print:p-0 print:max-w-none print:bg-white">
 
       {/* KOP LAPORAN RESMI KHUSUS CETAK (PDF) */}
-      <div className="hidden print:block pb-6 mb-6 border-b-2 border-neutral-800 text-center space-y-1">
-        <h2 className="text-[20px] font-extrabold uppercase tracking-wider text-neutral-900">
+      <div className="hidden print:block pb-6 mb-6 border-b-2 border-neutral-900 text-center space-y-1">
+        <h2 className="text-[22px] font-extrabold uppercase tracking-wider text-neutral-900">
           NEBENG TRANSPORT & LOGISTICS
         </h2>
-
-        <p className="text-[11px] font-semibold text-neutral-600">
-          Laporan Resmi Audit Keuangan & Arus Kas Escrow Sistem
+        <p className="text-[12px] font-semibold text-neutral-700">
+          LAPORAN RESMI AUDIT KEUANGAN & ARUS KAS ESCROW SYSTEM
         </p>
-
-        <p className="text-[9px] text-neutral-500">
-          Dicetak pada: {new Date().toLocaleString('id-ID')} •
-          Status: Dokumen Resmi Terverifikasi Superadmin
+        <p className="text-[10px] text-neutral-500 pt-1">
+          Dicetak pada: {new Date().toLocaleString('id-ID')} • Status: Dokumen Resmi Terverifikasi Superadmin
         </p>
       </div>
 
       {/* HEADER */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:shadow-none print:border-none print:p-0 print:mb-2">
-
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:shadow-none print:border-none print:p-0 print:mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1 print:hidden">
-
-            {/* THEME DOT */}
             <span className="w-2 h-2 rounded-full bg-[#66CDAA] animate-pulse"></span>
-
-            {/* THEME TITLE */}
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#66CDAA]">
               AUDIT LEDGER & FINANCIAL REPORTING
             </span>
           </div>
-
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800 print:text-neutral-900">
             Audit Keuangan & Arus Kas
           </h1>
-
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5 print:text-neutral-600">
             Pantau arus kas Escrow System secara langsung dari database sistem.
           </p>
@@ -187,7 +167,6 @@ export default function AuditFinancialReport() {
 
       {/* 3 STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 print:grid-cols-3">
-
         <StatCard
           title="ESCROW HELD (DITAHAN)"
           value={`Rp ${Number(
@@ -196,7 +175,6 @@ export default function AuditFinancialReport() {
           subtitle="Menunggu penyelesaian trip"
           icon={Lock}
         />
-
         <StatCard
           title="ESCROW RELEASED (CAIR)"
           value={`Rp ${Number(
@@ -205,7 +183,6 @@ export default function AuditFinancialReport() {
           subtitle="Berhasil ditransfer ke mitra"
           icon={Unlock}
         />
-
         <StatCard
           variant="primary"
           title="TOTAL VOLUME LEDGER"
@@ -219,9 +196,7 @@ export default function AuditFinancialReport() {
 
       {/* TAB & FILTER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
-
         <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-full w-fit">
-
           <button
             onClick={() => {
               setActiveTab('escrow');
@@ -236,19 +211,15 @@ export default function AuditFinancialReport() {
             <ShieldCheck size={12} />
             Escrow Ledger
           </button>
-
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-
           {/* SEARCH */}
           <div className="relative w-full sm:w-60">
-
             <Search
               size={13}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
             />
-
             <input
               type="text"
               placeholder="Cari ID ledger, order, atau referensi..."
@@ -256,7 +227,6 @@ export default function AuditFinancialReport() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white border border-neutral-200 rounded-full pl-9 pr-8 py-1.5 text-[10px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
             />
-
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
@@ -265,7 +235,6 @@ export default function AuditFinancialReport() {
                 <X size={12} />
               </button>
             )}
-
           </div>
 
           {/* STATUS FILTER */}
@@ -274,344 +243,125 @@ export default function AuditFinancialReport() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-white border border-neutral-200 rounded-full px-3 py-1.5 text-[10px] font-semibold text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] cursor-pointer"
           >
-            <option value="All">
-              Semua Status
-            </option>
-
-            <option value="Held">
-              Held (Ditahan)
-            </option>
-
-            <option value="Released">
-              Released (Dicairkan)
-            </option>
+            <option value="All">Semua Status</option>
+            <option value="Held">Held (Ditahan)</option>
+            <option value="Released">Released (Dicairkan)</option>
           </select>
-
         </div>
       </div>
 
       {/* TABEL UTAMA ESCROW */}
       <div className="space-y-4">
-
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden print:border print:shadow-none print:rounded-none">
-
-          <div className="hidden sm:block overflow-x-auto">
-
+          
+          <div className={`hidden sm:block overflow-x-auto transition-opacity duration-200 ${isFetchingPage ? 'opacity-40' : 'opacity-100'}`}>
             <table className="w-full text-left border-collapse print:text-black">
-
               <thead>
-
                 <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold print:bg-neutral-100 print:text-neutral-800">
-
-                  <th className="py-3 px-5 border-b print:border-neutral-300">
-                    ID Ledger & Pesanan
-                  </th>
-
-                  <th className="py-3 px-5 border-b print:border-neutral-300">
-                    Referensi / Klien
-                  </th>
-
-                  <th className="py-3 px-5 border-b print:border-neutral-300">
-                    Nominal Transaksi
-                  </th>
-
-                  <th className="py-3 px-5 border-b print:border-neutral-300">
-                    Status Escrow
-                  </th>
-
-                  <th className="py-3 px-5 border-b print:border-neutral-300">
-                    Waktu & Catatan Database
-                  </th>
-
+                  <th className="py-3 px-5 border-b print:border-neutral-300">ID Ledger & Pesanan</th>
+                  <th className="py-3 px-5 border-b print:border-neutral-300">Referensi / Klien</th>
+                  <th className="py-3 px-5 border-b print:border-neutral-300">Nominal Transaksi</th>
+                  <th className="py-3 px-5 border-b print:border-neutral-300">Status Escrow</th>
+                  <th className="py-3 px-5 border-b print:border-neutral-300">Waktu & Catatan Database</th>
                 </tr>
-
               </thead>
-
-              <tbody className="divide-y divide-gray-100 text-[9px] print:divide-neutral-200">
-
+              <tbody className="divide-y divide-gray-100 text-[9px] print:divide-neutral-300">
                 {isLoadingLedger ? (
-
-                  <SkeletonTableRows
-                    rows={4}
-                    columns={5}
-                  />
-
+                  <SkeletonTableRows rows={4} columns={5} />
                 ) : filteredEscrow.length > 0 ? (
-
                   filteredEscrow.map((item) => (
-
-                    <tr
-                      key={item.id}
-                      className="hover:bg-[#66CDAA]/50 transition-colors"
-                    >
-
-                      {/* ID */}
+                    <tr key={item.id} className="hover:bg-[#66CDAA]/10 transition-colors">
                       <td className="py-3.5 px-5">
-
                         <div className="font-bold text-neutral-800 font-mono text-[10px] print:text-neutral-900">
                           {item.id}
                         </div>
-
-                        {/* THEME ORDER ID */}
                         <div className="text-[8px] font-bold text-[#66CDAA] font-mono print:text-neutral-600">
                           {item.orderId}
                         </div>
-
                       </td>
-
-                      {/* CLIENT */}
                       <td className="py-3.5 px-5">
-
                         <div className="font-bold text-neutral-800 print:text-neutral-900">
                           {item.client}
                         </div>
-
-                        <div className="text-[8px] text-neutral-400 print:text-neutral-500">
+                        <div className="text-[8px] text-neutral-400 print:text-neutral-600">
                           {item.type}
                         </div>
-
                       </td>
-
-                      {/* AMOUNT */}
                       <td className="py-3.5 px-5 font-bold text-neutral-800 print:text-neutral-900">
                         {item.amount}
                       </td>
-
-                      {/* STATUS */}
                       <td className="py-3.5 px-5">
-
                         <StatusBadge
-                          variant={
-                            item.status === 'Held'
-                              ? 'amber'
-                              : 'emerald'
-                          }
+                          variant={item.status === 'Held' ? 'amber' : 'emerald'}
                         >
                           {item.status}
                         </StatusBadge>
-
                       </td>
-
-                      {/* TIME */}
                       <td className="py-3.5 px-5">
-
                         <div className="font-semibold text-neutral-700 print:text-neutral-900">
                           {item.time}
                         </div>
-
                         <div className="text-[8px] text-neutral-400 print:text-neutral-600">
                           {item.note}
                         </div>
-
                       </td>
-
                     </tr>
-
                   ))
-
                 ) : (
-
                   <tr>
-
                     <td colSpan="5">
-
                       <EmptyState
                         icon={ShieldCheck}
                         title="Ledger Escrow Kosong"
                         description="Belum ada catatan transaksi escrow dari database."
                       />
-
                     </td>
-
                   </tr>
-
                 )}
-
               </tbody>
-
             </table>
-
-          </div>
-
-          {/* MOBILE EMPTY / TABLE INFO */}
-          <div className="sm:hidden p-5">
-
-            {isLoadingLedger ? (
-
-              <SkeletonTableRows
-                rows={4}
-                columns={5}
-              />
-
-            ) : filteredEscrow.length > 0 ? (
-
-              <div className="space-y-3">
-
-                {filteredEscrow.map((item) => (
-
-                  <div
-                    key={item.id}
-                    className="border border-neutral-200 rounded-xl p-4 space-y-3"
-                  >
-
-                    <div className="flex items-start justify-between gap-3">
-
-                      <div>
-                        <div className="font-bold text-neutral-800 font-mono text-[10px]">
-                          {item.id}
-                        </div>
-
-                        <div className="text-[8px] font-bold text-[#66CDAA] font-mono">
-                          {item.orderId}
-                        </div>
-                      </div>
-
-                      <StatusBadge
-                        variant={
-                          item.status === 'Held'
-                            ? 'amber'
-                            : 'emerald'
-                        }
-                      >
-                        {item.status}
-                      </StatusBadge>
-
-                    </div>
-
-                    <div>
-
-                      <div className="font-bold text-neutral-800 text-[11px]">
-                        {item.client}
-                      </div>
-
-                      <div className="text-[8px] text-neutral-400">
-                        {item.type}
-                      </div>
-
-                    </div>
-
-                    <div className="font-bold text-neutral-800 text-[11px]">
-                      {item.amount}
-                    </div>
-
-                    <div>
-
-                      <div className="font-semibold text-neutral-700 text-[9px]">
-                        {item.time}
-                      </div>
-
-                      <div className="text-[8px] text-neutral-400">
-                        {item.note}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            ) : (
-
-              <EmptyState
-                icon={ShieldCheck}
-                title="Ledger Escrow Kosong"
-                description="Belum ada catatan transaksi escrow dari database."
-              />
-
-            )}
-
           </div>
 
           {/* BAR NAVIGASI PAGINASI LEDGER */}
-          {paginationMeta &&
-            paginationMeta.totalPages > 1 && (
+          {paginationMeta && paginationMeta.totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 bg-neutral-50/50 border-t border-neutral-200 text-[10px] print:hidden">
+              <span className="text-neutral-500">
+                Halaman <strong>{paginationMeta.currentPage}</strong> dari{' '}
+                <strong>{paginationMeta.totalPages}</strong> (Total: {paginationMeta.totalData} Transaksi)
+              </span>
 
-              <div className="flex items-center justify-between p-4 bg-neutral-50/50 border-t border-neutral-200 text-[10px] print:hidden">
-
-                <span className="text-neutral-500">
-
-                  Halaman{' '}
-                  <strong>
-                    {paginationMeta.currentPage}
-                  </strong>{' '}
-                  dari{' '}
-                  <strong>
-                    {paginationMeta.totalPages}
-                  </strong>{' '}
-
-                  (Total: {paginationMeta.totalData} Transaksi)
-
-                </span>
-
-                <div className="flex items-center gap-1">
-
-                  <button
-                    disabled={currentPage <= 1}
-                    onClick={() =>
-                      setCurrentPage((prev) =>
-                        Math.max(prev - 1, 1)
-                      )
-                    }
-                    className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
-                  >
-                    Sebelumnya
-                  </button>
-
-                  <button
-                    disabled={
-                      currentPage >=
-                      paginationMeta.totalPages
-                    }
-                    onClick={() =>
-                      setCurrentPage((prev) => prev + 1)
-                    }
-                    className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
-                  >
-                    Selanjutnya
-                  </button>
-
-                </div>
-
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage <= 1 || isFetchingPage}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  disabled={currentPage >= paginationMeta.totalPages || isFetchingPage}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  className="px-3 py-1 bg-white border border-neutral-200 rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-sm"
+                >
+                  Selanjutnya
+                </button>
               </div>
-
-            )}
+            </div>
+          )}
 
         </div>
-
       </div>
 
       {/* TANDA TANGAN / OTORITAS RESMI KHUSUS CETAK PDF */}
-      <div className="hidden print:flex justify-between pt-12 mt-12 text-[10px] text-neutral-800">
-
-        <div className="text-center space-y-12">
-
+      <div className="hidden print:flex justify-between pt-16 mt-16 text-[10px] text-neutral-900 page-break-inside-avoid">
+        <div className="text-center space-y-16">
           <p>Mengetahui,</p>
-
-          <p className="font-bold underline">
-            Direktur Keuangan & Operasional
-          </p>
-
+          <p className="font-bold underline">Direktur Keuangan & Operasional</p>
         </div>
-
-        <div className="text-center space-y-12">
-
-          <p>
-            Surakarta,{' '}
-            {new Date().toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            })}
-          </p>
-
-          <p className="font-bold underline">
-            Superadmin Sistem Escrow
-          </p>
-
+        <div className="text-center space-y-16">
+          <p>Surakarta, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <p className="font-bold underline">Superadmin Sistem Escrow</p>
         </div>
-
       </div>
 
     </div>

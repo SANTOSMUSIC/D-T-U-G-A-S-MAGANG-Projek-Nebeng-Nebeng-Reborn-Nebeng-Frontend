@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   createPortal,
 } from 'react-dom';
@@ -10,24 +11,83 @@ import {
   Settings,
   X,
 } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+import apiClient from '../../../services/apiClient';
+
+const formatRole = (role) => {
+  if (!role) return 'Admin Regional';
+
+  return role
+    .split(/[-_ ]/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export default function UserProfileModal({
   isOpen,
   onClose,
-  user,
+  user: initialUser,
   onSettingsClick,
 }) {
+  const { session } = useAuth();
+  const [currentUser, setCurrentUser] = useState(initialUser || {});
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchLatestUserData() {
+      if (!isOpen) return;
+
+      try {
+        setIsLoading(true);
+        const res = await apiClient.get('/auth/me');
+
+        if (isMounted && res?.data) {
+          setCurrentUser(res.data);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data user yang sedang login:', err);
+        if (initialUser) {
+          setCurrentUser(initialUser);
+        } else if (session) {
+          setCurrentUser(session);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchLatestUserData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, initialUser, session]);
+
   if (!isOpen) {
     return null;
   }
 
   const displayName =
-    user?.name?.trim() ||
+    currentUser?.name?.trim() ||
+    session?.name?.trim() ||
     'Admin Regional';
 
-  const photoDataUrl =
-    user?.photoDataUrl ||
-    '';
+  const rawAvatar = currentUser?.avatar || currentUser?.photoDataUrl || '';
+  
+  let photoDataUrl = '';
+  if (rawAvatar) {
+    const baseURL = apiClient.defaults.baseURL
+      ? apiClient.defaults.baseURL.replace('/api', '')
+      : 'http://localhost:3000';
+
+    photoDataUrl = rawAvatar.startsWith('http')
+      ? rawAvatar
+      : `${baseURL}${rawAvatar}`;
+  }
 
   const initials =
     displayName
@@ -38,21 +98,28 @@ export default function UserProfileModal({
       .join('')
       .toUpperCase() || 'AR';
 
+  const userRole = formatRole(currentUser?.role || session?.role || 'Admin Regional');
+  const regionDisplay = 
+    currentUser?.region?.name || 
+    currentUser?.regionName || 
+    currentUser?.region || 
+    (currentUser?.regionId ? `Wilayah ID: ${currentUser.regionId}` : 'Wilayah Tugas Utama');
+
   const fields = [
     {
       icon: Mail,
       label: 'Email',
-      value: user?.email || '-',
+      value: currentUser?.email || session?.email || '-',
     },
     {
       icon: Phone,
       label: 'No. Telepon',
-      value: user?.phone || '-',
+      value: currentUser?.phone || session?.phone || '-',
     },
     {
       icon: MapPin,
       label: 'Wilayah Tugas',
-      value: user?.region || '-',
+      value: regionDisplay,
     },
   ];
 
@@ -209,8 +276,7 @@ export default function UserProfileModal({
                     truncate
                   "
                 >
-                  {user?.role ||
-                    'Admin Regional'}
+                  {userRole}
                 </span>
               </div>
 
@@ -227,65 +293,70 @@ export default function UserProfileModal({
           "
         >
 
-          {/* USER FIELDS */}
-          {fields.map(
-            ({
-              icon: Icon,
-              label,
-              value,
-            }) => (
-              <div
-                key={label}
-                className="
-                  flex
-                  items-start
-                  gap-3
-                  bg-neutral-50
-                  border
-                  border-neutral-100
-                  rounded-xl
-                  px-3.5
-                  py-2.5
-                "
-              >
-
-                <Icon
+          {isLoading ? (
+            <div className="py-6 text-center text-neutral-400 text-[10px]">
+              Memuat data profil...
+            </div>
+          ) : (
+            fields.map(
+              ({
+                icon: Icon,
+                label,
+                value,
+              }) => (
+                <div
+                  key={label}
                   className="
-                    w-3.5
-                    h-3.5
-                    text-[#4FBF99]
-                    mt-0.5
-                    shrink-0
+                    flex
+                    items-start
+                    gap-3
+                    bg-neutral-50
+                    border
+                    border-neutral-100
+                    rounded-xl
+                    px-3.5
+                    py-2.5
                   "
-                />
+                >
 
-                <div className="min-w-0">
-
-                  <p
+                  <Icon
                     className="
-                      text-[8px]
-                      font-bold
-                      text-neutral-400
-                      uppercase
-                      tracking-wide
+                      w-3.5
+                      h-3.5
+                      text-[#4FBF99]
+                      mt-0.5
+                      shrink-0
                     "
-                  >
-                    {label}
-                  </p>
+                  />
 
-                  <p
-                    className="
-                      text-[10px]
-                      font-semibold
-                      text-neutral-800
-                      wrap-break-words
-                    "
-                  >
-                    {value}
-                  </p>
+                  <div className="min-w-0">
 
+                    <p
+                      className="
+                        text-[8px]
+                        font-bold
+                        text-neutral-400
+                        uppercase
+                        tracking-wide
+                      "
+                    >
+                      {label}
+                    </p>
+
+                    <p
+                      className="
+                        text-[10px]
+                        font-semibold
+                        text-neutral-800
+                        wrap-break-words
+                      "
+                    >
+                      {value}
+                    </p>
+
+                  </div>
                 </div>
-              </div>
+              )
             )
           )}
 

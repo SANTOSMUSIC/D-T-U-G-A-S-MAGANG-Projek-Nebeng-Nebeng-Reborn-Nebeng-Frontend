@@ -32,7 +32,6 @@ export default function AdminRegionalDashboard() {
   const [emergencyLogs, setEmergencyLogs] = useState([]);
   const [recentRegionalActivities, setRecentRegionalActivities] = useState([]);
 
-  // Fetch data langsung dari Backend (/api/admin/dashboard/regional)
   useEffect(() => {
     let isMounted = true;
 

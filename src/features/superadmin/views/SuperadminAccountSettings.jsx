@@ -18,7 +18,7 @@ import { changeMyPassword, getMyProfile, updateMyProfile, uploadMyAvatar } from 
 import apiClient from '../../../services/apiClient';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 
 const formatRole = (role) => {
   if (!role) return 'Superadmin';
@@ -37,7 +37,7 @@ export default function SuperadminAccountSettings() {
     email: ''
   });
   const [avatarPreview, setAvatarPreview] = useState('');
-  const [avatarFile, setAvatarFile] = useState(null); // Menyimpan file asli sebelum tombol simpan ditekan
+  const [avatarFile, setAvatarFile] = useState(null);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -65,7 +65,6 @@ export default function SuperadminAccountSettings() {
 
   const displayRole = formatRole(role || session?.role);
 
-  // Memuat data profil murni langsung dari database backend (/auth/me) saat komponen dipasang
   useEffect(() => {
     let isMounted = true;
     async function fetchDatabaseProfile() {
@@ -106,13 +105,13 @@ export default function SuperadminAccountSettings() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleProfileFieldChange = (field, value) => {
     setProfileDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  // HANYA MENYIMPAN FILE KE STATE (Belum dikirim ke server)
   const handleAvatarChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -129,14 +128,11 @@ export default function SuperadminAccountSettings() {
     }
 
     setAvatarError('');
-    setAvatarFile(file); // Simpan file untuk dikirim nanti saat tombol simpan ditekan
-
-    // Buat URL lokal sementara agar gambar langsung tampil sebagai preview
+    setAvatarFile(file);
     const localPreviewUrl = URL.createObjectURL(file);
     setAvatarPreview(localPreviewUrl);
   };
 
-  // KETIKA TOMBOL "SIMPAN PERUBAHAN" DITEKAN: Kirim Nama, Email, dan File Avatar Sekaligus
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!profileDraft.name.trim()) {
@@ -151,7 +147,6 @@ export default function SuperadminAccountSettings() {
     try {
       setIsSubmitting(true);
       
-      // 1. Perbarui nama dan email dasar via PATCH /users/me
       await updateMyProfile({
         name: profileDraft.name.trim(),
         email: profileDraft.email.trim(),
@@ -159,7 +154,6 @@ export default function SuperadminAccountSettings() {
 
       let finalAvatarUrl = avatarPreview;
 
-      // 2. Jika ada file foto baru yang dipilih, unggah sekarang via POST /users/me/avatar
       if (avatarFile) {
         const formData = new FormData();
         formData.append('file', avatarFile);
@@ -173,11 +167,10 @@ export default function SuperadminAccountSettings() {
             : 'http://localhost:3000';
           finalAvatarUrl = relativePath.startsWith('http') ? relativePath : `${baseURL}${relativePath}`;
           setAvatarPreview(finalAvatarUrl);
-          setAvatarFile(null); // Reset file state setelah berhasil disimpan
+          setAvatarFile(null);
         }
       }
 
-      // Sinkronkan ke konteks global (Navbar dan UI lainnya)
       updateSuperadminProfile({ 
         name: profileDraft.name.trim(), 
         email: profileDraft.email.trim(),

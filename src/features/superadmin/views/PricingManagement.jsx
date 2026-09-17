@@ -24,7 +24,6 @@ export default function PricingPolicyManagement() {
     parcelFeePercent: 12
   });
 
-  // Matriks paket disesuaikan menggunakan maxWeightKg agar konsisten dengan backend & database
   const [parcelMatrix, setParcelMatrix] = useState([
     { size: "XXS", maxWeightKg: 1, baseRate: 6000, description: "Dokumen / Kunci / Flashdisk" },
     { size: "XS", maxWeightKg: 3, baseRate: 10000, description: "Kotak Kecil / Kosmetik" },

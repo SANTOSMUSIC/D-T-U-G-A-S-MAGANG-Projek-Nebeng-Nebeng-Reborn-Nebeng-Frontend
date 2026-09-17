@@ -1,12 +1,10 @@
 import apiClient from './apiClient';
 
-// src/services/userService.js
-export async function getAllUsers(page = 1, limit = 50) {
+export async function getAllUsers(page = 1, limit = 15, search = '', status = 'All', role = '') {
   const response = await apiClient.get('/users', {
-    params: { page, limit },
+    params: { page, limit, search, status, role },
   });
-  // Mengembalikan data secara aman, menangani format array langsung maupun objek { data, meta }
-  return response.data?.data || response.data;
+  return response.data;
 }
 
 export async function createUser(data) {
@@ -47,5 +45,16 @@ export async function uploadMyAvatar(formData) {
 // Mengubah kata sandi akun sendiri (/auth/change-password)
 export async function changeMyPassword(payload) {
   const response = await apiClient.patch('/auth/change-password', payload);
+  return response.data;
+}
+
+// Menjalankan aksi Super-Override Governance (Suspend / Block / Active dengan Alasan Audit)
+export async function updateUserGovernance(id, status, reason) {
+  const response = await apiClient.patch(`/admin/users/${id}/governance`, { status, reason });
+  return response.data;
+}
+
+export async function getUserStats() {
+  const response = await apiClient.get('/users/stats');
   return response.data;
 }

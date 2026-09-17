@@ -12,27 +12,21 @@ export default function OperatorPosPage() {
   const { user } = useAuth();
   const [operatorList, setOperatorList] = useState([]);
   const [isLoadingOperators, setIsLoadingOperators] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [operatorToDelete, setOperatorToDelete] = useState(null);
-
-  // Security PII & Audit Log State
   const [unmaskedEmails, setUnmaskedEmails] = useState({});
-
   const [formData, setFormData] = useState({
     name: '', email: '', password: 'Password123!', phone: '08123456789', regionId: user?.regionId || '1'
   });
 
-  // Fetch Operator dari Backend murni tanpa cascading render warning
   useEffect(() => {
     let isMounted = true;
 
     const loadOperators = async () => {
       try {
         if (isMounted) setIsLoadingOperators(true);
-        // Menggunakan pemanggilan service yang bersih
         const data = typeof regionalService.getOperators === 'function' 
           ? await regionalService.getOperators('operator') 
           : [];
@@ -101,7 +95,6 @@ export default function OperatorPosPage() {
 
     try {
       if (isEditing) {
-        // Logika edit jika diperlukan
         toast.success('Data operator diperbarui.', { title: 'Berhasil' });
       } else {
         await regionalService.createOperator({
@@ -115,7 +108,6 @@ export default function OperatorPosPage() {
       }
       setIsModalOpen(false);
 
-      // Reload data operator setelah simpan
       const data = await regionalService.getOperators('operator');
       const currentRegionId = user?.regionId ? String(user.regionId) : null;
       const formatted = (data || [])

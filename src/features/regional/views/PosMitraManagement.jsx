@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Search, Plus, QrCode, Trash2, Pencil, AlertTriangle, Building2, UserCheck } from 'lucide-react';
+import { MapPin, Search, Plus, QrCode, Trash2, Pencil, AlertTriangle, Building2, UserCheck, Globe, Loader2, Save } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -11,31 +11,27 @@ import apiClient from '../../../services/apiClient';
 export default function PosMitraManagement() {
   const toast = useToast();
   const { user } = useAuth();
-  
   const [activeRegionId, setActiveRegionId] = useState(null);
   const [posList, setPosList] = useState([]);
   const [cityList, setCityList] = useState([]);
   const [operatorList, setOperatorList] = useState([]); 
   const [isLoadingPos, setIsLoadingPos] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCityModalOpen, setIsCityModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  
   const [currentPos, setCurrentPos] = useState(null);
   const [posToDelete, setPosToDelete] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-
   const [formData, setFormData] = useState({
-    name: '', address: '', latitude: '', longitude: '', cityId: '', operatorId: '', regionId: ''
+    name: '', address: '', latitude: -7.5666, longitude: 110.8316, cityId: '', operatorId: '', regionId: ''
   });
-
   const [cityFormData, setCityFormData] = useState({
     name: '', province: ''
   });
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationSearchQuery, setLocationSearchQuery] = useState('');
 
-  // useEffect yang diperbarui: Tanpa guard ketat agar request tetap terkirim dan mudah dipantau
   useEffect(() => {
     let isMounted = true;
 
@@ -43,17 +39,11 @@ export default function PosMitraManagement() {
       try {
         if (isMounted) setIsLoadingPos(true);
         const regId = user?.regionId ? String(user.regionId) : null;
-        // Eksekusi pemanggilan data secara paralel dengan penanganan error mandiri
+        
         const [posData, cityRes, userRes] = await Promise.all([
-          regionalService.getPickupPoints(regId).catch(() => {
-            return [];
-          }),
-          apiClient.get('/cities').catch(() => {
-            return { data: [] };
-          }),
-          apiClient.get('/users', { params: { role: 'operator' } }).catch(() => {
-            return { data: [] };
-          })
+          regionalService.getPickupPoints(regId).catch(() => []),
+          apiClient.get('/cities').catch(() => ({ data: [] })),
+          apiClient.get('/users', { params: { role: 'operator' } }).catch(() => ({ data: [] }))
         ]);
 
         const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
@@ -61,8 +51,8 @@ export default function PosMitraManagement() {
           id: String(p.id),
           name: p.name,
           address: p.address,
-          lat: String(p.latitude),
-          long: String(p.longitude),
+          lat: Number(p.latitude) || -7.5666,
+          long: Number(p.longitude) || 110.8316,
           cityId: p.cityId ? String(p.cityId) : '',
           cityName: p.city?.name || '-',
           operatorId: p.operatorId ? String(p.operatorId) : '',
@@ -72,10 +62,7 @@ export default function PosMitraManagement() {
         }));
 
         const citiesData = Array.isArray(cityRes.data) ? cityRes.data : (cityRes.data?.data || []);
-
-        const rawUsers = Array.isArray(userRes.data) 
-          ? userRes.data 
-          : (userRes.data?.data || userRes.data?.users || []);
+        const rawUsers = Array.isArray(userRes.data) ? userRes.data : (userRes.data?.data || userRes.data?.users || []);
 
         const validOperators = rawUsers.filter(op => {
           const opRegion = op.regionId ? String(op.regionId) : null;
@@ -108,22 +95,52 @@ export default function PosMitraManagement() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.regionId]);
+  const handleAutoDetectCoordinate = async () => {
+    if (!locationSearchQuery && !formData.address && !formData.name) {
+      toast.warning('Masukkan nama lokasi, alamat, atau kata kunci pencarian terlebih dahulu.', { title: 'Pencarian Kosong' });
+      return;
+    }
+
+    const query = locationSearchQuery || formData.address || formData.name;
+    setIsSearchingLocation(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        setFormData(prev => ({
+          ...prev,
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lon),
+          address: prev.address || display_name
+        }));
+        toast.success('Koordinat lokasi pos berhasil dideteksi!', { title: 'Berhasil' });
+      } else {
+        toast.error('Lokasi tidak ditemukan di peta. Coba perjelas nama tempat atau alamat.', { title: 'Tidak Ditemukan' });
+      }
+    } catch (err) {
+      console.error('Gagal mendeteksi koordinat:', err);
+      toast.error('Gagal menghubungkan ke layanan peta.', { title: 'Error' });
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
 
   const handleOpenAdd = () => {
     setIsEditing(false);
     const regId = activeRegionId || user?.regionId || '1';
-
     const defaultCityId = cityList.length > 0 ? String(cityList[0].id) : '';
     
     setFormData({ 
       name: '', 
       address: '', 
-      latitude: '', 
-      longitude: '', 
+      latitude: -7.5666, 
+      longitude: 110.8316, 
       cityId: defaultCityId, 
       operatorId: '',
       regionId: String(regId)
     });
+    setLocationSearchQuery('');
     setIsModalOpen(true);
   };
 
@@ -139,6 +156,7 @@ export default function PosMitraManagement() {
       operatorId: pos.operatorId || '',
       regionId: String(activeRegionId || user?.regionId || '1')
     });
+    setLocationSearchQuery(pos.name);
     setIsModalOpen(true);
   };
 
@@ -207,8 +225,8 @@ export default function PosMitraManagement() {
         id: String(p.id),
         name: p.name,
         address: p.address,
-        lat: String(p.latitude),
-        long: String(p.longitude),
+        lat: Number(p.latitude) || -7.5666,
+        long: Number(p.longitude) || 110.8316,
         cityId: p.cityId ? String(p.cityId) : '',
         cityName: p.city?.name || '-',
         operatorId: p.operatorId ? String(p.operatorId) : '',
@@ -238,8 +256,8 @@ export default function PosMitraManagement() {
         id: String(p.id),
         name: p.name,
         address: p.address,
-        lat: String(p.latitude),
-        long: String(p.longitude),
+        lat: Number(p.latitude) || -7.5666,
+        long: Number(p.longitude) || 110.8316,
         cityId: p.cityId ? String(p.cityId) : '',
         cityName: p.city?.name || '-',
         operatorId: p.operatorId ? String(p.operatorId) : '',
@@ -359,64 +377,92 @@ export default function PosMitraManagement() {
         </div>
       </div>
 
-      {/* Modal Tambah / Edit Pos */}
+      {/* Modal Tambah / Edit Pos (DILENGKAPI PENCARIAN & PREVIEW MAP OTOMATIS) */}
       <BaseModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? 'Ubah Data Pos' : 'Tambah Pos Checkpoint Baru'}
         subtitle="Sistem Manajemen Wilayah & Terminal"
-        maxWidth="max-w-md"
+        maxWidth="max-w-lg"
       >
-        <form onSubmit={handleSave} className="space-y-3">
+        <form onSubmit={handleSave} className="space-y-3 text-[10px]">
+
+          {/* FITUR PENCARIAN LOKASI OTOMATIS */}
+          <div className="space-y-1 bg-purple-50/50 p-3 rounded-xl border border-purple-100">
+            <label className="text-[9px] font-bold text-[#4B2172] uppercase flex items-center gap-1">
+              <Globe size={12} /> Cari Nama Tempat / Alamat (Otomatis Deteksi Koordinat)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Contoh: Terminal Tirtonadi, Stasiun Balapan Surakarta..."
+                value={locationSearchQuery}
+                onChange={(e) => setLocationSearchQuery(e.target.value)}
+                className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]"
+              />
+              <button
+                type="button"
+                onClick={handleAutoDetectCoordinate}
+                disabled={isSearchingLocation}
+                className="px-3 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white font-bold rounded-xl flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {isSearchingLocation ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+                <span>Cari Peta</span>
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Pos / Terminal</label>
-            <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <input type="text" required placeholder="Contoh: Pos Terminal Tirtonadi" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
           </div>
 
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Alamat Lengkap</label>
-            <textarea rows="2" required value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] resize-none" />
+            <textarea rows="2" required placeholder="Jl. Menteri Supeno No. 1..." value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] resize-none" />
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="text-[9px] font-bold text-neutral-500 uppercase">Pilih Kota / Kabupaten</label>
-              <button 
-                type="button" 
-                onClick={() => setIsCityModalOpen(true)}
-                className="text-[9px] font-bold text-[#4B2172] hover:underline flex items-center gap-1 cursor-pointer"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] font-bold text-neutral-500 uppercase">Kota / Kabupaten</label>
+                <button 
+                  type="button" 
+                  onClick={() => setIsCityModalOpen(true)}
+                  className="text-[9px] font-bold text-[#4B2172] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Building2 size={11} /> + Tambah Kota
+                </button>
+              </div>
+              <select 
+                value={formData.cityId} 
+                onChange={(e) => setFormData({...formData, cityId: e.target.value})} 
+                required
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
               >
-                <Building2 size={11} /> + Tambah Kota Baru
-              </button>
+                {cityList.length === 0 ? (
+                  <option value="">Belum ada data kota.</option>
+                ) : (
+                  cityList.map((city) => (
+                    <option key={city.id} value={city.id}>{city.name} ({city.province})</option>
+                  ))
+                )}
+              </select>
             </div>
-            <select 
-              value={formData.cityId} 
-              onChange={(e) => setFormData({...formData, cityId: e.target.value})} 
-              required
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
-            >
-              {cityList.length === 0 ? (
-                <option value="">Belum ada data kota.</option>
-              ) : (
-                cityList.map((city) => (
-                  <option key={city.id} value={city.id}>{city.name} ({city.province})</option>
-                ))
-              )}
-            </select>
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-neutral-500 uppercase">Tugaskan Operator Pos</label>
-            <select 
-              value={formData.operatorId} 
-              onChange={(e) => setFormData({...formData, operatorId: e.target.value})} 
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
-            >
-              <option value="">-- Belum Ditugaskan --</option>
-              {operatorList.map((op) => (
-                <option key={op.id} value={op.id}>{op.name} ({op.email})</option>
-              ))}
-            </select>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-neutral-500 uppercase">Tugaskan Operator Pos</label>
+              <select 
+                value={formData.operatorId} 
+                onChange={(e) => setFormData({...formData, operatorId: e.target.value})} 
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] cursor-pointer"
+              >
+                <option value="">-- Belum Ditugaskan --</option>
+                {operatorList.map((op) => (
+                  <option key={op.id} value={op.id}>{op.name} ({op.email})</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -430,9 +476,28 @@ export default function PosMitraManagement() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3">
+          {/* LIVE MAP PREVIEW */}
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-neutral-500 uppercase">Preview Titik Pos di Peta</label>
+            <div className="rounded-xl overflow-hidden border border-neutral-200 h-36 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <iframe
+                  title="Pos Live Map Preview"
+                  width="100%"
+                  height="135%"
+                  frameBorder="0"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(formData.longitude || 110.83) - 0.05}%2C${Number(formData.latitude || -7.56) - 0.05}%2C${Number(formData.longitude || 110.83) + 0.05}%2C${Number(formData.latitude || -7.56) + 0.05}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
+                  style={{ border: 0, marginTop: '-25px' }}
+                ></iframe>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
             <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
-            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm">Simpan</button>
+            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] hover:bg-[#3b195a] rounded-full flex items-center gap-1 cursor-pointer shadow-sm transition">
+              <Save size={13} /> Simpan Pos
+            </button>
           </div>
         </form>
       </BaseModal>
@@ -445,7 +510,7 @@ export default function PosMitraManagement() {
         subtitle="Master Data Wilayah"
         maxWidth="max-w-sm"
       >
-        <form onSubmit={handleSaveCity} className="space-y-3">
+        <form onSubmit={handleSaveCity} className="space-y-3 text-[10px]">
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Kota / Kabupaten</label>
             <input type="text" required placeholder="Contoh: Surakarta" value={cityFormData.name} onChange={(e) => setCityFormData({...cityFormData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />

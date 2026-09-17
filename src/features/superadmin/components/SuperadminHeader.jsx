@@ -31,10 +31,7 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  // State untuk menampung data riil dari database
   const [dbUser, setDbUser] = useState(null);
-
   const profileRef = useRef(null);
   const notifRef = useRef(null);
 
@@ -50,7 +47,6 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
     setNotifications(notifications.map((n) => ({ ...n, unread: false })));
   };
 
-  // Ambil data langsung dari database backend (/auth/me) agar Navbar sinkron
   useEffect(() => {
     let isMounted = true;
     async function fetchHeaderProfile() {
@@ -69,7 +65,6 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
     };
   }, []);
 
-  // Tutup dropdown saat klik di luar area profil / notifikasi
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
@@ -83,7 +78,6 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Prioritas data: DB Backend -> Prop SuperadminProfile -> Session Login
   const displayName = dbUser?.name || superadminProfile?.name || session?.name || session?.fullName || session?.username || 'Admin';
   const displayRole = formatRole(dbUser?.role || role || session?.role);
   const displayEmail = dbUser?.email || superadminProfile?.email || session?.email || '';

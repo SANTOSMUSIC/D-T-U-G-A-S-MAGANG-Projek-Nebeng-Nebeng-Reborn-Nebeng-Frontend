@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert,
   UserX,
@@ -32,9 +32,9 @@ import {
   getAllUsers,
   createUser,
   updateUserStatus,
+  getUserStats,
 } from '../../../services/userService';
 
-// Konfigurasi terpusat untuk setiap peran (role) pengguna di sistem.
 const ROLE_CONFIG = {
   customer: {
     label: 'Customer (Penumpang)',
@@ -43,7 +43,6 @@ const ROLE_CONFIG = {
     variant: 'default',
   },
 
-  // Sebelumnya purple → sekarang emerald agar mengikuti tema utama
   mitra: {
     label: 'Mitra (Driver)',
     shortLabel: 'Mitra',
@@ -91,26 +90,19 @@ function RoleBadge({ role }) {
 
 export default function UserGovernance() {
   const { session: currentAdminSession, role: currentAdminRole } = useAuth();
-
   const [users, setUsers] = useState([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-
-  // State Paginasi
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationMeta, setPaginationMeta] = useState(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionModal, setActionModal] = useState(null);
   const [reason, setReason] = useState('');
-
   const [unmaskedUsers, setUnmaskedUsers] = useState({});
   const [auditLogs, setAuditLogs] = useState([]);
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPassword, setShowAddPassword] = useState(false);
-
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -118,17 +110,19 @@ export default function UserGovernance() {
     phone: '',
     password: '',
   });
+  const [userStats, setUserStats] = useState({
+    active: 0,
+    suspended: 0,
+    blocked: 0,
+    total: 0,
+  });
 
-  const fetchUsersData = async (page = 1) => {
+const fetchUsersData = useCallback(async (pageToFetch, searchVal, statusVal) => {
     try {
       setIsLoadingUsers(true);
-
-      const res = await getAllUsers(page, 20);
-
-      // Menyesuaikan struktur jika API mengembalikan objek pagination
-      // atau array langsung
+      const res = await getAllUsers(pageToFetch, 15, searchVal, statusVal);
+      
       const listData = res?.data || res;
-
       setUsers(Array.isArray(listData) ? listData : []);
 
       if (res?.meta) {
@@ -139,8 +133,36 @@ export default function UserGovernance() {
     } finally {
       setIsLoadingUsers(false);
     }
-  };
+  }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsersData(currentPage, searchTerm, statusFilter);
+    }, searchTerm ? 400 : 0);
+
+    return () => clearTimeout(timer);
+  }, [currentPage, searchTerm, statusFilter, fetchUsersData]);
+
+  const fetchUserStats = useCallback(async () => {
+    try {
+      const stats = await getUserStats();
+      if (stats) {
+        setUserStats(stats);
+      }
+    } catch (err) {
+      console.error('Gagal memuat statik user:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsersData(currentPage, searchTerm, statusFilter);
+      fetchUserStats();
+    }, searchTerm ? 400 : 0);
+
+    return () => clearTimeout(timer);
+  }, [currentPage, searchTerm, statusFilter, fetchUsersData, fetchUserStats])
+  
   useEffect(() => {
     let isMounted = true;
 
@@ -148,7 +170,7 @@ export default function UserGovernance() {
       try {
         setIsLoadingUsers(true);
 
-        const res = await getAllUsers(currentPage, 20);
+        const res = await getAllUsers(currentPage, 15);
 
         if (isMounted) {
           const listData = res?.data || res;
@@ -377,16 +399,13 @@ export default function UserGovernance() {
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
             <UserCheck size={20} />
           </div>
-
           <div>
             <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
               Akun Aktif
             </p>
-
             <h3 className="text-[18px] font-bold text-neutral-800 mt-0.5">
-              {users.filter((u) => u.status === 'active').length} Pengguna
+              {userStats.active} Pengguna
             </h3>
-
             <span className="text-[10px] font-semibold text-emerald-600">
               Beroperasi normal
             </span>
@@ -398,17 +417,13 @@ export default function UserGovernance() {
           <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0">
             <AlertTriangle size={20} />
           </div>
-
           <div>
             <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
               Akun Disuspend
             </p>
-
             <h3 className="text-[18px] font-bold text-neutral-800 mt-0.5">
-              {users.filter((u) => u.status === 'suspended').length}{' '}
-              Pengguna
+              {userStats.suspended} Pengguna
             </h3>
-
             <span className="text-[10px] font-semibold text-amber-600">
               Ditangguhkan sementara
             </span>
@@ -420,17 +435,13 @@ export default function UserGovernance() {
           <div className="p-3 bg-rose-50 text-rose-600 rounded-xl shrink-0">
             <UserX size={20} />
           </div>
-
           <div>
             <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
               Akun Diblokir
             </p>
-
             <h3 className="text-[18px] font-bold text-neutral-800 mt-0.5">
-              {users.filter((u) => u.status === 'blocked').length}{' '}
-              Pengguna
+              {userStats.blocked} Pengguna
             </h3>
-
             <span className="text-[10px] font-semibold text-rose-600">
               Akses dicabut sistemik
             </span>
@@ -1041,7 +1052,7 @@ export default function UserGovernance() {
                   })
                 }
                 className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] focus:bg-white transition"
-                placeholder="08xxxxxxxxxx (opsional)"
+                placeholder="08xxxxxxxxxx"
               />
             </div>
           </div>

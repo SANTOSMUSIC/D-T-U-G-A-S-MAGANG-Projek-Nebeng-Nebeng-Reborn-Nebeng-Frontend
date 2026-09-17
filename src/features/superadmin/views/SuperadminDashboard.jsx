@@ -39,26 +39,16 @@ const getWeightForRegion = (baseWeight, index, regionName) => {
 export default function SuperadminDashboard() {
   const { session } = useAuth();
   const displayName = session?.name || session?.fullName || session?.username || 'Admin';
-
-  // State Data dari Backend & Loading
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [escrowLedgerData, setEscrowLedgerData] = useState(null);
-
-  // State Paginasi Escrow Ledger (Mencegah beban data berlebih)
   const [escrowPage, setEscrowPage] = useState(1);
   const [paginationInfo, setPaginationInfo] = useState(null);
-
-  // State Pencarian Utama (Header) & Pencarian Grafik
-  // eslint-disable-next-line no-unused-vars
-  const [mainQuery, setMainQuery] = useState('');
+  const [mainQuery] = useState('');
   const [chartQuery, setChartQuery] = useState('');
-
-  // State Filter Data Wilayah
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [filterSortBy, setFilterSortBy] = useState('default');
 
-  // Ambil data riil global dashboard & escrow ledger dari backend saat komponen dimuat atau halaman ledger berubah
   useEffect(() => {
     let isMounted = true;
     async function fetchData() {
