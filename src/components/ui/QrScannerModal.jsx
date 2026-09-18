@@ -70,7 +70,7 @@ export default function QrScannerModal({ label, onResult, onClose }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div 
@@ -97,7 +97,7 @@ export default function QrScannerModal({ label, onResult, onClose }) {
           <>
             <div
               id={scannerElementId}
-              className="w-full rounded-2xl overflow-hidden bg-neutral-900 min-h-[220px]"
+              className="w-full rounded-2xl overflow-hidden bg-neutral-900 min-h-55"
             />
             <p className="text-[11px] text-neutral-500 text-center mt-3">
               {isStarting ? 'Mengaktifkan kamera...' : 'Arahkan kamera ke QR Code hingga terbaca otomatis.'}

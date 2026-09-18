@@ -1,7 +1,21 @@
 import apiClient from './apiClient';
 
-export async function getAllRegions(onlyActive = false) {
-  const response = await apiClient.get(`/regions${onlyActive ? '?onlyActive=true' : ''}`);
+export async function getAllRegions(
+  page = 1,
+  limit = 10,
+  onlyActive = false
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+
+  if (onlyActive) {
+    params.append('onlyActive', 'true');
+  }
+
+  const response = await apiClient.get(`/regions?${params.toString()}`);
+
   return response.data;
 }
 

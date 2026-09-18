@@ -9,33 +9,81 @@ import {
   LogOut,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
+import apiClient from '../../../services/apiClient';
 
-export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSelect, onLogout }) {
+const PRIMARY_COLOR = '#10367D';
+
+export default function MitraSidebar({
+  activeMenu = 'Dashboard Mitra',
+  onMenuSelect,
+  onLogout,
+  isVerified = false
+}) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    { name: 'Dashboard Mitra', icon: LayoutDashboard },
-    { name: 'Onboarding & Verifikasi', icon: UserCheck },
-    { name: 'Kelola Trip & Jadwal', icon: Calendar },
-    { name: 'Digital QR Trip', icon: QrCode },
-    { name: 'Saldo & Komisi', icon: Wallet },
-    { name: 'Chat Pelanggan', icon: MessageSquare },
+    {
+      name: 'Dashboard Mitra',
+      icon: LayoutDashboard,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Onboarding & Verifikasi',
+      icon: UserCheck,
+      locked: isVerified,
+      label: isVerified ? 'Verifikasi Selesai' : 'Onboarding & Verifikasi',
+      lockMessage: 'Verifikasi Anda telah disetujui'
+    },
+    {
+      name: 'Kelola Trip & Jadwal',
+      icon: Calendar,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Digital QR Trip',
+      icon: QrCode,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Saldo & Komisi',
+      icon: Wallet,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Chat Pelanggan',
+      icon: MessageSquare,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
   ];
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
-    setTimeout(() => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (err) {
+      console.error('Gagal mencabut token di server:', err);
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
       if (onLogout) onLogout();
-    }, 400);
+    }
   };
 
-  const handleMenuSelect = (name) => {
-    if (onMenuSelect) onMenuSelect(name);
+  const handleMenuSelect = (item) => {
+    if (item.locked) return;
+    if (onMenuSelect) onMenuSelect(item.name);
     setIsMobileOpen(false);
   };
 
@@ -44,7 +92,8 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#4B2172] print:hidden"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center print:hidden"
+        style={{ color: PRIMARY_COLOR }}
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -56,7 +105,12 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
         />
       )}
 
-      <aside className={`w-64 h-screen bg-[#4B2172] text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 print:hidden select-none`}>
+      <aside
+        className={`w-64 h-screen text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:translate-x-0 print:hidden select-none`}
+        style={{ backgroundColor: PRIMARY_COLOR }}
+      >
         <div>
           <div className="mb-8 px-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -69,10 +123,12 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
                   e.target.src = '/logo.png';
                 }}
               />
+
               <span className="font-bold text-white text-[20px] tracking-wide leading-none">
                 Nebeng
               </span>
             </div>
+
             <button
               onClick={() => setIsMobileOpen(false)}
               aria-label="Tutup menu navigasi"
@@ -84,25 +140,48 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
 
           <div className="space-y-6">
             <div>
-              <p className="text-[8px] font-semibold uppercase tracking-widest text-white/50 mb-2.5 px-3">
+              <p className="text-[8px] font-semibold uppercase tracking-widest text-[#74B4D9] mb-2.5 px-3">
                 MENU MITRA POS
               </p>
+
               <nav className="space-y-1">
                 {menuItems.map((item) => {
                   const IconComponent = item.icon;
                   const isActive = activeMenu === item.name;
+
                   return (
                     <button
                       key={item.name}
-                      onClick={() => handleMenuSelect(item.name)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
+                      disabled={item.locked}
+                      onClick={() => handleMenuSelect(item)}
+                      title={item.locked ? item.lockMessage : undefined}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left ${
                         isActive
-                          ? 'bg-white text-[#4B2172] font-semibold shadow-sm'
-                          : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
+                          ? 'bg-white font-semibold shadow-sm cursor-default'
+                          : item.locked
+                          ? 'text-white/40 font-medium cursor-not-allowed opacity-60'
+                          : 'text-white/80 font-medium hover:bg-white/10 hover:text-white cursor-pointer'
                       }`}
+                      style={isActive ? { color: PRIMARY_COLOR } : undefined}
                     >
-                      <IconComponent className={`w-4 h-4 ${isActive ? 'text-[#4B2172]' : 'text-white/70'}`} />
-                      <span>{item.name}</span>
+                      <IconComponent
+                        className={`w-4 h-4 ${
+                          isActive
+                            ? ''
+                            : item.locked
+                            ? 'text-white/30'
+                            : 'text-white/70'
+                        }`}
+                        style={isActive ? { color: PRIMARY_COLOR } : undefined}
+                      />
+
+                      <span className="flex-1">{item.label || item.name}</span>
+
+                      {item.name === 'Onboarding & Verifikasi' && isVerified ? (
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#74B4D9] shrink-0" />
+                      ) : item.locked ? (
+                        <Lock className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -115,7 +194,7 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
           <button
             onClick={() => setShowLogoutModal(true)}
             aria-label="Keluar Sistem"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-[#FF0055] hover:bg-[#e0004c] transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer shadow-sm"
           >
             <LogOut className="w-4 h-4 text-white shrink-0" />
             <span>Log Out</span>
@@ -130,9 +209,14 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
               <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center shadow-sm">
                 <AlertTriangle size={24} />
               </div>
-              <h3 className="text-[14px] font-bold text-gray-900">Konfirmasi Keluar Sistem</h3>
+
+              <h3 className="text-[14px] font-bold text-gray-900">
+                Konfirmasi Keluar Sistem
+              </h3>
+
               <p className="text-[10px] font-normal text-gray-500">
-                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus masuk kembali untuk mengakses panel mitra.
+                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus
+                masuk kembali untuk mengakses panel mitra.
               </p>
             </div>
 
@@ -144,6 +228,7 @@ export default function MitraSidebar({ activeMenu = 'Dashboard Mitra', onMenuSel
               >
                 Batal
               </button>
+
               <button
                 onClick={handleConfirmLogout}
                 disabled={isLoggingOut}

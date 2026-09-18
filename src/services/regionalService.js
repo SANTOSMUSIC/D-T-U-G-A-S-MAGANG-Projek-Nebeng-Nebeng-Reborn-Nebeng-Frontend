@@ -52,10 +52,15 @@ export const regionalService = {
     const response = await apiClient.get('/trips', { params: filters });
     return Array.isArray(response.data) ? response.data : (response.data?.data || []);
   },
-  getUsersByRole: async (role, regionId) => {
-    const params = { role };
+  getUsersByRole: async (role, regionId, page = 1, limit = 10) => {
+    const params = { role, page, limit };
     if (regionId) params.regionId = regionId;
     const response = await apiClient.get('/users', { params });
+    return response.data;
+  },
+
+  getVehicles: async () => {
+    const response = await apiClient.get('/vehicles');
     return response.data;
   },
   getPayments: async (regionId) => {

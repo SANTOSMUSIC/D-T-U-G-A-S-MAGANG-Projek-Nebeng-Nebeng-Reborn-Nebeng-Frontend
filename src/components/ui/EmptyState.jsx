@@ -1,16 +1,5 @@
 import { Inbox } from 'lucide-react';
 
-/**
- * Tampilan standar untuk list/tabel yang datanya kosong.
- * Dipakai di dalam <tbody> (colSpan penuh) atau berdiri sendiri.
- *
- * Contoh pakai di dalam tabel:
- *   {items.length === 0 ? (
- *     <tr><td colSpan={4}><EmptyState title="Belum ada data" /></td></tr>
- *   ) : (
- *     items.map(...)
- *   )}
- */
 export default function EmptyState({
   icon: Icon = Inbox,
   title = 'Belum ada data',

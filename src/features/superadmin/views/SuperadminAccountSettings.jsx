@@ -18,7 +18,7 @@ import { changeMyPassword, getMyProfile, updateMyProfile, uploadMyAvatar } from 
 import apiClient from '../../../services/apiClient';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 
 const formatRole = (role) => {
   if (!role) return 'Superadmin';
@@ -37,7 +37,7 @@ export default function SuperadminAccountSettings() {
     email: ''
   });
   const [avatarPreview, setAvatarPreview] = useState('');
-  const [avatarFile, setAvatarFile] = useState(null); // Menyimpan file asli sebelum tombol simpan ditekan
+  const [avatarFile, setAvatarFile] = useState(null);
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -65,7 +65,6 @@ export default function SuperadminAccountSettings() {
 
   const displayRole = formatRole(role || session?.role);
 
-  // Memuat data profil murni langsung dari database backend (/auth/me) saat komponen dipasang
   useEffect(() => {
     let isMounted = true;
     async function fetchDatabaseProfile() {
@@ -106,13 +105,13 @@ export default function SuperadminAccountSettings() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleProfileFieldChange = (field, value) => {
     setProfileDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  // HANYA MENYIMPAN FILE KE STATE (Belum dikirim ke server)
   const handleAvatarChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -129,14 +128,11 @@ export default function SuperadminAccountSettings() {
     }
 
     setAvatarError('');
-    setAvatarFile(file); // Simpan file untuk dikirim nanti saat tombol simpan ditekan
-
-    // Buat URL lokal sementara agar gambar langsung tampil sebagai preview
+    setAvatarFile(file);
     const localPreviewUrl = URL.createObjectURL(file);
     setAvatarPreview(localPreviewUrl);
   };
 
-  // KETIKA TOMBOL "SIMPAN PERUBAHAN" DITEKAN: Kirim Nama, Email, dan File Avatar Sekaligus
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!profileDraft.name.trim()) {
@@ -151,7 +147,6 @@ export default function SuperadminAccountSettings() {
     try {
       setIsSubmitting(true);
       
-      // 1. Perbarui nama dan email dasar via PATCH /users/me
       await updateMyProfile({
         name: profileDraft.name.trim(),
         email: profileDraft.email.trim(),
@@ -159,7 +154,6 @@ export default function SuperadminAccountSettings() {
 
       let finalAvatarUrl = avatarPreview;
 
-      // 2. Jika ada file foto baru yang dipilih, unggah sekarang via POST /users/me/avatar
       if (avatarFile) {
         const formData = new FormData();
         formData.append('file', avatarFile);
@@ -173,11 +167,10 @@ export default function SuperadminAccountSettings() {
             : 'http://localhost:3000';
           finalAvatarUrl = relativePath.startsWith('http') ? relativePath : `${baseURL}${relativePath}`;
           setAvatarPreview(finalAvatarUrl);
-          setAvatarFile(null); // Reset file state setelah berhasil disimpan
+          setAvatarFile(null);
         }
       }
 
-      // Sinkronkan ke konteks global (Navbar dan UI lainnya)
       updateSuperadminProfile({ 
         name: profileDraft.name.trim(), 
         email: profileDraft.email.trim(),
@@ -261,8 +254,8 @@ export default function SuperadminAccountSettings() {
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172] flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-[#10367D] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#10367D] flex items-center gap-1">
               <Settings className="w-3 h-3" /> AKUN & KEAMANAN
             </span>
           </div>
@@ -274,25 +267,24 @@ export default function SuperadminAccountSettings() {
       </div>
 
       <div className="space-y-5">
-        {/* Edit Profil */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
-            <User className="w-4 h-4 text-[#4B2172]" /> Edit Profil
+            <User className="w-4 h-4 text-[#10367D]" /> Edit Profil
           </h3>
 
           <div className="flex items-center gap-4">
             <div className="relative w-16 h-16 shrink-0">
               {avatarPreview ? (
-                <img src={avatarPreview} alt="Foto Profil" className="w-16 h-16 rounded-full object-cover border-4 border-purple-50 shadow-sm" />
+                <img src={avatarPreview} alt="Foto Profil" className="w-16 h-16 rounded-full object-cover border-4 border-sky-50 shadow-sm" />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-[#4B2172] text-white flex items-center justify-center text-[20px] font-extrabold shadow-sm">
+                <div className="w-16 h-16 rounded-full bg-[#10367D] text-white flex items-center justify-center text-[20px] font-extrabold shadow-sm">
                   {(profileDraft.name || 'S').trim().charAt(0).toUpperCase()}
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-white border border-neutral-200 text-[#4B2172] flex items-center justify-center shadow-sm hover:bg-neutral-50 transition cursor-pointer"
+                className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-white border border-neutral-200 text-[#10367D] flex items-center justify-center shadow-sm hover:bg-neutral-50 transition cursor-pointer"
                 title="Ubah Foto Profil"
               >
                 <Camera className="w-3 h-3" />
@@ -323,7 +315,7 @@ export default function SuperadminAccountSettings() {
                   type="text"
                   value={profileDraft.name}
                   onChange={(e) => handleProfileFieldChange('name', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                   required
                 />
               </div>
@@ -334,7 +326,7 @@ export default function SuperadminAccountSettings() {
                   placeholder="nama@email.com"
                   value={profileDraft.email}
                   onChange={(e) => handleProfileFieldChange('email', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                   required
                 />
               </div>
@@ -343,7 +335,7 @@ export default function SuperadminAccountSettings() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
@@ -351,10 +343,9 @@ export default function SuperadminAccountSettings() {
           </form>
         </div>
 
-        {/* Keamanan Akun */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
-            <KeyRound className="w-4 h-4 text-[#4B2172]" /> Keamanan Akun
+            <KeyRound className="w-4 h-4 text-[#10367D]" /> Keamanan Akun
           </h3>
 
           <form onSubmit={handleChangePassword} className="space-y-3 text-[10px]">
@@ -371,7 +362,7 @@ export default function SuperadminAccountSettings() {
                     type={showPassword[key] ? 'text' : 'password'}
                     value={passwordForm[key]}
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4B2172]"
+                    className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                   />
                   <button
                     type="button"
@@ -388,7 +379,7 @@ export default function SuperadminAccountSettings() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-xl font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? 'Memproses...' : 'Perbarui Kata Sandi'}
               </button>
@@ -397,7 +388,7 @@ export default function SuperadminAccountSettings() {
 
           <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5">
-              <div className="p-2 bg-purple-50 text-[#4B2172] rounded-xl shrink-0">
+              <div className="p-2 bg-sky-50 text-[#10367D] rounded-xl shrink-0">
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
@@ -430,10 +421,9 @@ export default function SuperadminAccountSettings() {
           </div>
         </div>
 
-        {/* Preferensi Notifikasi */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
-            <Bell className="w-4 h-4 text-[#4B2172]" /> Preferensi Notifikasi
+            <Bell className="w-4 h-4 text-[#10367D]" /> Preferensi Notifikasi
           </h3>
           <div className="space-y-2.5">
             {[
@@ -474,7 +464,7 @@ export default function SuperadminAccountSettings() {
             </button>
             <button
               onClick={handleConfirm2FA}
-              className="flex-1 py-2.5 bg-[#4B2172] hover:bg-[#3a1a59] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+              className="flex-1 py-2.5 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
             >
               Aktifkan
             </button>

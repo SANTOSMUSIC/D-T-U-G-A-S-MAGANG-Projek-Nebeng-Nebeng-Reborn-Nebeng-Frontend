@@ -45,7 +45,7 @@ export function SkeletonTableRow({ columns = 4 }) {
     <tr>
       {Array.from({ length: columns }).map((_, i) => (
         <td key={i} className="py-4 px-6">
-          <Skeleton className="h-4 w-full max-w-[140px]" />
+          <Skeleton className="h-4 w-full max-w-35" />
         </td>
       ))}
     </tr>

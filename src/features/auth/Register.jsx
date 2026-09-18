@@ -1,20 +1,27 @@
-import { useState, useEffect } from 'react';
-import { User, Mail, Phone, Lock, ArrowRight, ChevronDown, MapPin } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { User, Mail, Phone, Lock, ArrowRight, ChevronDown, MapPin, Search } from 'lucide-react';
 import AuthInput from '../../components/ui/AuthInput';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useToast } from '../../context/ToastContext';
 import { registerRequest } from '../../services/authService';
 import apiClient from '../../services/apiClient';
-import logoImage from '../../assets/LOGO.png';
+import logoImage from '../../assets/logo.png';
+import registerIllustration from '../../assets/Daftar.png';
 
 export default function Register({ onSwitchToLogin }) {
   const toast = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // State untuk Region
   const [regions, setRegions] = useState([]);
   const [isLoadingRegions, setIsLoadingRegions] = useState(true);
-  
+  const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
+  const [regionSearch, setRegionSearch] = useState('');
+  const [selectedRegionName, setSelectedRegionName] = useState('');
+  const regionDropdownRef = useRef(null);
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -33,11 +40,6 @@ export default function Register({ onSwitchToLogin }) {
         const response = await apiClient.get('/regions?onlyActive=true');
         const regionData = response.data?.data || response.data || [];
         setRegions(regionData);
-        
-        // Set default region pertama jika ada data
-        if (regionData.length > 0) {
-          setForm(prev => ({ ...prev, regionId: String(regionData[0].id) }));
-        }
       } catch (err) {
         console.error('Gagal memuat daftar region', err);
         toast.error('Gagal memuat daftar wilayah operasional. Silakan muat ulang halaman.', {
@@ -49,6 +51,17 @@ export default function Register({ onSwitchToLogin }) {
     }
     fetchRegions();
   }, [toast]);
+
+  // Handle Klik di luar dropdown untuk menutup dropdown wilayah
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (regionDropdownRef.current && !regionDropdownRef.current.contains(event.target)) {
+        setIsRegionDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleChange = (field) => (e) => {
     let value = e.target.value;
@@ -64,6 +77,24 @@ export default function Register({ onSwitchToLogin }) {
     }
   };
 
+  const handleSelectRegion = (region) => {
+    setForm((prev) => ({ ...prev, regionId: region.id }));
+    setSelectedRegionName(`${region.name} (${region.code})`);
+    setIsRegionDropdownOpen(false);
+    setRegionSearch('');
+    if (errors.regionId) {
+      setErrors((prev) => ({ ...prev, regionId: undefined }));
+    }
+  };
+
+  const filteredRegions = regions.filter((reg) => {
+    const term = regionSearch.toLowerCase();
+    return (
+      reg.name?.toLowerCase().includes(term) ||
+      reg.code?.toLowerCase().includes(term)
+    );
+  });
+
   const validate = () => {
     const nextErrors = {};
     const trimmedName = form.name.trim();
@@ -72,7 +103,7 @@ export default function Register({ onSwitchToLogin }) {
     if (!trimmedName) nextErrors.name = 'Nama wajib diisi';
     if (!trimmedEmail) nextErrors.email = 'Email wajib diisi';
     if (!form.phone) nextErrors.phone = 'Nomor telepon wajib diisi';
-    if (!form.regionId) nextErrors.regionId = 'Wilayah / Region wajib dipilih';
+    if (!form.regionId) nextErrors.regionId = 'Wilayah operasional wajib dipilih';
     if (!form.password) nextErrors.password = 'Password wajib diisi';
     if (form.password && form.password.length < 6) nextErrors.password = 'Password minimal 6 karakter';
     if (form.confirmPassword !== form.password) nextErrors.confirmPassword = 'Konfirmasi password tidak cocok';
@@ -112,19 +143,13 @@ export default function Register({ onSwitchToLogin }) {
 
   return (
     <AuthLayout
-      title={<>Bergabung<br />dengan Kami</>}
-      subtitle="Mulai pengalaman perjalanan yang lebih cerdas, hemat, dan aman bersama komunitas Nebeng."
-      badgeText="DATA PRIVACY GUARANTEED"
+      logo={logoImage}
+      brandName="Nebeng"
+      title={<>Bergabung dengan Kami</>}
+      subtitle="Mulai pengalaman perjalanan yang lebih cerdas, hemat, dan aman."
+      illustration={registerIllustration}
+      illustrationAlt="Ilustrasi pendaftaran akun Nebeng"
     >
-      <div className="mb-8 w-full flex flex-col items-center text-center">
-        <div className="w-full flex items-center justify-center gap-2.5 mb-7">
-          <img src={logoImage} alt="Logo Nebeng" className="h-8 w-8 object-contain shrink-0" />
-          <span className="font-bold text-neutral-800 text-base tracking-wide leading-none">Nebeng</span>
-        </div>
-        <h2 className="text-2xl font-bold text-neutral-800 mb-1.5">Buat akun baru</h2>
-        <p className="text-neutral-500 text-sm">Lengkapi data diri Anda untuk memulai perjalanan.</p>
-      </div>
-
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <AuthInput
           label="Nama pengguna"
@@ -156,7 +181,7 @@ export default function Register({ onSwitchToLogin }) {
         />
 
         <div className="w-full">
-          <label htmlFor="register-role" className="block text-sm font-medium text-neutral-600 mb-2">
+          <label htmlFor="register-role" className="block mb-1.5 text-[11px] leading-[1.4] font-normal text-[#999999]">
             Daftar sebagai
           </label>
           <div className="relative">
@@ -164,43 +189,95 @@ export default function Register({ onSwitchToLogin }) {
               id="register-role"
               value={form.role}
               onChange={handleChange('role')}
-              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] text-[15px] transition font-normal cursor-pointer"
+              className="w-full h-10 sm:h-10.25 appearance-none pl-4 pr-11 bg-white border border-[#E3E3E3] rounded-full text-[10px] sm:text-[10.5px] leading-none font-normal text-[#333333] focus:outline-none focus:border-[#74B4D9] focus:ring-2 focus:ring-[#74B4D9]/15 transition-all duration-200 cursor-pointer"
             >
               <option value="customer">Customer</option>
               <option value="mitra">Mitra (Driver)</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute inset-y-0 right-4 my-auto w-4.5 h-4.5 text-zinc-500" />
+            <ChevronDown className="pointer-events-none absolute inset-y-0 right-4 my-auto w-3.75 h-3.75 text-[#999999]" />
           </div>
         </div>
 
-        {/* Pilihan Wilayah / Region dengan Status Loading & Validasi Kosong */}
-        <div className="w-full">
-          <label htmlFor="register-region" className="block text-sm font-medium text-neutral-600 mb-2">
-            Pilih Wilayah Operasional (Region)
+        {/* Custom Searchable Select - Wilayah Operasional (Region) */}
+        <div className="w-full relative" ref={regionDropdownRef}>
+          <label className="block mb-1.5 text-[11px] leading-[1.4] font-normal text-[#999999]">
+            Wilayah Operasional (Region) <span className="text-[#E57373] font-bold">*Wajib Diisi</span>
           </label>
+          
           <div className="relative">
-            <select
-              id="register-region"
-              value={form.regionId}
-              onChange={handleChange('regionId')}
-              disabled={isLoadingRegions || regions.length === 0}
-              className="w-full appearance-none pl-4 pr-11 py-3.5 bg-white border border-neutral-200 rounded-full text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172] text-[15px] transition font-normal cursor-pointer disabled:bg-neutral-100 disabled:cursor-not-allowed"
+            <div
+              onClick={() => {
+                if (!isLoadingRegions && regions.length > 0) {
+                  setIsRegionDropdownOpen((prev) => !prev);
+                }
+              }}
+              className={`w-full h-10 sm:h-10.25 px-4 bg-white border ${
+                errors.regionId ? 'border-[#E57373]' : 'border-[#E3E3E3]'
+              } rounded-full flex items-center justify-between cursor-pointer focus-within:border-[#74B4D9] transition-all duration-200 ${
+                isLoadingRegions || regions.length === 0 ? 'bg-[#EBEBEB] cursor-not-allowed' : ''
+              }`}
             >
-              {isLoadingRegions ? (
-                <option value="">Memuat wilayah...</option>
-              ) : regions.length === 0 ? (
-                <option value="">Tidak ada wilayah aktif</option>
-              ) : (
-                regions.map((reg) => (
-                  <option key={reg.id} value={reg.id}>
-                    {reg.name} ({reg.code})
-                  </option>
-                ))
-              )}
-            </select>
-            <MapPin className="pointer-events-none absolute inset-y-0 right-4 my-auto w-4.5 h-4.5 text-zinc-500" />
+              <div className="flex items-center gap-2 overflow-hidden pr-2">
+                <MapPin className="w-3.75 h-3.75 text-[#999999] shrink-0" />
+                <span className={`text-[10px] sm:text-[10.5px] truncate ${selectedRegionName ? 'text-[#333333] font-normal' : 'text-[#999999]'}`}>
+                  {isLoadingRegions
+                    ? 'Memuat wilayah...'
+                    : regions.length === 0
+                    ? 'Tidak ada wilayah aktif'
+                    : selectedRegionName || 'Cari atau pilih wilayah operasional...'}
+                </span>
+              </div>
+              <ChevronDown className={`w-3.75 h-3.75 text-[#999999] shrink-0 transition-transform duration-200 ${isRegionDropdownOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Menu List dengan Fitur Filter Search */}
+            {isRegionDropdownOpen && (
+              <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white border border-[#E3E3E3] rounded-2xl shadow-lg overflow-hidden transition-all duration-200">
+                <div className="p-2 border-b border-[#F0F0F0] flex items-center gap-2 bg-[#FAFAFA]">
+                  <Search className="w-3.5 h-3.5 text-[#999999] ml-2 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama atau kode wilayah..."
+                    value={regionSearch}
+                    onChange={(e) => setRegionSearch(e.target.value)}
+                    className="w-full py-1 pr-2 bg-transparent text-[10px] sm:text-[10.5px] text-[#333333] focus:outline-none placeholder:text-[#999999]"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto divide-y divide-[#F5F5F5]">
+                  {filteredRegions.length === 0 ? (
+                    <div className="p-3 text-center text-[10px] text-[#999999]">
+                      Wilayah tidak ditemukan
+                    </div>
+                  ) : (
+                    filteredRegions.map((reg) => (
+                      <div
+                        key={reg.id}
+                        onClick={() => handleSelectRegion(reg)}
+                        className={`px-4 py-2.5 text-[10px] sm:text-[10.5px] cursor-pointer hover:bg-[#F0F7FF] transition-colors flex items-center justify-between ${
+                          String(form.regionId) === String(reg.id) ? 'bg-[#EBF4FA] font-medium text-[#10367D]' : 'text-[#333333]'
+                        }`}
+                      >
+                        <span>{reg.name}</span>
+                        <span className="text-[9px] text-[#999999] font-mono">({reg.code})</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          {errors.regionId && <p className="text-xs text-rose-500 mt-1 pl-4">{errors.regionId}</p>}
+
+          {errors.regionId && (
+            <p className="mt-1.5 ml-1 text-[9px] leading-[1.4] font-medium text-[#E57373]">{errors.regionId}</p>
+          )}
+
+          {!isLoadingRegions && regions.length === 0 && (
+            <p className="mt-2 px-3 py-2 rounded-[14px] bg-[#FFF4E5] border border-[#F5D9A8] text-[9px] leading-[1.4] font-normal text-[#B8791E]">
+              Belum ada wilayah operasional yang aktif saat ini. Silakan hubungi admin untuk mengaktifkan region, lalu muat ulang halaman ini.
+            </p>
+          )}
         </div>
 
         <AuthInput
@@ -230,25 +307,25 @@ export default function Register({ onSwitchToLogin }) {
         <button
           type="submit"
           disabled={isSubmitting || isLoadingRegions || regions.length === 0}
-          className="w-full py-3.5 px-4 bg-[#4B2172] hover:bg-[#371654] disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold rounded-full shadow-sm flex items-center justify-center gap-2 transition duration-200 text-sm tracking-wide mt-2 cursor-pointer"
+          className="w-full h-10.25 px-4 bg-[#10367D] hover:bg-[#0C2C66] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[12px] leading-none font-medium rounded-full flex items-center justify-center gap-2 transition-colors duration-200 mt-2 cursor-pointer"
         >
           {isSubmitting ? (
             <>
-              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               MEMPROSES...
             </>
           ) : (
             <>
               Daftar sekarang
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </>
           )}
         </button>
       </form>
 
-      <p className="text-center text-sm text-neutral-500 font-normal mt-6">
+      <p className="text-center text-[9px] leading-[1.4] font-normal text-[#999999] mt-5">
         Sudah punya akun?{' '}
-        <button onClick={onSwitchToLogin} className="text-[#4B2172] font-semibold hover:underline cursor-pointer">
+        <button onClick={onSwitchToLogin} className="font-medium text-[#10367D] hover:text-[#0C2C66] hover:underline cursor-pointer transition-colors duration-150">
           Masuk di sini
         </button>
       </p>
