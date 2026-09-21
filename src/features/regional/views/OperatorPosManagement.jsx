@@ -6,34 +6,27 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BaseModal from '../../../components/ui/BaseModal';
 import { regionalService } from '../../../services/regionalService';
 import { useAuth } from '../../../context/AuthContext';
-import { getRegionId } from '../../../utils/regionId';
 
 export default function OperatorPosPage() {
   const toast = useToast();
   const { user } = useAuth();
   const [operatorList, setOperatorList] = useState([]);
   const [isLoadingOperators, setIsLoadingOperators] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [operatorToDelete, setOperatorToDelete] = useState(null);
-
-  // Security PII & Audit Log State
   const [unmaskedEmails, setUnmaskedEmails] = useState({});
-
   const [formData, setFormData] = useState({
     name: '', email: '', password: 'Password123!', phone: '08123456789', regionId: user?.regionId || '1'
   });
 
-  // Fetch Operator dari Backend murni tanpa cascading render warning
   useEffect(() => {
     let isMounted = true;
 
     const loadOperators = async () => {
       try {
         if (isMounted) setIsLoadingOperators(true);
-        // Menggunakan pemanggilan service yang bersih
         const data = typeof regionalService.getOperators === 'function' 
           ? await regionalService.getOperators('operator') 
           : [];
@@ -43,7 +36,7 @@ export default function OperatorPosPage() {
         const formatted = (data || [])
           .filter(op => {
             if (!currentRegionId) return true;
-            return getRegionId(op) === currentRegionId;
+            return op.regionId ? String(op.regionId) === currentRegionId : true;
           })
           .map(op => ({
             id: String(op.id),
@@ -102,7 +95,6 @@ export default function OperatorPosPage() {
 
     try {
       if (isEditing) {
-        // Logika edit jika diperlukan
         toast.success('Data operator diperbarui.', { title: 'Berhasil' });
       } else {
         await regionalService.createOperator({
@@ -116,13 +108,12 @@ export default function OperatorPosPage() {
       }
       setIsModalOpen(false);
 
-      // Reload data operator setelah simpan
       const data = await regionalService.getOperators('operator');
       const currentRegionId = user?.regionId ? String(user.regionId) : null;
       const formatted = (data || [])
         .filter(op => {
           if (!currentRegionId) return true;
-          return getRegionId(op) === currentRegionId;
+          return op.regionId ? String(op.regionId) === currentRegionId : true;
         })
         .map(op => ({
           id: String(op.id),
@@ -152,7 +143,7 @@ export default function OperatorPosPage() {
       const formatted = (data || [])
         .filter(op => {
           if (!currentRegionId) return true;
-          return getRegionId(op) === currentRegionId;
+          return op.regionId ? String(op.regionId) === currentRegionId : true;
         })
         .map(op => ({
           id: String(op.id),
@@ -179,8 +170,8 @@ export default function OperatorPosPage() {
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#4B2172] animate-pulse"></span>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4B2172]">
+            <span className="w-2 h-2 rounded-full bg-[#10367D] animate-pulse"></span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#10367D]">
               MANAJEMEN AKUN OPERATOR POS REGIONAL
             </span>
           </div>
@@ -190,7 +181,7 @@ export default function OperatorPosPage() {
 
         <button 
           onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#4B2172] hover:bg-[#3b195a] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
+          className="flex items-center gap-2 px-4 py-2 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
         >
           <Plus size={14} />
           <span>Buat Operator Baru</span>
@@ -205,7 +196,7 @@ export default function OperatorPosPage() {
             placeholder="Cari nama, email, atau pos..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#4B2172] transition"
+            className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#10367D] transition"
           />
         </div>
         <div className="text-[10px] font-semibold text-neutral-400 px-2">
@@ -236,7 +227,7 @@ export default function OperatorPosPage() {
                     <tr key={op.id} className="hover:bg-gray-50/50 transition">
                       <td className="py-3.5 px-5">
                         <div className="font-bold text-neutral-800 text-[10px]">{op.name}</div>
-                        <div className="text-[8px] font-bold text-[#4B2172] font-mono">{op.id}</div>
+                        <div className="text-[8px] font-bold text-[#10367D] font-mono">{op.id}</div>
                       </td>
                       <td className="py-3.5 px-5 font-semibold text-neutral-700">
                         <div className="flex items-center gap-1.5">
@@ -289,24 +280,24 @@ export default function OperatorPosPage() {
         <form onSubmit={handleSave} className="space-y-3">
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Nama Lengkap</label>
-            <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#10367D]" />
           </div>
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Email Akun</label>
-            <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#10367D]" />
           </div>
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Nomor Telepon</label>
-            <input type="text" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <input type="text" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#10367D]" />
           </div>
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Password Awal</label>
-            <input type="password" required value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#4B2172]" />
+            <input type="password" required value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#10367D]" />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3">
             <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-[10px] font-bold text-neutral-500 hover:bg-neutral-100 rounded-full cursor-pointer">Batal</button>
-            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#4B2172] rounded-full cursor-pointer shadow-sm">Simpan</button>
+            <button type="submit" className="px-4 py-2 text-[10px] font-bold text-white bg-[#10367D] rounded-full cursor-pointer shadow-sm">Simpan</button>
           </div>
         </form>
       </BaseModal>

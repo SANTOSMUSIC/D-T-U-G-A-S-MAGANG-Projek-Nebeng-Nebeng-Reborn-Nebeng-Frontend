@@ -24,7 +24,6 @@ export default function PricingPolicyManagement() {
     parcelFeePercent: 12
   });
 
-  // Matriks paket disesuaikan menggunakan maxWeightKg agar konsisten dengan backend & database
   const [parcelMatrix, setParcelMatrix] = useState([
     { size: "XXS", maxWeightKg: 1, baseRate: 6000, description: "Dokumen / Kunci / Flashdisk" },
     { size: "XS", maxWeightKg: 3, baseRate: 10000, description: "Kotak Kecil / Kosmetik" },
@@ -291,14 +290,12 @@ export default function PricingPolicyManagement() {
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
 
-      {/* HEADER */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#66CDAA] animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#10367D] animate-pulse"></span>
 
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#66CDAA]">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#10367D]">
               GLOBAL PRICING POLICY & COMMISSION SETTINGS
             </span>
           </div>
@@ -316,7 +313,7 @@ export default function PricingPolicyManagement() {
           type="button"
           onClick={handleSaveAll}
           disabled={isSubmitting}
-          className="flex items-center gap-2 px-4 py-2 bg-[#66CDAA] hover:bg-[#4FBF99] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0 disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0 disabled:opacity-50"
         >
           <Save size={14} />
 
@@ -328,7 +325,6 @@ export default function PricingPolicyManagement() {
         </button>
       </div>
 
-      {/* SUCCESS NOTIFICATION */}
       {notification && (
         <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center gap-2.5 text-emerald-800 text-[10px] font-bold">
           <CheckCircle2
@@ -342,10 +338,8 @@ export default function PricingPolicyManagement() {
         </div>
       )}
 
-      {/* ERROR NOTIFICATION */}
       {formErrors.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-rose-800 text-[10px] font-bold">
-
           <AlertCircle
             size={16}
             className="text-rose-600 shrink-0 mt-0.5"
@@ -369,13 +363,9 @@ export default function PricingPolicyManagement() {
         onSubmit={handleSaveAll}
         className="space-y-6"
       >
-
-        {/* BAGIAN 1 */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
-
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
-
-            <div className="p-2 bg-[#66CDAA]/10 text-[#66CDAA] rounded-xl">
+            <div className="p-2 bg-[#10367D]/10 text-[#10367D] rounded-xl">
               <Car size={16} />
             </div>
 
@@ -388,21 +378,16 @@ export default function PricingPolicyManagement() {
                 Pengaturan tarif per kilometer dan buka pintu awal.
               </p>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            {/* MOTOR */}
             <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200/80 space-y-3">
-
-              <div className="flex items-center gap-1.5 text-[#66CDAA] font-bold text-[10px]">
+              <div className="flex items-center gap-1.5 text-[#10367D] font-bold text-[10px]">
                 <Bike size={14} />
                 <span>NEBENG MOTOR</span>
               </div>
 
               <div className="space-y-2">
-
                 <div>
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">
                     Tarif Dasar / Buka Pintu (Rp)
@@ -413,7 +398,7 @@ export default function PricingPolicyManagement() {
                     min={0}
                     value={transportPricing.motorBaseFare}
                     onChange={handleFareChange('motorBaseFare')}
-                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
                   />
                 </div>
 
@@ -427,23 +412,19 @@ export default function PricingPolicyManagement() {
                     min={0}
                     value={transportPricing.motorPerKm}
                     onChange={handleFareChange('motorPerKm')}
-                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
                   />
                 </div>
-
               </div>
             </div>
 
-            {/* MOBIL */}
             <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200/80 space-y-3">
-
-              <div className="flex items-center gap-1.5 text-[#66CDAA] font-bold text-[10px]">
+              <div className="flex items-center gap-1.5 text-[#10367D] font-bold text-[10px]">
                 <Car size={14} />
                 <span>NEBENG MOBIL</span>
               </div>
 
               <div className="space-y-2">
-
                 <div>
                   <label className="block text-[8px] font-bold uppercase text-neutral-400 mb-1">
                     Tarif Dasar / Buka Pintu (Rp)
@@ -454,7 +435,7 @@ export default function PricingPolicyManagement() {
                     min={0}
                     value={transportPricing.carBaseFare}
                     onChange={handleFareChange('carBaseFare')}
-                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
                   />
                 </div>
 
@@ -468,22 +449,17 @@ export default function PricingPolicyManagement() {
                     min={0}
                     value={transportPricing.carPerKm}
                     onChange={handleFareChange('carPerKm')}
-                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
                   />
                 </div>
-
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* BAGIAN 2 */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
-
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
-
-            <div className="p-2 bg-[#66CDAA]/10 text-[#66CDAA] rounded-xl">
+            <div className="p-2 bg-[#10367D]/10 text-[#10367D] rounded-xl">
               <Package size={16} />
             </div>
 
@@ -496,74 +472,42 @@ export default function PricingPolicyManagement() {
                 Atur batas berat (Kg) dan tarif dasar sesuai kapasitas muatan.
               </p>
             </div>
-
           </div>
 
           <div className="overflow-x-auto">
-
             <table className="w-full text-left border-collapse">
-
               <thead>
                 <tr className="bg-gray-50/70 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                  <th className="py-2.5 px-4">
-                    Ukuran
-                  </th>
-
-                  <th className="py-2.5 px-4">
-                    Batas Berat Maksimum (KG)
-                  </th>
-
-                  <th className="py-2.5 px-4">
-                    Deskripsi
-                  </th>
-
-                  <th className="py-2.5 px-4">
-                    Tarif Dasar (Rp)
-                  </th>
+                  <th className="py-2.5 px-4">Ukuran</th>
+                  <th className="py-2.5 px-4">Batas Berat Maksimum (KG)</th>
+                  <th className="py-2.5 px-4">Deskripsi</th>
+                  <th className="py-2.5 px-4">Tarif Dasar (Rp)</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100 text-[9px]">
-
                 {parcelMatrix.map((item, index) => (
-                  <tr
-                    key={index}
-                    className="hover:bg-gray-50/50"
-                  >
-
+                  <tr key={index} className="hover:bg-gray-50/50">
                     <td className="py-2.5 px-4">
-                      <span className="px-2 py-0.5 bg-[#66CDAA]/10 text-[#66CDAA] rounded-md font-bold font-mono">
+                      <span className="px-2 py-0.5 bg-[#10367D]/10 text-[#10367D] rounded-md font-bold font-mono">
                         {item.size}
                       </span>
                     </td>
 
                     <td className="py-2.5 px-4 font-semibold text-neutral-700">
-
                       <div className="flex items-center gap-1.5">
-
-                        <Scale
-                          size={11}
-                          className="text-neutral-400"
-                        />
-
+                        <Scale size={11} className="text-neutral-400" />
                         <input
                           type="number"
                           min={0}
                           value={item.maxWeightKg}
                           onChange={(e) =>
-                            handleMatrixChange(
-                              index,
-                              'maxWeightKg',
-                              e.target.value
-                            )
+                            handleMatrixChange(index, 'maxWeightKg', e.target.value)
                           }
-                          className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 w-20 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                          className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 w-20 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
                         />
-
                         <span>KG</span>
-
                       </div>
-
                     </td>
 
                     <td className="py-2.5 px-4 text-neutral-500">
@@ -571,38 +515,26 @@ export default function PricingPolicyManagement() {
                     </td>
 
                     <td className="py-2.5 px-4">
-
                       <input
                         type="number"
                         min={0}
                         value={item.baseRate}
                         onChange={(e) =>
-                          handleMatrixChange(
-                            index,
-                            'baseRate',
-                            e.target.value
-                          )
+                          handleMatrixChange(index, 'baseRate', e.target.value)
                         }
-                        className="bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 w-28 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                        className="bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 w-28 font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
                       />
-
                     </td>
-
                   </tr>
                 ))}
-
               </tbody>
-
             </table>
           </div>
         </div>
 
-        {/* BAGIAN 3 */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
-
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
-
-            <div className="p-2 bg-[#66CDAA]/10 text-[#66CDAA] rounded-xl">
+            <div className="p-2 bg-[#10367D]/10 text-[#10367D] rounded-xl">
               <Percent size={16} />
             </div>
 
@@ -615,14 +547,10 @@ export default function PricingPolicyManagement() {
                 Potongan komisi aplikasi dari setiap transaksi.
               </p>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            {/* TRANSPORTASI */}
             <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200/80 space-y-2">
-
               <label className="block text-[9px] font-bold uppercase text-neutral-500">
                 Komisi Transportasi (%)
               </label>
@@ -632,14 +560,11 @@ export default function PricingPolicyManagement() {
                 min={0}
                 value={platformFee.rideFeePercent}
                 onChange={handleFeeChange('rideFeePercent')}
-                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
               />
-
             </div>
 
-            {/* PAKET */}
             <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200/80 space-y-2">
-
               <label className="block text-[9px] font-bold uppercase text-neutral-500">
                 Komisi Pengiriman Paket (%)
               </label>
@@ -649,14 +574,11 @@ export default function PricingPolicyManagement() {
                 min={0}
                 value={platformFee.parcelFeePercent}
                 onChange={handleFeeChange('parcelFeePercent')}
-                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#66CDAA]"
+                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
               />
-
             </div>
-
           </div>
         </div>
-
       </form>
     </div>
   );

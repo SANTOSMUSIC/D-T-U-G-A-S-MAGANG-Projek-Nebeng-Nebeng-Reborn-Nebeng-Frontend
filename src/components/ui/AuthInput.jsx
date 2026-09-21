@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 export default function AuthInput({
   label,
   icon: Icon,
-  type = "text",
+  type = 'text',
   showPassword: externalShowPassword,
   togglePassword: externalTogglePassword,
   error,
@@ -14,11 +14,14 @@ export default function AuthInput({
   const generatedId = useId();
   const inputId = id || generatedId;
   const errorId = `${inputId}-error`;
-  const isPassword = type === "password";
 
-  const [internalShowPassword, setInternalShowPassword] = useState(false);
+  const isPassword = type === 'password';
 
-  const isControlled = externalShowPassword !== undefined;
+  const [internalShowPassword, setInternalShowPassword] =
+    useState(false);
+
+  const isControlled =
+    externalShowPassword !== undefined;
 
   const isShowPassword = isControlled
     ? externalShowPassword
@@ -35,11 +38,18 @@ export default function AuthInput({
   return (
     <div className="w-full">
 
-      {/* Label */}
+      {/* LABEL */}
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-slate-600 mb-2"
+          className="
+            block
+            mb-1.5
+            text-[11px]
+            leading-[1.4]
+            font-normal
+            text-[#999999]
+          "
         >
           {label}
         </label>
@@ -47,78 +57,116 @@ export default function AuthInput({
 
       <div className="relative">
 
-        {/* Input Icon */}
-        {Icon && (
-          <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-            <Icon className="w-[18px] h-[18px]" />
-          </span>
-        )}
-
-        {/* Input */}
+        {/* INPUT */}
         <input
           id={inputId}
           type={
             isPassword
               ? isShowPassword
-                ? "text"
-                : "password"
+                ? 'text'
+                : 'password'
               : type
           }
           aria-invalid={!!error}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={
+            error ? errorId : undefined
+          }
           className={`
             w-full
-            ${Icon ? 'pl-11' : 'pl-4'}
-            ${isPassword ? 'pr-12' : 'pr-4'}
-            py-3.5
+            h-[40px]
+            sm:h-[41px]
+
+            pl-4
+            ${isPassword ? 'pr-11' : 'pr-4'}
+
             bg-white
             border
-            ${error
-              ? 'border-rose-400 focus:ring-rose-500 focus:border-rose-400'
-              : 'border-slate-200 focus:ring-indigo-500 focus:border-indigo-500'
+
+            ${
+              error
+                ? `
+                  border-[#E57373]
+                  focus:border-[#E57373]
+                  focus:ring-[#E57373]/10
+                `
+                : `
+                  border-[#E3E3E3]
+                  focus:border-[#74B4D9]
+                  focus:ring-[#74B4D9]/15
+                `
             }
+
             rounded-full
-            text-indigo-950
-            placeholder-slate-400
-            focus:outline-none
-            focus:ring-2
-            text-[15px]
-            transition
-            duration-200
+
+            text-[10px]
+            sm:text-[10.5px]
+
+            leading-none
             font-normal
+            text-[#333333]
+
+            placeholder:text-[#333333]
             placeholder:font-normal
+
+            outline-none
+            focus:ring-2
+
+            transition-all
+            duration-200
           `}
           {...props}
         />
 
-        {/* Password Toggle */}
+        {/* PASSWORD TOGGLE */}
         {isPassword && (
           <button
             type="button"
             onClick={handleToggle}
             aria-label={
               isShowPassword
-                ? "Sembunyikan password"
-                : "Tampilkan password"
+                ? 'Sembunyikan password'
+                : 'Tampilkan password'
             }
-            className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-indigo-700 transition-colors"
+            className="
+              absolute
+              inset-y-0
+              right-0
+              w-[42px]
+
+              flex
+              items-center
+              justify-center
+
+              text-[#999999]
+              hover:text-[#10367D]
+
+              transition-colors
+              duration-150
+            "
           >
             {isShowPassword ? (
-              <EyeOff className="w-[18px] h-[18px]" />
+              <EyeOff className="w-[15px] h-[15px]" />
             ) : (
-              <Eye className="w-[18px] h-[18px]" />
+              <Eye className="w-[15px] h-[15px]" />
             )}
           </button>
         )}
 
       </div>
 
-      {/* Error */}
+      {/* ERROR */}
       {error && (
         <p
           id={errorId}
           role="alert"
-          className="mt-1.5 ml-1 text-[11px] font-semibold text-rose-500"
+          className="
+            mt-1.5
+            ml-1
+            text-[9px]
+            leading-[1.4]
+            font-medium
+            text-[#E57373]
+          "
         >
           {error}
         </p>

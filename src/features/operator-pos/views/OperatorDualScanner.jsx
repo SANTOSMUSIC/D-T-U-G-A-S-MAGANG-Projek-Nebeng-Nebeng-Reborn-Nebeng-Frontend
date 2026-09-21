@@ -1,9 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   QrCode,
   ArrowRightLeft,
   ShieldCheck,
-  Unlock,
   ScanLine,
   X,
   CheckCircle
@@ -11,12 +10,10 @@ import {
 import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import StatusBadge from '../../../components/ui/StatusBadge';
-import BaseModal from '../../../components/ui/BaseModal';
 import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
 
 export default function OperatorDualScanner() {
   const toast = useToast();
@@ -24,26 +21,45 @@ export default function OperatorDualScanner() {
 
   const [tripQr, setTripQr] = useState('');
   const [ticketQr, setTicketQr] = useState('');
-  const [posId, setPosId] = useState('1');
+  const [posId, setPosId] = useState('');
 
-  const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [currentHandoverData, setCurrentHandoverData] = useState({
-    trip: '',
-    ticket: ''
-  });
-  const [otpCode, setOtpCode] = useState('');
-  const [recipientName, setRecipientName] = useState('');
-
-  const [isSubmittingHandover, setIsSubmittingHandover] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [scanHistory, setScanHistory] = useState([]);
 
-  // State untuk Modal Kamera Aman (Anti-Blank & Toleran Error)
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [activeTargetField, setActiveTargetField] = useState(null); // 'trip' atau 'ticket'
+  const [activeTargetField, setActiveTargetField] = useState(null);
   const videoRef = useRef(null);
 
-  // Fungsi untuk Membuka Kamera via MediaDevices API secara Aman
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOperatorPos = async () => {
+      try {
+        const res = await apiClient.get('/pickup-points');
+        if (isMounted && res.data) {
+          const points = Array.isArray(res.data) ? res.data : res.data.data || [];
+
+          const userRes = await apiClient.get('/auth/me');
+          const currentUserId = userRes.data?.id;
+
+          const assignedPoint = points.find(
+            (p) => String(p.operatorId) === String(currentUserId)
+          );
+
+          const resolvedPosId = assignedPoint?.id || points[0]?.id || '1';
+          setPosId(String(resolvedPosId));
+        }
+      } catch (err) {
+        console.error('Gagal memuat daftar pos:', err);
+        setPosId('1');
+      }
+    };
+
+    fetchOperatorPos();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const startCamera = async (target) => {
     setActiveTargetField(target);
     setIsCameraActive(true);
@@ -74,7 +90,6 @@ export default function OperatorDualScanner() {
     }
   };
 
-  // Fungsi untuk Menutup Kamera & Matikan Stream
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const tracks = videoRef.current.srcObject.getTracks();
@@ -86,7 +101,6 @@ export default function OperatorDualScanner() {
     setActiveTargetField(null);
   };
 
-  // Simulasi instan penangkapan QR jika kamera fisik bermasalah / tidak ada
   const handleCaptureMockQr = () => {
     const sampleCode =
       activeTargetField === 'trip'
@@ -123,82 +137,21 @@ export default function OperatorDualScanner() {
       return;
     }
 
-    if (scanMode === 'origin') {
-      try {
-        setIsLoadingHistory(true);
-
-        const payload = {
-          qrCodeTrip: cleanTrip,
-          qrCodeTicket: cleanTicket,
-          posId: String(posId),
-          scanType: 'checkin_origin'
-        };
-
-        const response = await apiClient.post('/checkpoints/scan', payload);
-
-        const newLog = {
-          id: response.data?.checkpoint?.id
-            ? String(response.data.checkpoint.id)
-            : `LOG-${Math.floor(100 + Math.random() * 900)}`,
-          type: 'Scan 1 (Origin)',
-          trip: cleanTrip,
-          ticket: cleanTicket,
-          status: 'IN_TRANSIT (Berangkat)',
-          time: 'Baru saja'
-        };
-
-        setScanHistory([newLog, ...scanHistory]);
-
-        toast.success(
-          response.data?.message || 'Check-in Pos Asal berhasil!',
-          { title: 'Scan Berhasil' }
-        );
-
-        setTripQr('');
-        setTicketQr('');
-      } catch (error) {
-        console.error('Gagal memproses scan origin:', error);
-        toast.error(
-          error.response?.data?.message ||
-            'Gagal memverifikasi check-in pos asal.',
-          { title: 'Error Server' }
-        );
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    } else {
-      setCurrentHandoverData({
-        trip: cleanTrip,
-        ticket: cleanTicket
-      });
-      setOtpCode('');
-      setRecipientName('');
-      setShowHandoverModal(true);
-    }
-  };
-
-  const handleVerifyHandover = async (e) => {
-    e.preventDefault();
-
-    if (isSubmittingHandover) return;
-
-    if (!recipientName.trim() || !otpCode || otpCode.length < 6) {
-      toast.warning(
-        'Nama penerima dan OTP 6-digit wajib diisi dengan benar!',
-        { title: 'Data Belum Lengkap' }
-      );
+    if (!posId) {
+      toast.warning('ID Pos bertugas belum terdeteksi dari sistem. Pastikan akun operator terikat ke sebuah pos.', { title: 'Pos Belum Dimuat' });
       return;
     }
 
     try {
-      setIsSubmittingHandover(true);
+      setIsLoadingHistory(true);
+
+      const scanType = scanMode === 'origin' ? 'checkin_origin' : 'checkin_destination';
 
       const payload = {
-        qrCodeTrip: currentHandoverData.trip,
-        qrCodeTicket: currentHandoverData.ticket,
+        qrCodeTrip: cleanTrip,
+        qrCodeTicket: cleanTicket,
         posId: String(posId),
-        scanType: 'checkin_destination',
-        otpClaim: otpCode
+        scanType: scanType,
       };
 
       const response = await apiClient.post('/checkpoints/scan', payload);
@@ -207,34 +160,28 @@ export default function OperatorDualScanner() {
         id: response.data?.checkpoint?.id
           ? String(response.data.checkpoint.id)
           : `LOG-${Math.floor(100 + Math.random() * 900)}`,
-        type: 'Handover & Escrow Released',
-        trip: currentHandoverData.trip,
-        ticket: currentHandoverData.ticket,
-        status: 'SUCCESS (Escrow Released)',
-        time: 'Baru saja'
+        type: scanMode === 'origin' ? 'Scan 1 (Origin)' : 'Scan 2 (Destination / Selesai)',
+        trip: cleanTrip,
+        ticket: cleanTicket,
+        status: scanMode === 'origin' ? 'IN_TRANSIT (Berangkat)' : 'SUCCESS (Trip Selesai & Escrow Released)',
+        time: 'Baru saja',
       };
 
       setScanHistory([newLog, ...scanHistory]);
-      setShowHandoverModal(false);
-      setOtpCode('');
-      setRecipientName('');
-      setTripQr('');
-      setTicketQr('');
 
       toast.success(
-        response.data?.message ||
-          'Verifikasi Handover sukses! Dana escrow dicairkan.',
-        { title: 'Selesai' }
+        response.data?.message || (scanMode === 'origin' ? 'Check-in Pos Asal berhasil!' : 'Scan Tujuan Berhasil & Trip Diakhiri!'),
+        { title: 'Scan Berhasil' }
       );
+
+      setTripQr('');
+      setTicketQr('');
     } catch (error) {
-      console.error('Gagal menyelesaikan handover:', error);
-      toast.error(
-        error.response?.data?.message ||
-          'Gagal memproses verifikasi OTP tujuan.',
-        { title: 'Error Server' }
-      );
+      console.error('Gagal memproses scan:', error);
+      const errorMsg = error.response?.data?.message || 'Gagal memverifikasi checkpoint.';
+      toast.error(errorMsg, { title: 'Gagal Memproses Scan' });
     } finally {
-      setIsSubmittingHandover(false);
+      setIsLoadingHistory(false);
     }
   };
 
@@ -281,16 +228,6 @@ export default function OperatorDualScanner() {
                 ? { backgroundColor: PRIMARY_COLOR }
                 : undefined
             }
-            onMouseEnter={(e) => {
-              if (scanMode === 'origin') {
-                e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (scanMode === 'origin') {
-                e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-              }
-            }}
           >
             Scan 1 (Origin / Asal)
           </button>
@@ -308,16 +245,6 @@ export default function OperatorDualScanner() {
                 ? { backgroundColor: PRIMARY_COLOR }
                 : undefined
             }
-            onMouseEnter={(e) => {
-              if (scanMode === 'destination') {
-                e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (scanMode === 'destination') {
-                e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-              }
-            }}
           >
             Scan 2 (Destination / Tujuan)
           </button>
@@ -336,7 +263,7 @@ export default function OperatorDualScanner() {
             <StatusBadge
               variant={scanMode === 'origin' ? 'purple' : 'blue'}
             >
-              {scanMode === 'origin' ? 'IN_TRANSIT' : 'Handover'}
+              {scanMode === 'origin' ? 'IN_TRANSIT' : 'Destination'}
             </StatusBadge>
           </div>
 
@@ -344,26 +271,6 @@ export default function OperatorDualScanner() {
             onSubmit={handleProcessScan}
             className="space-y-3 text-[10px]"
           >
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS TEMPAT BERTUGAS
-              </label>
-
-              <input
-                type="text"
-                required
-                value={posId}
-                onChange={(e) => setPosId(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 focus:outline-none font-mono text-[10px] font-medium"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
-              />
-            </div>
-
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
@@ -450,7 +357,7 @@ export default function OperatorDualScanner() {
               <span>
                 {scanMode === 'origin'
                   ? 'Proses Scan Asal (Check-in Origin)'
-                  : 'Lanjut Verifikasi OTP Tujuan'}
+                  : 'Proses Scan Tujuan & Selesaikan Trip'}
               </span>
             </button>
           </form>
@@ -533,7 +440,6 @@ export default function OperatorDualScanner() {
         </div>
       </div>
 
-      {/* Modal Kamera Aman (Anti-Blank & Fallback Interaktif) */}
       {isCameraActive && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-4 space-y-4 text-center shadow-2xl">
@@ -546,6 +452,7 @@ export default function OperatorDualScanner() {
               </h3>
 
               <button
+                type="button"
                 onClick={stopCamera}
                 className="p-1 rounded-full bg-neutral-100 hover:bg-neutral-200 cursor-pointer"
               >
@@ -596,94 +503,6 @@ export default function OperatorDualScanner() {
           </div>
         </div>
       )}
-
-      {/* Modal Handover */}
-      <BaseModal
-        isOpen={showHandoverModal}
-        onClose={() => setShowHandoverModal(false)}
-        title="Verifikasi Penyerahan & OTP"
-        subtitle="Masukkan OTP klaim penerima untuk melepas dana escrow."
-        maxWidth="max-w-sm"
-      >
-        <form
-          onSubmit={handleVerifyHandover}
-          className="space-y-3 text-[10px]"
-        >
-          <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-              NAMA PENERIMA
-            </label>
-
-            <input
-              type="text"
-              required
-              value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none"
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = PRIMARY_COLOR;
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '';
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-              KODE OTP 6-DIGIT
-            </label>
-
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              required
-              value={otpCode}
-              onChange={(e) =>
-                setOtpCode(e.target.value.replace(/\D/g, ''))
-              }
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-mono font-bold tracking-widest text-center"
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = PRIMARY_COLOR;
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '';
-              }}
-            />
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowHandoverModal(false)}
-              className="flex-1 py-2 bg-neutral-100 text-neutral-700 rounded-xl font-bold cursor-pointer"
-            >
-              Batal
-            </button>
-
-            <button
-              type="submit"
-              disabled={isSubmittingHandover}
-              className="flex-1 py-2 text-white rounded-xl font-bold cursor-pointer shadow-sm flex items-center justify-center gap-1 transition disabled:opacity-60"
-              style={{ backgroundColor: PRIMARY_COLOR }}
-              onMouseEnter={(e) => {
-                if (!isSubmittingHandover) {
-                  e.currentTarget.style.backgroundColor = PRIMARY_HOVER;
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-              }}
-            >
-              <Unlock className="w-3.5 h-3.5" />
-              <span>
-                {isSubmittingHandover ? 'Memproses...' : 'Cairkan Escrow'}
-              </span>
-            </button>
-          </div>
-        </form>
-      </BaseModal>
     </div>
   );
 }

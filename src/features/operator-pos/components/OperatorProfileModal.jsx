@@ -19,8 +19,9 @@ function getInitials(name) {
   ).toUpperCase();
 }
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 export default function OperatorProfileModal({
   isOpen,
@@ -61,7 +62,10 @@ export default function OperatorProfileModal({
       >
         {/* Header */}
         <div
-          className="relative bg-gradient-to-br from-[#4FBF99] to-[#429f80] px-5 pt-5 pb-6"
+          className="relative px-5 pt-5 pb-6"
+          style={{
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR}, ${PRIMARY_HOVER})`,
+          }}
         >
           <button
             type="button"
@@ -88,8 +92,14 @@ export default function OperatorProfileModal({
             {displayName}
           </p>
 
-          <span className="mt-1.5 inline-flex items-center gap-1 bg-white/10 text-white/90 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-            <ShieldCheck className="w-3 h-3" />
+          <span
+            className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              color: '#74B4D9',
+            }}
+          >
+            <ShieldCheck className="w-3 h-3" style={{ color: PRIMARY_ACCENT }} />
             Operator Pos
           </span>
         </div>

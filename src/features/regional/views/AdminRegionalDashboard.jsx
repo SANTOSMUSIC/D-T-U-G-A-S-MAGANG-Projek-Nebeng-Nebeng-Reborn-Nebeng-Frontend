@@ -32,7 +32,6 @@ export default function AdminRegionalDashboard() {
   const [emergencyLogs, setEmergencyLogs] = useState([]);
   const [recentRegionalActivities, setRecentRegionalActivities] = useState([]);
 
-  // Fetch data langsung dari Backend (/api/admin/dashboard/regional)
   useEffect(() => {
     let isMounted = true;
 
@@ -87,6 +86,7 @@ export default function AdminRegionalDashboard() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.regionId]);
 
   const maskPhone = (phone) => {
@@ -177,9 +177,9 @@ export default function AdminRegionalDashboard() {
 
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#66CDAA] animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#10367D] animate-pulse"></span>
 
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[#4FBF99]">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#10367D]">
               PORTAL ADMIN REGIONAL
             </span>
           </div>
@@ -194,14 +194,14 @@ export default function AdminRegionalDashboard() {
         </div>
 
         {/* ACTIVE REGION */}
-        <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#66CDAA]/10 border border-[#66CDAA]/20 rounded-full shrink-0">
+        <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#74B4D9]/15 border border-[#74B4D9]/30 rounded-full shrink-0">
 
-          <div className="w-7 h-7 rounded-full bg-[#66CDAA] text-white flex items-center justify-center font-bold shrink-0">
+          <div className="w-7 h-7 rounded-full bg-[#10367D] text-white flex items-center justify-center font-bold shrink-0">
             <MapPin className="w-3.5 h-3.5" />
           </div>
 
           <div>
-            <p className="text-[8px] font-bold text-[#4FBF99] uppercase tracking-wider">
+            <p className="text-[8px] font-bold text-[#10367D] uppercase tracking-wider">
               WILAYAH AKTIF
             </p>
 
@@ -366,7 +366,6 @@ export default function AdminRegionalDashboard() {
 
                 <div className="flex items-center gap-2 pt-2 border-t border-rose-100">
 
-                  {/* ASSISTANCE */}
                   <button
                     onClick={() => {
                       setSelectedAssistTrip(trip);
@@ -374,11 +373,10 @@ export default function AdminRegionalDashboard() {
                     }}
                     className="flex-1 py-1.5 px-3 bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200 rounded-full text-[9px] font-bold transition cursor-pointer flex items-center justify-center gap-1"
                   >
-                    <PhoneCall className="w-3 h-3 text-[#4FBF99]" />
+                    <PhoneCall className="w-3 h-3 text-[#10367D]" />
                     Kirim Bantuan
                   </button>
 
-                  {/* RESOLVE */}
                   <button
                     onClick={() =>
                       setSelectedResolveTrip(trip)
@@ -422,7 +420,7 @@ export default function AdminRegionalDashboard() {
 
           <div className="flex items-center gap-2">
 
-            <History className="w-4 h-4 text-[#4FBF99]" />
+            <History className="w-4 h-4 text-[#10367D]" />
 
             <h3 className="text-[12px] font-bold text-neutral-800">
               Log Respon Darurat Regional Sesi Ini
@@ -444,7 +442,7 @@ export default function AdminRegionalDashboard() {
                     {log.id}
                   </span>
 
-                  <span className="px-2 py-0.5 bg-[#66CDAA]/10 text-[#4FBF99] font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-[#74B4D9]/15 text-[#10367D] font-bold rounded-full">
                     {log.action}
                   </span>
 
@@ -471,7 +469,6 @@ export default function AdminRegionalDashboard() {
       {/* RECENT ACTIVITIES + COMPLIANCE */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ACTIVITIES */}
         <div className="lg:col-span-2 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200">
 
           <h2 className="text-[14px] font-bold text-neutral-800 mb-3">
@@ -488,7 +485,7 @@ export default function AdminRegionalDashboard() {
                   className="flex items-start gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 hover:bg-neutral-100/60 transition"
                 >
 
-                  <div className="w-7 h-7 rounded-lg bg-[#66CDAA]/10 text-[#4FBF99] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#74B4D9]/15 text-[#10367D] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
                     {(act.type || 'A')[0]}
                   </div>
 
@@ -504,7 +501,7 @@ export default function AdminRegionalDashboard() {
 
                   </div>
 
-                  <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-[#66CDAA]/10 text-[#4FBF99]">
+                  <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-[#74B4D9]/15 text-[#10367D]">
                     {act.type || 'Log'}
                   </span>
 
@@ -523,13 +520,12 @@ export default function AdminRegionalDashboard() {
 
         </div>
 
-        {/* COMPLIANCE */}
-        <div className="bg-gradient-to-br from-[#66CDAA] to-[#4FBF99] rounded-2xl p-5 text-white shadow-sm flex flex-col justify-between">
+        <div className="bg-[#10367D] rounded-2xl p-5 text-white shadow-sm flex flex-col justify-between">
 
           <div>
 
             <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center font-bold mb-3">
-              <ShieldCheck className="w-4 h-4 text-white" />
+              <ShieldCheck className="w-4 h-4 text-[#74B4D9]" />
             </div>
 
             <h2 className="text-[14px] font-bold tracking-tight">
@@ -542,7 +538,7 @@ export default function AdminRegionalDashboard() {
 
           </div>
 
-          <div className="pt-4 border-t border-white/10 mt-4">
+          <div className="pt-4 border-t border-white/15 mt-4">
 
             <div className="flex items-center justify-between text-[10px]">
 
@@ -561,7 +557,7 @@ export default function AdminRegionalDashboard() {
             <div className="w-full bg-white/20 h-1.5 rounded-full mt-1.5 overflow-hidden">
 
               <div
-                className="bg-white h-full rounded-full"
+                className="bg-[#74B4D9] h-full rounded-full"
                 style={{
                   width: `${
                     dashboardData?.complianceRate || 98.4
@@ -711,7 +707,7 @@ export default function AdminRegionalDashboard() {
 
             <button
               onClick={handleDispatchAssistance}
-              className="px-4 py-2 bg-[#66CDAA] hover:bg-[#4FBF99] text-white rounded-full font-bold cursor-pointer shadow-sm transition"
+              className="px-4 py-2 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-full font-bold cursor-pointer shadow-sm transition"
             >
               Kirim Tim Bantuan
             </button>

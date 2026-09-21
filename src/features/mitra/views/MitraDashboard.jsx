@@ -16,9 +16,8 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import EmptyState from '../../../components/ui/EmptyState';
 import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_ACCENT = '#74B4D9';
 
 const formatRupiah = (value) =>
   `Rp ${Math.max(0, Math.round(value || 0)).toLocaleString('id-ID')}`;
@@ -28,11 +27,9 @@ function formatTripSchedule(dateStr, timeStr) {
 
   const tripDate = new Date(`${dateStr.split('T')[0]}T00:00:00`);
   const today = new Date();
-
   today.setHours(0, 0, 0, 0);
 
   const diffDays = Math.round((tripDate - today) / 86400000);
-
   let dayLabel;
 
   if (diffDays === 0) {
@@ -54,6 +51,7 @@ function formatTripSchedule(dateStr, timeStr) {
 
 export default function MitraDashboard() {
   const [trips, setTrips] = useState([]);
+  const [ratingStats, setRatingStats] = useState({ averageRating: 0, totalReviews: 0 });
   const [wallet, setWallet] = useState({
     balance: 0,
     heldEscrowBalance: 0
@@ -65,41 +63,41 @@ export default function MitraDashboard() {
 
     const fetchMitraData = async () => {
       setIsLoading(true);
-
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const currentUserId = String(userRes.data?.id);
+        const [resMyTrips, resWallet, resRating] = await Promise.all([
+          apiClient.get('/trips/me').catch(() => ({ data: [] })),
+          apiClient.get('/wallets/me').catch(() => ({
+            data: { balance: 0, heldEscrowBalance: 0 }
+          })),
+          apiClient.get('/reviews/me').catch(() => ({
+            data: { averageRating: 0, totalReviews: 0, reviews: [] }
+          })),
+        ]);
 
-        const resTrips = await apiClient.get('/trips');
-        const allTrips = resTrips.data?.data || resTrips.data || [];
+        const rawTrips = resMyTrips.data?.data || resMyTrips.data || [];
+        const ratingData = resRating.data || { averageRating: 0, totalReviews: 0, reviews: [] };
+        const reviewsList = ratingData.reviews || [];
 
-        const myTrips = allTrips.filter(
-          (t) => String(t.mitraId || t.mitra?.id) === currentUserId
-        );
-
-        const resWallet = await apiClient
-          .get('/wallets/me')
-          .catch(() => ({
-            data: {
-              balance: 0,
-              heldEscrowBalance: 0
-            }
-          }));
+        const mappedTrips = rawTrips.map((trip) => {
+          const tripReview = reviewsList.find(
+            (rev) => String(rev.tripId) === String(trip.id)
+          );
+          return {
+            ...trip,
+            rating: tripReview ? tripReview.rating : null
+          };
+        });
 
         if (isMounted) {
-          setTrips(myTrips);
-          setWallet(
-            resWallet.data || {
-              balance: 0,
-              heldEscrowBalance: 0
-            }
-          );
+          setTrips(mappedTrips);
+          setWallet(resWallet.data || { balance: 0, heldEscrowBalance: 0 });
+          setRatingStats({
+            averageRating: ratingData.averageRating || 0,
+            totalReviews: ratingData.totalReviews ?? ratingData.totalReviewa ?? 0
+          });
         }
       } catch (err) {
-        console.error(
-          'Gagal memuat data dashboard mitra dari server:',
-          err
-        );
+        console.error('Gagal memuat data dashboard mitra:', err);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -109,41 +107,39 @@ export default function MitraDashboard() {
 
     fetchMitraData();
 
+    const handleFocus = () => fetchMitraData();
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
   const upcomingTrips = trips
     .filter(
-      (t) => t.status === 'scheduled' || t.status === 'in_transit'
+      (t) => t.status === 'scheduled' || t.status === 'in_transit' || t.status === 'in_origin_pos'
     )
     .slice(0, 2);
 
   const recentHistory = trips
     .filter((t) => t.status === 'completed')
-    .slice(0, 2);
+    .sort((a, b) => Number(b.id) - Number(a.id))
+    .slice(0, 3);
 
   const availableBalance = Number(wallet.balance || 0);
   const escrowHold = Number(wallet.heldEscrowBalance || 0);
   const totalWallet = availableBalance + escrowHold;
 
-  // Menghitung jumlah trip selesai untuk basis rating dinamis
-  const completedCount = trips.filter(
-    (t) => t.status === 'completed'
-  ).length;
-
-  const ratingDisplay =
-    completedCount > 0 ? '5.0 / 5.0' : 'Belum ada rating';
-
-  const ratingSubtitle =
-    completedCount > 0
-      ? `Berdasarkan ${completedCount} trip selesai`
-      : 'Belum ada ulasan perjalanan';
+  const ratingDisplay = ratingStats.totalReviews > 0 
+    ? `${Number(ratingStats.averageRating).toFixed(1)} / 5.0` 
+    : 'Belum ada rating';
+  const ratingSubtitle = ratingStats.totalReviews > 0
+    ? `Berdasarkan ${ratingStats.totalReviews} ulasan`
+    : 'Belum ada ulasan perjalanan';
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -151,7 +147,6 @@ export default function MitraDashboard() {
               className="w-2 h-2 rounded-full animate-pulse"
               style={{ backgroundColor: PRIMARY_COLOR }}
             />
-
             <span
               className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1"
               style={{ color: PRIMARY_COLOR }}
@@ -160,18 +155,14 @@ export default function MitraDashboard() {
               MITRA POS UTAMA DASHBOARD
             </span>
           </div>
-
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
             Ringkasan Aktivitas Mitra
           </h1>
-
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Kelola trip mendatang, pantau riwayat perjalanan, statistik
-            rating, dan total saldo dompet Anda.
+            Kelola trip mendatang, pantau riwayat perjalanan, statistik rating, dan total saldo dompet Anda.
           </p>
         </div>
 
-        {/* Status Mitra */}
         <div
           className="flex items-center gap-2.5 px-3.5 py-2 rounded-full shrink-0 border"
           style={{
@@ -185,7 +176,6 @@ export default function MitraDashboard() {
           >
             <Calendar className="w-3.5 h-3.5" />
           </div>
-
           <div>
             <p
               className="text-[8px] font-bold uppercase tracking-wider"
@@ -193,7 +183,6 @@ export default function MitraDashboard() {
             >
               STATUS MITRA
             </p>
-
             <p className="text-[10px] font-bold text-neutral-800">
               Aktif & Terverifikasi
             </p>
@@ -201,19 +190,13 @@ export default function MitraDashboard() {
         </div>
       </div>
 
-      {/* Statistik */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <StatCard
           title="TOTAL SALDO WALLET"
           value={formatRupiah(totalWallet)}
-          subtitle={`${formatRupiah(
-            availableBalance
-          )} siap ditarik, ${formatRupiah(
-            escrowHold
-          )} tertahan (escrow)`}
+          subtitle={`${formatRupiah(availableBalance)} siap ditarik, ${formatRupiah(escrowHold)} tertahan (escrow)`}
           icon={Wallet}
         />
-
         <StatCard
           title="STATISTIK RATING MITRA"
           value={ratingDisplay}
@@ -222,9 +205,7 @@ export default function MitraDashboard() {
         />
       </div>
 
-      {/* Konten utama */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Trip Mendatang */}
         <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div className="flex items-center gap-2.5">
@@ -237,12 +218,10 @@ export default function MitraDashboard() {
               >
                 <Calendar className="w-4 h-4" />
               </div>
-
               <h2 className="text-[14px] font-bold text-neutral-800">
                 Ringkasan Trip Mendatang
               </h2>
             </div>
-
             <Link
               to="/mitra/trip"
               className="text-[9px] font-bold hover:underline flex items-center gap-0.5"
@@ -298,7 +277,6 @@ export default function MitraDashboard() {
                       className="w-3 h-3 shrink-0"
                       style={{ color: PRIMARY_COLOR }}
                     />
-
                     <span>
                       {trip.originPoint?.name || 'Asal'} &rarr;{' '}
                       {trip.destinationPoint?.name || 'Tujuan'}
@@ -308,19 +286,16 @@ export default function MitraDashboard() {
                   <div className="flex items-center justify-between pt-2 border-t border-neutral-200/60 text-[9px] text-neutral-400 font-medium">
                     <span className="flex items-center gap-1">
                       <Clock className="w-2.5 h-2.5" />
-
                       {formatTripSchedule(
                         trip.departureDate,
                         trip.departureTime
                       )}
                     </span>
-
                     <span className="flex items-center gap-1 font-bold text-neutral-700">
                       <Package
                         className="w-2.5 h-2.5"
                         style={{ color: PRIMARY_COLOR }}
                       />
-
                       {trip.remainingWeightCapacityKg} Kg Sisa
                     </span>
                   </div>
@@ -330,19 +305,16 @@ export default function MitraDashboard() {
           </div>
         </div>
 
-        {/* Riwayat Perjalanan */}
         <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
-
               <h2 className="text-[14px] font-bold text-neutral-800">
                 Riwayat Perjalanan
               </h2>
             </div>
-
             <span className="text-[8px] font-bold text-neutral-400">
               Terakhir Selesai
             </span>
@@ -369,7 +341,6 @@ export default function MitraDashboard() {
                     <span className="font-bold text-[10px] text-neutral-800 font-mono">
                       TRIP-{history.id}
                     </span>
-
                     <span className="text-[10px] font-bold text-emerald-600">
                       {formatRupiah(history.price)}
                     </span>
@@ -377,7 +348,6 @@ export default function MitraDashboard() {
 
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-800">
                     <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
-
                     <span>
                       {history.originPoint?.name || 'Asal'} &rarr;{' '}
                       {history.destinationPoint?.name || 'Tujuan'}
@@ -388,11 +358,16 @@ export default function MitraDashboard() {
                     <span>
                       {history.departureDate?.split('T')[0]}
                     </span>
-
-                    <div className="flex items-center gap-1 text-amber-500 font-bold">
-                      <Star className="w-2.5 h-2.5 fill-current" />
-                      <span>5.0</span>
-                    </div>
+                    {history.rating ? (
+                      <div className="flex items-center gap-1 text-amber-500 font-bold">
+                        <Star className="w-2.5 h-2.5 fill-current" />
+                        <span>{Number(history.rating).toFixed(1)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[8px] text-neutral-400 italic">
+                        Belum ada ulasan
+                      </span>
+                    )}
                   </div>
                 </div>
               ))

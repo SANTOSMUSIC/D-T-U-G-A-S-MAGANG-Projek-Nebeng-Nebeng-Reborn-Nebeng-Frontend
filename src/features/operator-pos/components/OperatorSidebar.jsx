@@ -12,8 +12,9 @@ import {
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 export default function OperatorSidebar({
   activeMenu = 'Dashboard Pos',

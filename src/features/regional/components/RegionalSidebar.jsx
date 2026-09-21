@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 
-import logoImage from '../../../assets/logo.png';
+import logoImage from '../../../assets/LOGO.png';
 
 const MENU_GROUPS = [
   {
@@ -84,7 +84,7 @@ export default function RegionalSidebar({
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#4FBF99]"
+        className="lg:hidden fixed top-4 left-4 z-20 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center text-[#10367D]"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -102,7 +102,7 @@ export default function RegionalSidebar({
         className={`
           w-64
           h-screen
-          bg-[#66CDAA]
+          bg-[#10367D]
           text-white
           flex
           flex-col
@@ -156,7 +156,7 @@ export default function RegionalSidebar({
           <div className="space-y-6">
             {MENU_GROUPS.map((group) => (
               <div key={group.label}>
-                <p className="text-[8px] font-semibold uppercase tracking-widest text-white/60 mb-2.5 px-3">
+                <p className="text-[8px] font-semibold uppercase tracking-widest text-[#74B4D9] mb-2.5 px-3">
                   {group.label}
                 </p>
 
@@ -188,8 +188,8 @@ export default function RegionalSidebar({
                           cursor-pointer
                           ${
                             isActive
-                              ? 'bg-white text-[#4FBF99] font-semibold shadow-sm'
-                              : 'text-white/85 font-medium hover:bg-white/15 hover:text-white'
+                              ? 'bg-white text-[#10367D] font-semibold shadow-sm'
+                              : 'text-white/85 font-medium hover:bg-white/10 hover:text-white'
                           }
                         `}
                       >
@@ -198,8 +198,8 @@ export default function RegionalSidebar({
                             w-4 h-4
                             ${
                               isActive
-                                ? 'text-[#4FBF99]'
-                                : 'text-white/75'
+                                ? 'text-[#10367D]'
+                                : 'text-[#74B4D9]'
                             }
                           `}
                         />
@@ -215,7 +215,7 @@ export default function RegionalSidebar({
         </div>
 
         {/* LOGOUT */}
-        <div className="pt-5 border-t border-white/20">
+        <div className="pt-5 border-t border-white/15">
           <button
             onClick={() =>
               setShowLogoutModal(true)

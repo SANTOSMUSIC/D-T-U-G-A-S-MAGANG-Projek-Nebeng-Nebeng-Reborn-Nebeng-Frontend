@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-
 import {
   Settings,
   User,
@@ -12,22 +11,20 @@ import {
   MonitorSmartphone,
   Camera,
 } from 'lucide-react';
-
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 const PHONE_REGEX = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 
-// Helper untuk menormalkan path foto agar menyertakan domain backend
 const getFullFileUrl = (path) => {
   if (!path) return null;
 
@@ -48,11 +45,6 @@ const getFullFileUrl = (path) => {
 
 export default function MitraAccountSettings() {
   const toast = useToast();
-
-  // FIX: sebelumnya cuma ambil sessionPersisted.
-  // Halaman ini memang benar sudah menyimpan perubahan ke backend
-  // (PATCH /users/me), tapi setelah itu cuma meng-update state lokal.
-  // updateMitraProfile menyelesaikan sinkronisasi ke AuthContext.
   const { sessionPersisted, updateMitraProfile } = useAuth();
 
   const [liveUser, setLiveUser] = useState(null);
@@ -68,7 +60,6 @@ export default function MitraAccountSettings() {
     vehicleColor: '',
   });
 
-  // Data kendaraan mitra berasal dari tabel vehicles tersendiri.
   const [existingVehicle, setExistingVehicle] = useState(null);
 
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -101,7 +92,6 @@ export default function MitraAccountSettings() {
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showLogoutSessionsModal, setShowLogoutSessionsModal] = useState(false);
 
-  // Ambil data asli langsung dari /auth/me di backend
   useEffect(() => {
     let isMounted = true;
 
@@ -129,7 +119,6 @@ export default function MitraAccountSettings() {
       }
     };
 
-    // Kendaraan berada di endpoint sendiri.
     const fetchVehicleData = async () => {
       try {
         const res = await apiClient.get('/vehicles/me');
@@ -235,19 +224,16 @@ export default function MitraAccountSettings() {
           uploadRes.data.avatar || uploadRes.data.filePath;
       }
 
-      // Update data user
       await apiClient.patch('/users/me', {
         name: profileDraft.fullName.trim(),
         phone: profileDraft.phone.trim(),
         email: profileDraft.email.trim(),
       });
 
-      // Update profile
       await apiClient.patch('/users/me/profile', {
         addressKtp: profileDraft.address.trim(),
       });
 
-      // Update kendaraan
       const vehiclePayload = {
         type: profileDraft.vehicleType,
         model: profileDraft.vehicleModel.trim(),
@@ -304,7 +290,6 @@ export default function MitraAccountSettings() {
       setAvatarPreview(fullAvatarUrl);
       setSelectedAvatarFile(null);
 
-      // Sinkronkan ke AuthContext
       updateMitraProfile({
         fullName: profileDraft.fullName.trim(),
         email: profileDraft.email.trim(),
@@ -473,7 +458,6 @@ export default function MitraAccountSettings() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -503,7 +487,6 @@ export default function MitraAccountSettings() {
       </div>
 
       <div className="space-y-5">
-        {/* PROFILE */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <User
@@ -591,7 +574,6 @@ export default function MitraAccountSettings() {
                     )
                   }
                   className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none"
-                  style={{ '--tw-ring-color': PRIMARY_COLOR }}
                   onFocus={(e) =>
                     (e.currentTarget.style.borderColor =
                       PRIMARY_COLOR)
@@ -811,7 +793,6 @@ export default function MitraAccountSettings() {
           </form>
         </div>
 
-        {/* SECURITY */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <KeyRound
@@ -918,7 +899,6 @@ export default function MitraAccountSettings() {
             </div>
           </form>
 
-          {/* 2FA */}
           <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5">
               <div
@@ -949,7 +929,6 @@ export default function MitraAccountSettings() {
             />
           </div>
 
-          {/* CURRENT SESSION */}
           <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5">
               <div className="p-2 bg-neutral-100 text-neutral-600 rounded-xl shrink-0">
@@ -981,7 +960,6 @@ export default function MitraAccountSettings() {
           </div>
         </div>
 
-        {/* NOTIFICATION */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <Bell
@@ -1039,7 +1017,6 @@ export default function MitraAccountSettings() {
           </div>
         </div>
 
-        {/* DANGER ZONE */}
         <div className="bg-white rounded-2xl shadow-sm border border-rose-200 p-5 sm:p-6 space-y-3">
           <h3 className="text-[14px] font-bold text-rose-600 flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4" />
@@ -1072,7 +1049,6 @@ export default function MitraAccountSettings() {
         </div>
       </div>
 
-      {/* 2FA MODAL */}
       <BaseModal
         isOpen={show2FAModal}
         onClose={() => setShow2FAModal(false)}
@@ -1113,7 +1089,6 @@ export default function MitraAccountSettings() {
         </div>
       </BaseModal>
 
-      {/* LOGOUT SESSIONS MODAL */}
       <BaseModal
         isOpen={showLogoutSessionsModal}
         onClose={() =>
@@ -1149,7 +1124,6 @@ export default function MitraAccountSettings() {
         </div>
       </BaseModal>
 
-      {/* DEACTIVATE MODAL */}
       <BaseModal
         isOpen={showDeactivateModal}
         onClose={() =>

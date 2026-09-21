@@ -52,18 +52,13 @@ export const regionalService = {
     const response = await apiClient.get('/trips', { params: filters });
     return Array.isArray(response.data) ? response.data : (response.data?.data || []);
   },
-  getUsersByRole: async (role, regionId) => {
-    const params = { role };
+  getUsersByRole: async (role, regionId, page = 1, limit = 10) => {
+    const params = { role, page, limit };
     if (regionId) params.regionId = regionId;
     const response = await apiClient.get('/users', { params });
     return response.data;
   },
-  // CATATAN: sengaja TIDAK mengirim param regionId ke /vehicles.
-  // Vehicle dimiliki oleh akun mitra perorangan dan tidak punya kolom regionId
-  // sendiri yang bisa diandalkan di backend — memfilter di sini terbukti membuat
-  // backend mengembalikan list kosong/tidak lengkap walau mitra sudah update kendaraan.
-  // Scoping wilayah tetap aman karena kita join vehicle ke daftar mitra yang SUDAH
-  // difilter per region lewat getUsersByRole (lihat ArmadaPage.jsx).
+
   getVehicles: async () => {
     const response = await apiClient.get('/vehicles');
     return response.data;

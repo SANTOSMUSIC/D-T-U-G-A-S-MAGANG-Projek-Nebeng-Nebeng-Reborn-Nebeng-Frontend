@@ -20,9 +20,8 @@ import apiClient from '../../../services/apiClient';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_LIGHT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
 
 const formatRole = (role) => {
   if (!role) return 'Admin Regional';
@@ -158,6 +157,7 @@ export default function RegionalAccountSettings() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleProfileFieldChange = (field, value) => {
@@ -403,7 +403,7 @@ export default function RegionalAccountSettings() {
   };
 
   const inputClassName =
-    'w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99] focus:ring-2 focus:ring-[#66CDAA]/20 transition';
+    'w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D] focus:ring-2 focus:ring-[#74B4D9]/20 transition';
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -451,7 +451,7 @@ export default function RegionalAccountSettings() {
                 <img
                   src={avatarPreview}
                   alt="Foto Profil"
-                  className="w-16 h-16 rounded-full object-cover border-4 border-[#66CDAA]/20 shadow-sm"
+                  className="w-16 h-16 rounded-full object-cover border-4 border-[#74B4D9]/20 shadow-sm"
                 />
               ) : (
                 <div
@@ -680,7 +680,7 @@ export default function RegionalAccountSettings() {
               <div
                 className="p-2 rounded-xl shrink-0"
                 style={{
-                  backgroundColor: 'rgba(102, 205, 170, 0.12)',
+                  backgroundColor: 'rgba(116, 180, 217, 0.15)',
                   color: PRIMARY_COLOR,
                 }}
               >

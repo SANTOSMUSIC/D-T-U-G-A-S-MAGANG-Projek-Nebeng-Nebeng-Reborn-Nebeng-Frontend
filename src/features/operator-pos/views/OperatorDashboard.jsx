@@ -5,17 +5,18 @@ import {
   ArrowUpRight,
   Clock,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
-import StatusBadge from '../../../components/ui/StatusBadge';
 import { useAuth } from '../../../context/AuthContext';
 import { operatorService } from '../../../services/operatorService';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_ACCENT = '#74B4D9';
 
 export default function OperatorDashboard() {
   const { user } = useAuth();
@@ -23,73 +24,80 @@ export default function OperatorDashboard() {
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [tripsSchedule, setTripsSchedule] = useState([]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [paginationMeta, setPaginationMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+
+  const operatorPosId =
+    user?.assignedPickupPointId || user?.posId || user?.pickupPointId;
+
+  const handleRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    const fetchOperatorData = async () => {
+    const loadOperatorData = async () => {
+      setIsLoadingTrips(true);
       try {
-        if (isMounted) {
-          setIsLoadingTrips(true);
-        }
+        const result = await operatorService.getTrips({
+          page: currentPage,
+          limit: limit,
+          ...(operatorPosId && { posId: operatorPosId }),
+        });
 
-        const rawData = await operatorService.getTrips();
+        if (!isMounted) return;
 
-        const formatted = rawData.map((t, index) => {
-          // Ambil jam dari departureTime atau fallback ke createdAt
-          const timeSource =
-            t.departureTime || t.createdAt;
+        const formatted = (result.data || []).map((t) => {
+          const timeSource = t.departureTime || t.departureDate || t.createdAt;
+          let formattedTime = '-';
 
-          const formattedTime = timeSource
-            ? new Date(timeSource).toLocaleTimeString(
-                'id-ID',
-                {
+          if (timeSource) {
+            const d = new Date(timeSource);
+            if (!isNaN(d.getTime())) {
+              formattedTime =
+                d.toLocaleTimeString('id-ID', {
                   hour: '2-digit',
                   minute: '2-digit',
-                }
-              ) + ' WIB'
-            : '-';
+                }) + ' WIB';
+            }
+          }
+
+          const isIncoming =
+            operatorPosId && t.destinationPointId
+              ? String(t.destinationPointId) === String(operatorPosId)
+              : false;
 
           return {
-            id: String(
-              t.id || `TRIP-${index + 9080}`
-            ),
-            type:
-              index % 2 === 0
-                ? 'Masuk'
-                : 'Keluar',
+            id: String(t.id),
+            type: isIncoming ? 'Masuk' : 'Keluar',
             partnerName:
-              t.driver?.name ||
-              t.mitra?.name ||
-              t.mitraName ||
-              'Mitra Pos',
-            service:
-              t.serviceType ||
-              (t.totalSeats > 0
-                ? 'Nebeng Penumpang'
-                : 'Nebeng Barang'),
-            plateNumber:
-              t.vehicle?.plateNumber || '-',
+              t.mitra?.name || t.driver?.name || t.mitraName || 'Mitra Pos',
+            service: t.vehicleType === 'mobil' ? 'Mobil' : 'Motor',
+            plateNumber: t.vehicle?.plateNumber || '-',
             time: formattedTime,
-            status:
-              t.status === 'in_transit'
-                ? 'Dalam Perjalanan'
-                : 'Tiba di Pos',
-            notes:
-              t.notes ||
-              'Aktivitas operasional pos',
+            status: t.status || 'scheduled',
+            originName: t.originPoint?.name || 'Pos Asal',
+            destName: t.destinationPoint?.name || 'Pos Tujuan',
           };
         });
 
-        if (isMounted) {
-          setTripsSchedule(formatted);
+        setTripsSchedule(formatted);
+        if (result.meta) {
+          setPaginationMeta(result.meta);
         }
       } catch (error) {
-        console.error(
-          'Gagal mengambil data operasional pos:',
-          error
-        );
-
-        setTripsSchedule([]);
+        if (isMounted) {
+          console.error('Gagal mengambil data operasional pos:', error);
+          setTripsSchedule([]);
+        }
       } finally {
         if (isMounted) {
           setIsLoadingTrips(false);
@@ -97,53 +105,83 @@ export default function OperatorDashboard() {
       }
     };
 
-    fetchOperatorData();
+    loadOperatorData();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage, limit, operatorPosId, refreshTrigger]);
 
-  const incomingCount = tripsSchedule.filter(
-    (trip) => trip.type === 'Masuk'
-  ).length;
+  const incomingCount = tripsSchedule.filter((t) => t.type === 'Masuk').length;
+  const outgoingCount = tripsSchedule.filter((t) => t.type === 'Keluar').length;
 
-  const outgoingCount = tripsSchedule.filter(
-    (trip) => trip.type === 'Keluar'
-  ).length;
+  const todayLabel = new Date().toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
-  const todayLabel = new Date().toLocaleDateString(
-    'id-ID',
-    {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+  const getStatusConfig = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return {
+          label: 'Selesai',
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-700',
+          border: 'border-emerald-200',
+          dot: 'bg-emerald-500',
+        };
+      case 'in_transit':
+      case 'ongoing':
+        return {
+          label: 'Berjalan',
+          bg: 'bg-blue-50',
+          text: 'text-blue-700',
+          border: 'border-blue-200',
+          dot: 'bg-blue-500 animate-pulse',
+        };
+      case 'scheduled':
+        return {
+          label: 'Dijadwalkan',
+          bg: 'bg-amber-50',
+          text: 'text-amber-700',
+          border: 'border-amber-200',
+          dot: 'bg-amber-500',
+        };
+      case 'cancelled':
+      case 'canceled':
+        return {
+          label: 'Dibatalkan',
+          bg: 'bg-rose-50',
+          text: 'text-rose-700',
+          border: 'border-rose-200',
+          dot: 'bg-rose-500',
+        };
+      default:
+        return {
+          label: status || 'Pending',
+          bg: 'bg-neutral-100',
+          text: 'text-neutral-600',
+          border: 'border-neutral-200',
+          dot: 'bg-neutral-400',
+        };
     }
-  );
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-      {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span
               className="w-2 h-2 rounded-full animate-pulse"
-              style={{
-                backgroundColor: PRIMARY_COLOR,
-              }}
+              style={{ backgroundColor: PRIMARY_COLOR }}
             />
-
             <span
               className="text-[9px] font-bold uppercase tracking-widest"
-              style={{
-                color: PRIMARY_COLOR,
-              }}
+              style={{ color: PRIMARY_COLOR }}
             >
-              POS OPERASIONAL WILAYAH |{' '}
-              {user?.name
-                ? user.name.toUpperCase()
-                : 'OPERATOR POS'}
+              POS OPERASIONAL WILAYAH | {user?.name ? user.name.toUpperCase() : 'OPERATOR POS'}
             </span>
           </div>
 
@@ -152,62 +190,59 @@ export default function OperatorDashboard() {
           </h1>
 
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pantau jadwal trip mitra yang masuk dan
-            keluar di pos Anda hari ini dari database
-            server.
+            Pantau jadwal trip mitra yang masuk dan keluar di pos Anda secara realtime dari server.
           </p>
         </div>
 
-        {/* Tanggal Hari Ini */}
-        <div
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-full shrink-0"
-          style={{
-            backgroundColor: `${PRIMARY_ACCENT}1A`,
-            border: `1px solid ${PRIMARY_ACCENT}33`,
-          }}
-        >
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={handleRefresh}
+            disabled={isLoadingTrips}
+            title="Muat ulang data"
+            className="p-2.5 rounded-full border border-neutral-200 hover:bg-neutral-50 text-neutral-600 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoadingTrips ? 'animate-spin' : ''}`} />
+          </button>
+
           <div
-            className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold shrink-0"
+            className="flex items-center gap-2.5 px-3.5 py-2 rounded-full"
             style={{
-              backgroundColor: PRIMARY_COLOR,
+              backgroundColor: `${PRIMARY_ACCENT}1A`,
+              border: `1px solid ${PRIMARY_ACCENT}33`,
             }}
           >
-            <Calendar className="w-3.5 h-3.5" />
-          </div>
-
-          <div>
-            <p
-              className="text-[8px] font-bold uppercase tracking-wider"
-              style={{
-                color: PRIMARY_COLOR,
-              }}
+            <div
+              className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold shrink-0"
+              style={{ backgroundColor: PRIMARY_COLOR }}
             >
-              TANGGAL HARI INI
-            </p>
-
-            <p className="text-[10px] font-bold text-neutral-800">
-              {todayLabel}
-            </p>
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p
+                className="text-[8px] font-bold uppercase tracking-wider"
+                style={{ color: PRIMARY_COLOR }}
+              >
+                TANGGAL HARI INI
+              </p>
+              <p className="text-[10px] font-bold text-neutral-800">{todayLabel}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Statistik */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard
-          title="TOTAL TRIP MASUK POS"
+          title="TRIP MASUK (HALAMAN INI)"
           value={`${incomingCount} Trip`}
-          subtitle="Jadwal aktif hari ini"
+          subtitle={`Total Keseluruhan: ${paginationMeta.total}`}
           icon={ArrowDownLeft}
         />
-
         <StatCard
-          title="TOTAL TRIP KELUAR POS"
+          title="TRIP KELUAR (HALAMAN INI)"
           value={`${outgoingCount} Trip`}
-          subtitle="Siap diberangkatkan"
+          subtitle={`Total Keseluruhan: ${paginationMeta.total}`}
           icon={ArrowUpRight}
         />
-
         <StatCard
           title="STATUS OPERASIONAL POS"
           value="Buka / Normal"
@@ -216,7 +251,6 @@ export default function OperatorDashboard() {
         />
       </div>
 
-      {/* Jadwal Trip */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2.5">
@@ -229,127 +263,110 @@ export default function OperatorDashboard() {
             >
               <Calendar className="w-4 h-4" />
             </div>
-
             <div>
               <h2 className="text-[14px] font-bold text-neutral-800">
-                Jadwal Trip Mitra Masuk & Keluar Hari Ini
+                Jadwal Trip Mitra Masuk & Keluar Pos
               </h2>
-
               <p className="text-[10px] text-neutral-400">
-                Daftar perjalanan yang dijadwalkan
-                melintasi atau berpusat di pos Anda.
+                Data terpaginasi langsung dari server backend (Total: {paginationMeta.total} trip)
               </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="text-neutral-500 font-medium">Tampilkan per halaman:</span>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border border-neutral-200 rounded-lg px-2.5 py-1 bg-white text-neutral-700 font-semibold focus:outline-none focus:border-[#10367D]"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
         </div>
 
-        {/* Desktop Table */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                <th className="py-3 px-4">
-                  ID TRIP & WAKTU
-                </th>
-
-                <th className="py-3 px-4">
-                  TIPE ARAH
-                </th>
-
-                <th className="py-3 px-4">
-                  MITRA & KENDARAAN
-                </th>
-
-                <th className="py-3 px-4">
-                  LAYANAN
-                </th>
-
-                <th className="py-3 px-4">
-                  STATUS
-                </th>
-
-                <th className="py-3 px-4 text-right">
-                  KETERANGAN
-                </th>
+                <th className="py-3 px-4">ID TRIP & WAKTU</th>
+                <th className="py-3 px-4">TIPE ARAH</th>
+                <th className="py-3 px-4">MITRA & KENDARAAN</th>
+                <th className="py-3 px-4">LAYANAN</th>
+                <th className="py-3 px-4">STATUS</th>
+                <th className="py-3 px-4 text-right">RUTE</th>
               </tr>
             </thead>
-
-            <tbody className="divide-y divide-neutral-100 text-[9px]">
+            <tbody className="divide-y divide-neutral-100 text-[10px]">
               {isLoadingTrips ? (
-                <SkeletonTableRows
-                  rows={4}
-                  columns={6}
-                />
+                <SkeletonTableRows rows={limit} columns={6} />
               ) : tripsSchedule.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
                     <EmptyState
                       icon={Calendar}
                       title="Belum Ada Jadwal Trip"
-                      description="Belum ada trip mitra di database yang dijadwalkan masuk atau keluar."
+                      description="Belum ada trip mitra di database yang dijadwalkan untuk pos ini."
                     />
                   </td>
                 </tr>
               ) : (
                 tripsSchedule.map((trip) => (
-                  <tr
-                    key={trip.id}
-                    className="hover:bg-neutral-50/60 transition"
-                  >
+                  <tr key={trip.id} className="hover:bg-neutral-50/60 transition border-b border-neutral-100">
                     <td className="py-3.5 px-4">
-                      <p className="font-bold text-neutral-800 font-mono text-[10px]">
-                        {trip.id}
+                      <p className="font-bold text-neutral-800 font-mono text-[11px]">
+                        #{trip.id}
                       </p>
-
-                      <p className="text-[8px] text-neutral-400 flex items-center gap-1 mt-0.5">
-                        <Clock
-                          className="w-2.5 h-2.5"
-                          style={{
-                            color: PRIMARY_COLOR,
-                          }}
-                        />
-
+                      <p className="text-[9px] text-neutral-400 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3 text-[#10367D]" />
                         {trip.time}
                       </p>
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <StatusBadge
-                        variant={
-                          trip.type === 'Masuk'
-                            ? 'purple'
-                            : 'blue'
-                        }
-                      >
-                        {trip.type === 'Masuk'
-                          ? 'Masuk Pos'
-                          : 'Keluar Pos'}
-                      </StatusBadge>
+                      {trip.type === 'Masuk' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200/80">
+                          <ArrowDownLeft className="w-3.5 h-3.5 text-purple-600" />
+                          Masuk Pos
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
+                          <ArrowUpRight className="w-3.5 h-3.5 text-teal-600" />
+                          Keluar Pos
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <p className="font-bold text-neutral-800">
-                        {trip.partnerName}
-                      </p>
-
-                      <p className="text-[8px] text-neutral-400 font-mono">
-                        {trip.plateNumber}
-                      </p>
+                      <p className="font-bold text-neutral-800">{trip.partnerName}</p>
+                      <p className="text-[9px] text-neutral-400 font-mono">{trip.plateNumber}</p>
                     </td>
-
-                    <td className="py-3.5 px-4 font-semibold text-neutral-700">
-                      {trip.service}
-                    </td>
+                    
+                    <td className="py-3.5 px-4 font-semibold text-neutral-700">{trip.service}</td>
 
                     <td className="py-3.5 px-4">
-                      <StatusBadge variant="neutral">
-                        {trip.status}
-                      </StatusBadge>
+                      {(() => {
+                        const config = getStatusConfig(trip.status);
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${config.bg} ${config.text} ${config.border}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+                            {config.label}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
-                      <span className="text-[8px] text-neutral-400 italic">
-                        {trip.notes}
+                      <span className="text-[10px] text-neutral-600 font-medium bg-neutral-100 px-2 py-1 rounded-md">
+                        {trip.originName} ➔ {trip.destName}
                       </span>
                     </td>
                   </tr>
@@ -357,6 +374,34 @@ export default function OperatorDashboard() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-neutral-100 text-[11px] text-neutral-500">
+          <div>
+            Menampilkan data <span className="font-bold text-neutral-800">{tripsSchedule.length}</span> dari total{' '}
+            <span className="font-bold text-neutral-800">{paginationMeta.total}</span> data
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={currentPage <= 1 || isLoadingTrips}
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              className="px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-medium transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Sebelumnya</span>
+            </button>
+            <span className="font-semibold text-neutral-700 px-2">
+              {paginationMeta.page} / {paginationMeta.totalPages || 1}
+            </span>
+            <button
+              disabled={currentPage >= paginationMeta.totalPages || isLoadingTrips}
+              onClick={() => setCurrentPage((prev) => prev + 1)}
+              className="px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-medium transition"
+            >
+              <span>Selanjutnya</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

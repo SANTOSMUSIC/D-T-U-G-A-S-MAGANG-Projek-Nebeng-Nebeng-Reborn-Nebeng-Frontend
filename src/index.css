@@ -43,8 +43,11 @@
    *                        Nama sengaja netral (bukan "operator-dark")
    *                        karena dipakai lintas role, bukan eksklusif
    *                        milik satu role.
-   * - brand-login        : warna judul di halaman Login
-   * - brand-register     : warna judul di halaman Register
+   *
+   * - brand-50/100/500/600/700/900/950 : skala warna biru navy utama
+   *                        (tombol, link, judul, focus ring) yang dipakai
+   *                        bersama oleh halaman Login DAN Register supaya
+   *                        keduanya selalu identik.
    */
   --color-brand-auth-deep: #322c85;
   --color-brand-auth-mid: #b019b8;
@@ -58,8 +61,13 @@
   --color-brand-operator: #c91882;
   --color-brand-magenta-dark: #b51474;
 
-  --color-brand-login: #69188c;
-  --color-brand-register: #992c9f;
+  --color-brand-50: #EEF2FF;
+  --color-brand-100: #E0E7FF;
+  --color-brand-500: #6366F1;
+  --color-brand-600: #4338CA;
+  --color-brand-700: #3730A3;
+  --color-brand-900: #312E81;
+  --color-brand-950: #1E1B4B;
 }
 
 body {

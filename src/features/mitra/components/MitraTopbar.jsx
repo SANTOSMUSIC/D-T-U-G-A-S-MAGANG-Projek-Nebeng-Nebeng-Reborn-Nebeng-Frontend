@@ -1,29 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, User, Settings } from 'lucide-react';
+import apiClient from '../../../services/apiClient';
 import MitraProfileModal from './MitraProfileModal';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_ACCENT = '#74B4D9';
 
-export default function MitraTopbar({ profile, onSettingsClick }) {
+const getFullFileUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('blob:') || path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const baseURL = apiClient.defaults.baseURL
+    ? apiClient.defaults.baseURL.replace('/api', '')
+    : 'http://localhost:3000';
+
+  return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+export default function MitraTopbar({ onSettingsClick }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [userData, setUserData] = useState(null);
   const dropdownRef = useRef(null);
 
-  const displayName = profile?.fullName?.trim() || 'Mitra Pos';
-  const firstName = displayName.split(' ')[0];
-  const displayRole = 'Mitra';
+  useEffect(() => {
+    let isMounted = true;
 
-  const photoDataUrl = profile?.photoDataUrl || '';
+    const fetchUserData = async () => {
+      try {
+        const response = await apiClient.get('/auth/me');
+        if (isMounted && response.data) {
+          setUserData(response.data);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data user untuk Topbar:', err);
+      }
+    };
 
-  const initials =
-    displayName
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase() || 'M';
+    fetchUserData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isDropdownOpen) return undefined;
@@ -44,6 +64,20 @@ export default function MitraTopbar({ profile, onSettingsClick }) {
     };
   }, [isDropdownOpen]);
 
+  const displayName = userData?.name || 'Mitra Nebeng';
+  const firstName = displayName.split(' ')[0];
+  const displayRole = 'Mitra';
+  const photoUrl = getFullFileUrl(userData?.avatar);
+
+  const initials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase() || 'M';
+
   return (
     <div className="sticky top-0 z-10 bg-[#f8f9fa]/85 backdrop-blur-sm pl-20 pr-4 sm:pr-6 lg:px-8 pt-4 pb-3 font-['Inter'] flex justify-end">
       <div className="relative" ref={dropdownRef}>
@@ -58,9 +92,9 @@ export default function MitraTopbar({ profile, onSettingsClick }) {
               border: `1px solid ${PRIMARY_ACCENT}`,
             }}
           >
-            {photoDataUrl ? (
+            {photoUrl ? (
               <img
-                src={photoDataUrl}
+                src={photoUrl}
                 alt="Foto Profil"
                 className="w-full h-full object-cover"
               />
@@ -69,7 +103,7 @@ export default function MitraTopbar({ profile, onSettingsClick }) {
             )}
           </div>
 
-          <div className="hidden sm:block text-left leading-tight max-w-[140px]">
+          <div className="hidden sm:block text-left leading-tight max-w-35">
             <p className="text-[11px] font-bold text-neutral-800 truncate">
               {firstName}
             </p>
@@ -96,9 +130,9 @@ export default function MitraTopbar({ profile, onSettingsClick }) {
                   border: `1px solid ${PRIMARY_ACCENT}`,
                 }}
               >
-                {photoDataUrl ? (
+                {photoUrl ? (
                   <img
-                    src={photoDataUrl}
+                    src={photoUrl}
                     alt="Foto Profil"
                     className="w-full h-full object-cover"
                   />
@@ -112,7 +146,7 @@ export default function MitraTopbar({ profile, onSettingsClick }) {
                   {displayName}
                 </p>
                 <p className="text-[10px] text-neutral-400 truncate">
-                  {profile?.email || 'Belum ada email terdaftar'}
+                  {userData?.email || '-'}
                 </p>
               </div>
             </div>
@@ -153,7 +187,6 @@ export default function MitraTopbar({ profile, onSettingsClick }) {
       <MitraProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
-        profile={profile}
         onSettingsClick={onSettingsClick}
       />
     </div>

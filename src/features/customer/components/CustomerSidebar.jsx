@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
 
-const PRIMARY_COLOR = '#4FBF99';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 export default function CustomerSidebar({
   activeMenu = 'Cari & Booking Trip',
@@ -27,14 +29,16 @@ export default function CustomerSidebar({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    {
-      name: 'Onboarding Biometrik',
-      icon: UserCheck,
-      locked: isCustomerVerified,
-      label: isCustomerVerified
-        ? 'Terverifikasi (Selesai)'
-        : 'Onboarding Biometrik',
-    },
+    ...(!isCustomerVerified
+      ? [
+          {
+            name: 'Onboarding Biometrik',
+            icon: UserCheck,
+            locked: false,
+            label: 'Onboarding Biometrik',
+          },
+        ]
+      : []),
     {
       name: 'Cari & Booking Trip',
       icon: Compass,
@@ -52,25 +56,26 @@ export default function CustomerSidebar({
     },
   ];
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
-
-    setTimeout(() => {
-      if (onLogout) onLogout();
-    }, 400);
+    try {
+      if (onLogout) {
+        await onLogout();
+      }
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
   };
 
   const handleMenuSelect = (item) => {
     if (item.locked) return;
-
     if (onMenuSelect) onMenuSelect(item.name);
-
     setIsMobileOpen(false);
   };
 
   return (
     <>
-      {/* Mobile menu button */}
       <button
         onClick={() => setIsMobileOpen(true)}
         aria-label="Buka menu navigasi"
@@ -80,7 +85,6 @@ export default function CustomerSidebar({
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Mobile backdrop */}
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
@@ -88,7 +92,6 @@ export default function CustomerSidebar({
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`w-64 h-screen text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -96,7 +99,6 @@ export default function CustomerSidebar({
         style={{ backgroundColor: PRIMARY_COLOR }}
       >
         <div>
-          {/* Logo */}
           <div className="mb-8 px-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <img
@@ -108,7 +110,6 @@ export default function CustomerSidebar({
                   e.target.src = '/logo.png';
                 }}
               />
-
               <span className="font-bold text-white text-[20px] tracking-wide leading-none">
                 Nebeng
               </span>
@@ -123,40 +124,27 @@ export default function CustomerSidebar({
             </button>
           </div>
 
-          {/* Customer profile */}
           {customerProfile?.fullName && (
             <div className="mx-2 mb-5 p-3 rounded-xl bg-white/10 flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
                 <User className="w-4 h-4 text-white" />
               </div>
-
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold text-white truncate">
                   {customerProfile.fullName}
                 </p>
-
                 <p
                   className={`text-[8px] font-bold flex items-center gap-1 ${
-                    isCustomerVerified
-                      ? 'text-emerald-300'
-                      : 'text-white/50'
+                    isCustomerVerified ? 'text-[#74B4D9]' : 'text-white/50'
                   }`}
                 >
-                  {isCustomerVerified ? (
-                    <ShieldCheck size={10} />
-                  ) : (
-                    <Lock size={10} />
-                  )}
-
-                  {isCustomerVerified
-                    ? 'Terverifikasi'
-                    : 'Belum Terverifikasi'}
+                  {isCustomerVerified ? <ShieldCheck size={10} /> : <Lock size={10} />}
+                  {isCustomerVerified ? 'Terverifikasi' : 'Belum Terverifikasi'}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Menu */}
           <div className="space-y-6">
             <div>
               <p className="text-[8px] font-semibold uppercase tracking-widest text-white/50 mb-2.5 px-3">
@@ -197,11 +185,7 @@ export default function CustomerSidebar({
                     >
                       <IconComponent
                         className={`w-4 h-4 ${
-                          isActive
-                            ? ''
-                            : item.locked
-                            ? 'text-white/30'
-                            : 'text-white/70'
+                          isActive ? '' : item.locked ? 'text-white/30' : 'text-white/70'
                         }`}
                         style={
                           isActive
@@ -211,14 +195,10 @@ export default function CustomerSidebar({
                             : undefined
                         }
                       />
-
-                      <span className="flex-1">
-                        {item.label || item.name}
-                      </span>
-
+                      <span className="flex-1">{item.label || item.name}</span>
                       {item.locked &&
                         (isCustomerVerified ? (
-                          <ShieldCheck className="w-3 h-3 text-emerald-300" />
+                          <ShieldCheck className="w-3 h-3 text-[#74B4D9]" />
                         ) : (
                           <Lock className="w-3 h-3 text-white/30" />
                         ))}
@@ -230,7 +210,6 @@ export default function CustomerSidebar({
           </div>
         </div>
 
-        {/* Logout */}
         <div className="pt-5 border-t border-white/10">
           <button
             onClick={() => setShowLogoutModal(true)}
@@ -243,7 +222,6 @@ export default function CustomerSidebar({
         </div>
       </aside>
 
-      {/* Logout modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-6 text-gray-900 font-['Inter']">
@@ -251,14 +229,11 @@ export default function CustomerSidebar({
               <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center shadow-sm">
                 <AlertTriangle size={24} />
               </div>
-
               <h3 className="text-[14px] font-bold text-gray-900">
                 Konfirmasi Keluar Sistem
               </h3>
-
               <p className="text-[10px] font-normal text-gray-500">
-                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus
-                masuk kembali untuk mengakses portal pelanggan.
+                Apakah Anda yakin ingin mengakhiri sesi aktif ini? Anda harus masuk kembali untuk mengakses portal pelanggan.
               </p>
             </div>
 

@@ -29,7 +29,6 @@ export default function RegionalTopbar({
 
   const dropdownRef = useRef(null);
 
-  // Mengambil profil terbaru apabila data user awal belum lengkap
   useEffect(() => {
     let isMounted = true;
 
@@ -60,7 +59,6 @@ export default function RegionalTopbar({
     };
   }, [initialUser]);
 
-  // Menggunakan data terbaru jika tersedia
   const currentUser =
     fetchedUser ||
     initialUser ||
@@ -77,7 +75,6 @@ export default function RegionalTopbar({
     currentUser?.role?.trim() ||
     'Admin Regional';
 
-  // Avatar
   const rawAvatar =
     currentUser?.avatar ||
     currentUser?.photoDataUrl ||
@@ -100,7 +97,6 @@ export default function RegionalTopbar({
   const photoDataUrl =
     formattedAvatar;
 
-  // Initials
   const initials =
     displayName
       .split(' ')
@@ -110,7 +106,6 @@ export default function RegionalTopbar({
       .join('')
       .toUpperCase() || 'AR';
 
-  // Close dropdown ketika klik di luar
   useEffect(() => {
     if (!isDropdownOpen) {
       return undefined;
@@ -195,7 +190,7 @@ export default function RegionalTopbar({
               w-8
               h-8
               rounded-full
-              bg-[#66CDAA]
+              bg-[#10367D]
               text-white
               flex
               items-center
@@ -205,7 +200,7 @@ export default function RegionalTopbar({
               shrink-0
               overflow-hidden
               border
-              border-[#4FBF99]
+              border-[#74B4D9]
             "
           >
             {photoDataUrl ? (
@@ -230,7 +225,7 @@ export default function RegionalTopbar({
               sm:block
               text-left
               leading-tight
-              max-w-[140px]
+              max-w-35
             "
           >
             <p
@@ -308,7 +303,7 @@ export default function RegionalTopbar({
                   w-10
                   h-10
                   rounded-full
-                  bg-[#66CDAA]
+                  bg-[#10367D]
                   text-white
                   flex
                   items-center
@@ -318,7 +313,7 @@ export default function RegionalTopbar({
                   shrink-0
                   overflow-hidden
                   border
-                  border-[#4FBF99]
+                  border-[#74B4D9]
                 "
               >
                 {photoDataUrl ? (
@@ -382,7 +377,7 @@ export default function RegionalTopbar({
                   text-[11px]
                   font-semibold
                   text-neutral-700
-                  hover:bg-[#66CDAA]/10
+                  hover:bg-[#74B4D9]/15
                   transition
                   cursor-pointer
                   text-left
@@ -391,7 +386,7 @@ export default function RegionalTopbar({
                 <User
                   size={14}
                   className="
-                    text-[#4FBF99]
+                    text-[#10367D]
                     shrink-0
                   "
                 />
@@ -418,7 +413,7 @@ export default function RegionalTopbar({
                   text-[11px]
                   font-semibold
                   text-neutral-700
-                  hover:bg-[#66CDAA]/10
+                  hover:bg-[#74B4D9]/15
                   transition
                   cursor-pointer
                   text-left
@@ -427,7 +422,7 @@ export default function RegionalTopbar({
                 <Settings
                   size={14}
                   className="
-                    text-[#4FBF99]
+                    text-[#10367D]
                     shrink-0
                   "
                 />

@@ -33,10 +33,10 @@ export default function SuperadminLayout() {
   };
 
   return (
-    <div className="relative flex min-h-screen bg-neutral-100 overflow-hidden font-['Inter']">
-      <div className="pointer-events-none absolute -top-24 -left-24 w-[26rem] h-[26rem] bg-[#66CDAA]/50 rounded-full blur-[110px] z-0"></div>
-      <div className="pointer-events-none absolute top-1/2 -right-32 w-[24rem] h-[24rem] bg-[#66CDAA]/60 rounded-full blur-[100px] z-0"></div>
-      <div className="pointer-events-none absolute -bottom-24 left-1/3 w-80 h-80 bg-[#66CDAA]/40 rounded-full blur-[90px] z-0"></div>
+    <div className="relative flex min-h-screen bg-brand-100 overflow-hidden font-sans">
+      <div className="pointer-events-none absolute -top-24 -left-24 w-[26rem] h-[26rem] bg-brand-900/10 rounded-full blur-[110px] z-0"></div>
+      <div className="pointer-events-none absolute top-1/2 -right-32 w-[24rem] h-96 bg-brand-900/10 rounded-full blur-[100px] z-0"></div>
+      <div className="pointer-events-none absolute -bottom-24 left-1/3 w-80 h-80 bg-brand-400/10 rounded-full blur-[90px] z-0"></div>
 
       <SuperadminSidebar
         activeMenu={activeMenu}

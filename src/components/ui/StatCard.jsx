@@ -8,7 +8,7 @@ export default function StatCard({
   variant = 'light', // 'light' | 'primary'
 }) {
   const badgeVariants = {
-    purple: 'text-[#4FBF99] bg-[#66CDAA]/10',
+    blue: 'text-[#10367D] bg-[#74B4D9]/20',
     emerald: 'text-emerald-700 bg-emerald-50',
     amber: 'text-amber-700 bg-amber-50',
     rose: 'text-rose-700 bg-rose-50',
@@ -18,10 +18,10 @@ export default function StatCard({
   const activeBadgeClass =
     badgeVariants[badgeVariant] || badgeVariants.emerald;
 
-  // PRIMARY CARD
+  // PRIMARY CARD (Royal Blue Theme)
   if (variant === 'primary') {
     return (
-      <div className="bg-[#66CDAA] text-white p-5 rounded-2xl shadow-sm flex items-center justify-between font-['Inter']">
+      <div className="bg-[#10367D] text-white p-5 rounded-2xl shadow-sm flex items-center justify-between font-['Inter']">
         <div>
           <p className="text-[8px] font-bold text-white/80 uppercase tracking-wider">
             {title}
@@ -83,7 +83,7 @@ export default function StatCard({
       </div>
 
       {Icon && (
-        <div className="p-2.5 bg-[#66CDAA]/10 text-[#4FBF99] rounded-xl shrink-0">
+        <div className="p-2.5 bg-[#74B4D9]/15 text-[#10367D] rounded-xl shrink-0">
           <Icon className="w-4 h-4" />
         </div>
       )}

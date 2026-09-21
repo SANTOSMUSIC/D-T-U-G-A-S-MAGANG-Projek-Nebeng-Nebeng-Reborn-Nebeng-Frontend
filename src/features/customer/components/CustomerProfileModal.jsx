@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { X, Phone, IdCard, ShieldCheck, Settings, CalendarCheck } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 const maskNik = (nik) => {
   if (!nik || nik === '-') return '-';
@@ -15,10 +15,7 @@ const maskNik = (nik) => {
 const getFullFileUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('blob:') || path.startsWith('data:')) return path;
-
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
-  }
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
 
   const baseURL = apiClient.defaults.baseURL
     ? apiClient.defaults.baseURL.replace('/api', '')
@@ -37,18 +34,14 @@ export default function CustomerProfileModal({
   const [userData, setUserData] = useState(profile || null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ambil data langsung dari /auth/me saat modal dibuka agar tidak pernah kosong (-)
   useEffect(() => {
     if (!isOpen) return;
-
     let isMounted = true;
 
     const fetchModalData = async () => {
       setIsLoading(true);
-
       try {
         const res = await apiClient.get('/auth/me');
-
         if (isMounted && res.data) {
           setUserData(res.data);
         }
@@ -126,7 +119,6 @@ export default function CustomerProfileModal({
         className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div
           className="relative px-5 pt-5 pb-6 bg-linear-to-br"
           style={{
@@ -141,7 +133,9 @@ export default function CustomerProfileModal({
             <X className="w-3.5 h-3.5" />
           </button>
 
-          <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white text-[18px] font-extrabold mb-3 overflow-hidden">
+          <div
+            className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white text-[18px] font-extrabold mb-3 overflow-hidden shadow-sm"
+          >
             {photoUrl ? (
               <img
                 src={photoUrl}
@@ -166,21 +160,18 @@ export default function CustomerProfileModal({
                 : 'bg-white/10 text-white/90'
             }`}
           >
-            <ShieldCheck className="w-3 h-3" />
+            <ShieldCheck className="w-3 h-3 text-[#74B4D9]" />
             {verifiedStatus ? 'Terverifikasi' : 'Belum Terverifikasi'}
           </span>
         </div>
 
-        {/* Profile information */}
         <div className="p-4 space-y-2.5">
           <div className="flex items-center gap-2.5 bg-neutral-50 border border-neutral-100 rounded-xl p-3">
             <Phone className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-
             <div className="min-w-0">
               <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">
                 No. WhatsApp/HP
               </p>
-
               <p className="text-[10px] font-bold text-neutral-800 truncate">
                 {isLoading ? 'Memuat...' : displayPhone}
               </p>
@@ -189,12 +180,10 @@ export default function CustomerProfileModal({
 
           <div className="flex items-center gap-2.5 bg-neutral-50 border border-neutral-100 rounded-xl p-3">
             <IdCard className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-
             <div className="min-w-0">
               <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">
                 NIK
               </p>
-
               <p className="text-[10px] font-bold text-neutral-800 font-mono truncate">
                 {isLoading ? 'Memuat...' : maskNik(displayNik)}
               </p>
@@ -203,12 +192,10 @@ export default function CustomerProfileModal({
 
           <div className="flex items-center gap-2.5 bg-neutral-50 border border-neutral-100 rounded-xl p-3">
             <CalendarCheck className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-
             <div className="min-w-0">
               <p className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider">
                 Anggota Sejak
               </p>
-
               <p className="text-[10px] font-bold text-neutral-800 truncate">
                 {isLoading ? 'Memuat...' : memberSince}
               </p>
@@ -216,7 +203,6 @@ export default function CustomerProfileModal({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="px-4 pb-4 pt-1 flex items-center justify-between">
           <button
             type="button"

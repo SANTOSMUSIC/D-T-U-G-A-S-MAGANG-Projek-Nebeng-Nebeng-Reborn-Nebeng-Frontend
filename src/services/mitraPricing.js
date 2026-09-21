@@ -1,8 +1,3 @@
-/**
- * Tabel estimasi tarif berdasarkan pasangan rute & jenis kendaraan.
- * Kalau kombinasi rute belum terdaftar, dipakai DEFAULT_PRICING sebagai fallback
- * supaya tetap ada angka yang masuk akal (bukan disamaratakan seperti sebelumnya).
- */
 const ROUTE_PRICING = {
   'Solo (Pos Pusat)|Yogyakarta': { Motor: 175000, Mobil: 450000 },
   'Solo (Pos Pusat)|Semarang': { Motor: 150000, Mobil: 400000 },

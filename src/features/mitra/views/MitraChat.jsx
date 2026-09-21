@@ -1,14 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-
 import { MessageSquare, Send, CheckCheck, Search, Phone, ArrowLeft } from 'lucide-react';
-
 import apiClient from '../../../services/apiClient';
-
 import { useToast } from '../../../context/ToastContext';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 export default function MitraChat() {
   const toast = useToast();

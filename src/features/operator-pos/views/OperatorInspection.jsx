@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PackageCheck, Camera, QrCode, X as XIcon } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import { operatorService } from '../../../services/operatorService';
+import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_ACCENT = '#74B4D9';
 
 export default function OperatorInspection() {
   const toast = useToast();
@@ -23,7 +23,36 @@ export default function OperatorInspection() {
   const [latestScanResult, setLatestScanResult] = useState(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // Fungsi utilitas untuk kompresi gambar agar ramah jaringan pos yang lambat
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOperatorPos = async () => {
+      try {
+        const res = await apiClient.get('/pickup-points');
+        if (isMounted && res.data) {
+          const points = Array.isArray(res.data) ? res.data : res.data.data || [];
+
+          const userRes = await apiClient.get('/auth/me');
+          const currentUserId = userRes.data?.id;
+
+          const assignedPoint = points.find(
+            (p) => String(p.operatorId) === String(currentUserId)
+          );
+
+          const resolvedPosId = assignedPoint?.id || points[0]?.id || '1';
+          setFormData(prev => ({ ...prev, posId: String(resolvedPosId) }));
+        }
+      } catch (err) {
+        console.error('Gagal memuat daftar pos:', err);
+        setFormData(prev => ({ ...prev, posId: '1' }));
+      }
+    };
+
+    fetchOperatorPos();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -119,6 +148,11 @@ export default function OperatorInspection() {
       return;
     }
 
+    if (!formData.posId) {
+      toast.warning('ID Pos bertugas belum terdeteksi dari sistem.', { title: 'Pos Belum Dimuat' });
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -148,12 +182,12 @@ export default function OperatorInspection() {
         date: 'Baru saja'
       });
 
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         qrCodeTrip: '',
         qrCodeTicket: '',
-        posId: '',
         securitySealQr: ''
-      });
+      }));
 
       handlePhotoFileChange(null);
 
@@ -220,6 +254,19 @@ export default function OperatorInspection() {
           >
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                ID POS TEMPAT BERTUGAS (OTOMATIS)
+              </label>
+
+              <input
+                type="text"
+                disabled
+                value={formData.posId}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100 font-medium text-[10px] font-mono cursor-not-allowed"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
                 KODE QR TRIP MITRA
               </label>
 
@@ -235,13 +282,6 @@ export default function OperatorInspection() {
                   })
                 }
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-medium text-[10px] uppercase font-mono"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor =
-                    PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
               />
             </div>
 
@@ -262,40 +302,6 @@ export default function OperatorInspection() {
                   })
                 }
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-medium text-[10px] uppercase font-mono"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor =
-                    PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS TEMPAT BERTUGAS
-              </label>
-
-              <input
-                type="text"
-                required
-                placeholder="cth: 1"
-                value={formData.posId}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    posId: e.target.value
-                  })
-                }
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-medium text-[10px] font-mono"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor =
-                    PRIMARY_COLOR;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '';
-                }}
               />
             </div>
 
@@ -314,9 +320,7 @@ export default function OperatorInspection() {
 
                   <div className="flex-1 min-w-0">
                     <p className="text-[9px] font-bold text-emerald-600">
-                      {isCompressing
-                        ? 'Mengompresi Foto...'
-                        : 'Foto Siap Dikirim'}
+                      {isCompressing ? 'Mengompresi Foto...' : 'Foto Siap Dikirim'}
                     </p>
 
                     <p className="text-[8px] text-neutral-400 truncate">
@@ -378,13 +382,6 @@ export default function OperatorInspection() {
                     })
                   }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 focus:outline-none font-medium text-[10px] font-mono uppercase"
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor =
-                      PRIMARY_COLOR;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '';
-                  }}
                 />
 
                 <button
@@ -403,12 +400,6 @@ export default function OperatorInspection() {
                     backgroundColor: `${PRIMARY_ACCENT}22`,
                     color: PRIMARY_COLOR
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = `${PRIMARY_ACCENT}44`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = `${PRIMARY_ACCENT}22`;
-                  }}
                 >
                   <QrCode className="w-3.5 h-3.5" />
                   Auto
@@ -422,16 +413,6 @@ export default function OperatorInspection() {
               className="w-full py-3 text-white text-[10px] font-bold rounded-xl transition shadow-sm cursor-pointer mt-1 disabled:opacity-50"
               style={{
                 backgroundColor: PRIMARY_COLOR
-              }}
-              onMouseEnter={(e) => {
-                if (!isLoading && !isCompressing) {
-                  e.currentTarget.style.backgroundColor =
-                    PRIMARY_HOVER;
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  PRIMARY_COLOR;
               }}
             >
               {isLoading

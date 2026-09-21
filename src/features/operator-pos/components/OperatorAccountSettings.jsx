@@ -16,9 +16,9 @@ import BaseModal from '../../../components/ui/BaseModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 const DEFAULT_NOTIF_PREFS = {
   emailNotif: true,
@@ -71,7 +71,6 @@ export default function OperatorAccountSettings() {
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ambil data profil terbaru dari database saat halaman dipasang
   useEffect(() => {
     let isMounted = true;
 
@@ -173,7 +172,6 @@ export default function OperatorAccountSettings() {
     try {
       setIsSubmitting(true);
 
-      // Simpan perubahan data profil ke database server
       await apiClient
         .patch('/users/me', {
           name: profileDraft.fullName.trim(),
@@ -190,7 +188,6 @@ export default function OperatorAccountSettings() {
 
       let finalAvatarUrl = avatarPreview;
 
-      // Jika ada file avatar baru yang dipilih, unggah ke server
       if (avatarFile) {
         const formData = new FormData();
         formData.append('file', avatarFile);
@@ -457,7 +454,6 @@ export default function OperatorAccountSettings() {
       </div>
 
       <div className="space-y-5">
-        {/* Edit Profil */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <User
@@ -473,7 +469,7 @@ export default function OperatorAccountSettings() {
                 <img
                   src={avatarPreview}
                   alt="Foto Profil"
-                  className="w-16 h-16 rounded-full object-cover border-4 border-[#66CDAA]/20 shadow-sm"
+                  className="w-16 h-16 rounded-full object-cover border-4 border-[#74B4D9]/20 shadow-sm"
                 />
               ) : (
                 <div
@@ -548,7 +544,7 @@ export default function OperatorAccountSettings() {
                       e.target.value
                     )
                   }
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                   required
                 />
               </div>
@@ -571,7 +567,7 @@ export default function OperatorAccountSettings() {
                       )
                     )
                   }
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 font-mono focus:outline-none focus:border-[#4FBF99]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 font-mono focus:outline-none focus:border-[#10367D]"
                 />
               </div>
 
@@ -590,7 +586,7 @@ export default function OperatorAccountSettings() {
                       e.target.value
                     )
                   }
-                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                   required
                 />
               </div>
@@ -623,7 +619,6 @@ export default function OperatorAccountSettings() {
           </form>
         </div>
 
-        {/* Keamanan Akun */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-5">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <KeyRound
@@ -660,7 +655,7 @@ export default function OperatorAccountSettings() {
                       current: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
+                  className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                 />
 
                 <button
@@ -699,7 +694,7 @@ export default function OperatorAccountSettings() {
                       next: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
+                  className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                 />
 
                 <button
@@ -738,7 +733,7 @@ export default function OperatorAccountSettings() {
                       confirm: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#4FBF99]"
+                  className="w-full px-3 py-2.5 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
                 />
 
                 <button
@@ -822,7 +817,6 @@ export default function OperatorAccountSettings() {
           </div>
         </div>
 
-        {/* Preferensi Notifikasi */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
           <h3 className="text-[14px] font-bold text-neutral-800 flex items-center gap-1.5">
             <Bell
@@ -874,7 +868,6 @@ export default function OperatorAccountSettings() {
           </div>
         </div>
 
-        {/* Zona Berbahaya */}
         <div className="bg-white rounded-2xl shadow-sm border border-rose-200 p-5 sm:p-6 space-y-3">
           <h3 className="text-[14px] font-bold text-rose-600 flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4" />
@@ -907,7 +900,6 @@ export default function OperatorAccountSettings() {
         </div>
       </div>
 
-      {/* Modal 2FA */}
       <BaseModal
         isOpen={show2FAModal}
         onClose={() => setShow2FAModal(false)}
@@ -950,7 +942,6 @@ export default function OperatorAccountSettings() {
         </div>
       </BaseModal>
 
-      {/* Modal Deactivate */}
       <BaseModal
         isOpen={showDeactivateModal}
         onClose={() => setShowDeactivateModal(false)}

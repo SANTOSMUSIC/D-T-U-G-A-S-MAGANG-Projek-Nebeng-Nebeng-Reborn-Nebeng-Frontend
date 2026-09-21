@@ -5,9 +5,9 @@ import { useAuth } from '../../../context/AuthContext';
 import OperatorProfileModal from './OperatorProfileModal';
 import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
-const PRIMARY_HOVER = '#429f80';
-const PRIMARY_ACCENT = '#66CDAA';
+const PRIMARY_COLOR = '#10367D';
+const PRIMARY_HOVER = '#0C2C66';
+const PRIMARY_ACCENT = '#74B4D9';
 
 function getInitials(name) {
   if (!name) return 'OP';
@@ -31,7 +31,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
 
   const dropdownRef = useRef(null);
 
-  // Sinkronisasi data user real-time dari backend saat komponen dimuat
+  // Sinkronisasi data user real-time dari backend (aman dari infinite loop)
   useEffect(() => {
     let isMounted = true;
 
@@ -136,7 +136,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 bg-white/30 backdrop-blur-xl border-b border-white/40 shadow-[0_1px_12px_rgba(0,0,0,0.04)] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-end font-['Inter']">
+    <header className="sticky top-0 z-20 bg-white/35 backdrop-blur-xl border-b border-white/40 shadow-[0_1px_12px_rgba(0,0,0,0.04)] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-end font-['Inter']">
       <div
         className="relative"
         ref={dropdownRef}
@@ -161,6 +161,9 @@ export default function OperatorTopbar({ onSettingsClick }) {
                   src={photoDataUrl}
                   alt="Foto Profil"
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
                 />
               ) : (
                 initials
@@ -205,6 +208,9 @@ export default function OperatorTopbar({ onSettingsClick }) {
                     src={photoDataUrl}
                     alt="Foto Profil"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
                   />
                 ) : (
                   initials

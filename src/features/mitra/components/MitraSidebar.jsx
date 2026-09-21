@@ -9,11 +9,14 @@ import {
   LogOut,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import logoAsset from '../../../assets/logo.png';
+import apiClient from '../../../services/apiClient';
 
-const PRIMARY_COLOR = '#4FBF99';
+const PRIMARY_COLOR = '#10367D';
 
 export default function MitraSidebar({
   activeMenu = 'Dashboard Mitra',
@@ -26,24 +29,61 @@ export default function MitraSidebar({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    { name: 'Dashboard Mitra', icon: LayoutDashboard },
-    { name: 'Onboarding & Verifikasi', icon: UserCheck },
-    { name: 'Kelola Trip & Jadwal', icon: Calendar },
-    { name: 'Digital QR Trip', icon: QrCode },
-    { name: 'Saldo & Komisi', icon: Wallet },
-    { name: 'Chat Pelanggan', icon: MessageSquare },
+    {
+      name: 'Dashboard Mitra',
+      icon: LayoutDashboard,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Onboarding & Verifikasi',
+      icon: UserCheck,
+      locked: isVerified,
+      label: isVerified ? 'Verifikasi Selesai' : 'Onboarding & Verifikasi',
+      lockMessage: 'Verifikasi Anda telah disetujui'
+    },
+    {
+      name: 'Kelola Trip & Jadwal',
+      icon: Calendar,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Digital QR Trip',
+      icon: QrCode,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Saldo & Komisi',
+      icon: Wallet,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
+    {
+      name: 'Chat Pelanggan',
+      icon: MessageSquare,
+      locked: !isVerified,
+      lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
+    },
   ];
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
-
-    setTimeout(() => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (err) {
+      console.error('Gagal mencabut token di server:', err);
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
       if (onLogout) onLogout();
-    }, 400);
+    }
   };
 
-  const handleMenuSelect = (name) => {
-    if (onMenuSelect) onMenuSelect(name);
+  const handleMenuSelect = (item) => {
+    if (item.locked) return;
+    if (onMenuSelect) onMenuSelect(item.name);
     setIsMobileOpen(false);
   };
 
@@ -100,7 +140,7 @@ export default function MitraSidebar({
 
           <div className="space-y-6">
             <div>
-              <p className="text-[8px] font-semibold uppercase tracking-widest text-white/50 mb-2.5 px-3">
+              <p className="text-[8px] font-semibold uppercase tracking-widest text-[#74B4D9] mb-2.5 px-3">
                 MENU MITRA POS
               </p>
 
@@ -109,37 +149,39 @@ export default function MitraSidebar({
                   const IconComponent = item.icon;
                   const isActive = activeMenu === item.name;
 
-                  // Akun yang sudah diverifikasi Admin Regional tidak lagi
-                  // perlu membuka menu Onboarding & Verifikasi — sembunyikan
-                  // menu ini sepenuhnya dari sidebar.
-                  if (
-                    item.name === 'Onboarding & Verifikasi' &&
-                    isVerified
-                  ) {
-                    return null;
-                  }
-
                   return (
                     <button
                       key={item.name}
-                      onClick={() => handleMenuSelect(item.name)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
+                      disabled={item.locked}
+                      onClick={() => handleMenuSelect(item)}
+                      title={item.locked ? item.lockMessage : undefined}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left ${
                         isActive
-                          ? 'bg-white font-semibold shadow-sm'
-                          : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
+                          ? 'bg-white font-semibold shadow-sm cursor-default'
+                          : item.locked
+                          ? 'text-white/40 font-medium cursor-not-allowed opacity-60'
+                          : 'text-white/80 font-medium hover:bg-white/10 hover:text-white cursor-pointer'
                       }`}
                       style={isActive ? { color: PRIMARY_COLOR } : undefined}
                     >
                       <IconComponent
-                        className="w-4 h-4"
-                        style={{
-                          color: isActive
-                            ? PRIMARY_COLOR
-                            : 'rgba(255,255,255,0.7)',
-                        }}
+                        className={`w-4 h-4 ${
+                          isActive
+                            ? ''
+                            : item.locked
+                            ? 'text-white/30'
+                            : 'text-white/70'
+                        }`}
+                        style={isActive ? { color: PRIMARY_COLOR } : undefined}
                       />
 
-                      <span>{item.name}</span>
+                      <span className="flex-1">{item.label || item.name}</span>
+
+                      {item.name === 'Onboarding & Verifikasi' && isVerified ? (
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#74B4D9] shrink-0" />
+                      ) : item.locked ? (
+                        <Lock className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -152,7 +194,7 @@ export default function MitraSidebar({
           <button
             onClick={() => setShowLogoutModal(true)}
             aria-label="Keluar Sistem"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-[#FF0055] hover:bg-[#e0004c] transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer shadow-sm"
           >
             <LogOut className="w-4 h-4 text-white shrink-0" />
             <span>Log Out</span>

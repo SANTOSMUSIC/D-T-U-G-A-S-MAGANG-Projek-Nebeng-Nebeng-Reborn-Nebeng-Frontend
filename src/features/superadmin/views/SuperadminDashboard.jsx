@@ -6,7 +6,6 @@ import {
   MapPin,
   Search,
   SlidersHorizontal,
-  ChevronRight,
   CheckCircle2,
   XCircle,
   Clock,
@@ -40,25 +39,16 @@ const getWeightForRegion = (baseWeight, index, regionName) => {
 export default function SuperadminDashboard() {
   const { session } = useAuth();
   const displayName = session?.name || session?.fullName || session?.username || 'Admin';
-
-  // State Data dari Backend & Loading
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [escrowLedgerData, setEscrowLedgerData] = useState(null);
-
-  // State Paginasi Escrow Ledger (Mencegah beban data berlebih)
   const [escrowPage, setEscrowPage] = useState(1);
   const [paginationInfo, setPaginationInfo] = useState(null);
-
-  // State Pencarian Utama (Header) & Pencarian Grafik
-  const [mainQuery, setMainQuery] = useState('');
+  const [mainQuery] = useState('');
   const [chartQuery, setChartQuery] = useState('');
-
-  // State Filter Data Wilayah
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [filterSortBy, setFilterSortBy] = useState('default');
 
-  // Ambil data riil global dashboard & escrow ledger dari backend saat komponen dimuat atau halaman ledger berubah
   useEffect(() => {
     let isMounted = true;
     async function fetchData() {
@@ -519,36 +509,34 @@ export default function SuperadminDashboard() {
     },
     Pending: {
       icon: Clock,
-      text: 'text-[#66CDAA]',
-      bg: 'bg-[#66CDAA]/10',
-      dot: 'bg-[#66CDAA]',
+      text: 'text-[#10367D]',
+      bg: 'bg-[#10367D]/10',
+      dot: 'bg-[#10367D]',
       label: 'Menunggu'
     }
   };
 
   const rowAccents = [
     {
-      bg: 'bg-[#66CDAA]/10',
-      text: 'text-[#66CDAA]'
+      bg: 'bg-[#10367D]/10',
+      text: 'text-[#10367D]'
     },
     {
-      bg: 'bg-[#66CDAA]/[0.16]',
-      text: 'text-[#66CDAA]'
+      bg: 'bg-[#74B4D9]/15',
+      text: 'text-[#10367D]'
     },
     {
       bg: 'bg-neutral-100',
       text: 'text-neutral-500'
     },
     {
-      bg: 'bg-[#66CDAA]/[0.08]',
-      text: 'text-[#66CDAA]/80'
+      bg: 'bg-[#10367D]/[0.08]',
+      text: 'text-[#10367D]/80'
     }
   ];
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-
-      {/* Search bar utama DIHILANGKAN */}
 
       <div className="pt-1">
         <h1 className="text-[18px] font-bold text-neutral-800">
@@ -597,8 +585,6 @@ export default function SuperadminDashboard() {
                     <span className="text-[18px] font-bold text-neutral-800">
                       {insight.value}
                     </span>
-
-                    {/* Lihat Detail DIHILANGKAN */}
                   </div>
                 </div>
               </div>
@@ -636,7 +622,7 @@ export default function SuperadminDashboard() {
                   }}
                   className={`text-[10px] font-semibold px-3 py-1 rounded-full transition cursor-pointer ${
                     activeRange === range
-                      ? 'bg-white text-[#66CDAA] shadow-sm'
+                      ? 'bg-[#10367D] text-white shadow-sm'
                       : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
@@ -655,7 +641,7 @@ export default function SuperadminDashboard() {
                     setSelectedChartRegion(e.target.value);
                     setHoveredIndex(null);
                   }}
-                  className="pl-8 pr-7 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#66CDAA] cursor-pointer"
+                  className="pl-8 pr-7 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#74B4D9] cursor-pointer"
                 >
                   <option value="Semua">
                     Semua Wilayah
@@ -687,7 +673,7 @@ export default function SuperadminDashboard() {
                     setHoveredIndex(null);
                   }}
                   placeholder="Cari & filter pemasukan..."
-                  className="w-full pl-9 pr-8 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] text-neutral-600 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#66CDAA] transition"
+                  className="w-full pl-9 pr-8 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] text-neutral-600 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#74B4D9] transition"
                 />
 
                 {chartQuery && (
@@ -715,7 +701,7 @@ export default function SuperadminDashboard() {
                   onClick={() => setChartType('line')}
                   className={`w-6 h-6 rounded-full flex items-center justify-center transition cursor-pointer ${
                     chartType === 'line'
-                      ? 'bg-white text-[#66CDAA] shadow-sm'
+                      ? 'bg-[#10367D] text-white shadow-sm'
                       : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
@@ -726,7 +712,7 @@ export default function SuperadminDashboard() {
                   onClick={() => setChartType('bar')}
                   className={`w-6 h-6 rounded-full flex items-center justify-center transition cursor-pointer ${
                     chartType === 'bar'
-                      ? 'bg-white text-[#66CDAA] shadow-sm'
+                      ? 'bg-[#10367D] text-white shadow-sm'
                       : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
@@ -734,7 +720,7 @@ export default function SuperadminDashboard() {
                 </button>
               </div>
 
-              <button className="w-7 h-7 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-[#66CDAA] transition">
+              <button className="w-7 h-7 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-[#10367D] transition">
                 <Download size={13} />
               </button>
             </div>
@@ -754,7 +740,7 @@ export default function SuperadminDashboard() {
               }`}
             >
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2 h-2 rounded-full bg-[#66CDAA]"></span>
+                <span className="w-2 h-2 rounded-full bg-[#10367D]"></span>
 
                 <span className="text-[10px] font-medium text-neutral-500">
                   Total Pemasukan
@@ -779,7 +765,7 @@ export default function SuperadminDashboard() {
               }`}
             >
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2 h-2 rounded-full bg-[#66CDAA]"></span>
+                <span className="w-2 h-2 rounded-full bg-[#74B4D9]"></span>
 
                 <span className="text-[10px] font-medium text-neutral-500">
                   Pemasukan Bersih
@@ -794,7 +780,7 @@ export default function SuperadminDashboard() {
 
           <div className="relative pt-2">
             {chartData.length === 0 ? (
-              <div className="h-56 flex flex-col items-center justify-center text-center p-4 bg-[#66CDAA]/50 rounded-2xl border border-dashed border-neutral-200">
+              <div className="h-56 flex flex-col items-center justify-center text-center p-4 bg-[#74B4D9]/10 rounded-2xl border border-dashed border-neutral-200">
                 <p className="text-[12px] font-semibold text-neutral-700">
                   Data Pemasukan Tidak Ditemukan
                 </p>
@@ -808,7 +794,7 @@ export default function SuperadminDashboard() {
                     setChartQuery('');
                     setHoveredIndex(null);
                   }}
-                  className="mt-3 text-[10px] font-semibold text-[#66CDAA] hover:underline"
+                  className="mt-3 text-[10px] font-semibold text-[#10367D] hover:underline"
                 >
                   Bersihkan Pencarian
                 </button>
@@ -832,12 +818,12 @@ export default function SuperadminDashboard() {
                   >
                     <stop
                       offset="0%"
-                      stopColor="#66CDAA"
+                      stopColor="#10367D"
                       stopOpacity="0.20"
                     />
                     <stop
                       offset="100%"
-                      stopColor="#66CDAA"
+                      stopColor="#10367D"
                       stopOpacity="0"
                     />
                   </linearGradient>
@@ -851,12 +837,12 @@ export default function SuperadminDashboard() {
                   >
                     <stop
                       offset="0%"
-                      stopColor="#A7E8D2"
+                      stopColor="#74B4D9"
                       stopOpacity="0.30"
                     />
                     <stop
                       offset="100%"
-                      stopColor="#A7E8D2"
+                      stopColor="#74B4D9"
                       stopOpacity="0"
                     />
                   </linearGradient>
@@ -926,7 +912,7 @@ export default function SuperadminDashboard() {
                         <path
                           d={pemasukanBersihLinePath}
                           fill="none"
-                          stroke="#66CDAA"
+                          stroke="#74B4D9"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -944,7 +930,7 @@ export default function SuperadminDashboard() {
                         <path
                           d={pemasukanTotalLinePath}
                           fill="none"
-                          stroke="#66CDAA"
+                          stroke="#10367D"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -967,7 +953,7 @@ export default function SuperadminDashboard() {
                                   .pemasukanTotal
                               )}
                               r={5}
-                              fill="#66CDAA"
+                              fill="#10367D"
                               stroke="white"
                               strokeWidth="2"
                             />
@@ -985,7 +971,7 @@ export default function SuperadminDashboard() {
                                   .pemasukanBersih
                               )}
                               r={4.5}
-                              fill="#A7E8D2"
+                              fill="#74B4D9"
                               stroke="white"
                               strokeWidth="2"
                             />
@@ -1017,7 +1003,7 @@ export default function SuperadminDashboard() {
                                 )
                               }
                               rx={2}
-                              fill="#66CDAA"
+                              fill="#10367D"
                               opacity={
                                 i ===
                                 activeIndex
@@ -1045,7 +1031,7 @@ export default function SuperadminDashboard() {
                                 )
                               }
                               rx={2}
-                              fill="#A7E8D2"
+                              fill="#74B4D9"
                               opacity={
                                 i ===
                                 activeIndex
@@ -1101,7 +1087,7 @@ export default function SuperadminDashboard() {
               activeIndex !== null &&
               chartData[activeIndex] && (
                 <div
-                  className="hidden sm:block absolute bg-[#66CDAA] rounded-2xl shadow-xl p-3 w-44 pointer-events-none transition-all duration-75 z-10"
+                  className="hidden sm:block absolute bg-[#10367D] rounded-2xl shadow-xl p-3 w-44 pointer-events-none transition-all duration-75 z-10"
                   style={{
                     left: `${selectedPct}%`,
                     top: `${(selectedY / CH) * 100}%`,
@@ -1122,8 +1108,8 @@ export default function SuperadminDashboard() {
                   </p>
 
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="flex items-center gap-1 text-[9px] text-neutral-300">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#66CDAA] shrink-0"></span>
+                    <span className="flex items-center gap-1 text-[9px] text-neutral-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
                       Total Pemasukan
                     </span>
 
@@ -1137,8 +1123,8 @@ export default function SuperadminDashboard() {
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1 text-[9px] text-neutral-300">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#66CDAA] shrink-0"></span>
+                    <span className="flex items-center gap-1 text-[9px] text-neutral-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#74B4D9] shrink-0"></span>
                       Pemasukan Bersih
                     </span>
 
@@ -1167,7 +1153,7 @@ export default function SuperadminDashboard() {
               <div className="p-5 border-b border-gray-100 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="bg-[#66CDAA]/10 text-[#66CDAA] p-1.5 rounded-xl">
+                    <div className="bg-[#10367D]/10 text-[#10367D] p-1.5 rounded-xl">
                       <MapPin size={15} />
                     </div>
 
@@ -1190,7 +1176,7 @@ export default function SuperadminDashboard() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold transition cursor-pointer border ${
                         filterSortBy !==
                         'default'
-                          ? 'bg-[#66CDAA] text-white border-[#66CDAA]'
+                          ? 'bg-[#10367D] text-white border-[#10367D]'
                           : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                       }`}
                     >
@@ -1202,7 +1188,7 @@ export default function SuperadminDashboard() {
                     </button>
 
                     {showFilterDropdown && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-neutral-200 py-2 z-30 animate-in fade-in duration-150">
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-neutral-200 py-2 z-30">
                         <p className="px-3 py-1 text-[8px] font-semibold text-neutral-400 uppercase tracking-wider">
                           Urutkan & Filter
                         </p>
@@ -1219,7 +1205,7 @@ export default function SuperadminDashboard() {
                           className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
                             filterSortBy ===
                             'default'
-                              ? 'font-bold text-[#66CDAA]'
+                              ? 'font-bold text-[#10367D]'
                               : 'text-neutral-700'
                           }`}
                         >
@@ -1238,7 +1224,7 @@ export default function SuperadminDashboard() {
                           className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
                             filterSortBy ===
                             'revenue-desc'
-                              ? 'font-bold text-[#66CDAA]'
+                              ? 'font-bold text-[#10367D]'
                               : 'text-neutral-700'
                           }`}
                         >
@@ -1257,7 +1243,7 @@ export default function SuperadminDashboard() {
                           className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
                             filterSortBy ===
                             'orders-desc'
-                              ? 'font-bold text-[#66CDAA]'
+                              ? 'font-bold text-[#10367D]'
                               : 'text-neutral-700'
                           }`}
                         >
@@ -1276,7 +1262,7 @@ export default function SuperadminDashboard() {
                           className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
                             filterSortBy ===
                             'change-positive'
-                              ? 'font-bold text-[#66CDAA]'
+                              ? 'font-bold text-[#10367D]'
                               : 'text-neutral-700'
                           }`}
                         >
@@ -1295,7 +1281,7 @@ export default function SuperadminDashboard() {
                           className={`w-full text-left px-3 py-1.5 text-[10px] hover:bg-neutral-50 ${
                             filterSortBy ===
                             'change-negative'
-                              ? 'font-bold text-[#66CDAA]'
+                              ? 'font-bold text-[#10367D]'
                               : 'text-neutral-700'
                           }`}
                         >
@@ -1316,7 +1302,7 @@ export default function SuperadminDashboard() {
                         }
                         className={`pb-1.5 text-[10px] font-semibold whitespace-nowrap transition cursor-pointer border-b-2 ${
                           regionTab === tab
-                            ? 'text-[#66CDAA] border-[#66CDAA]'
+                            ? 'text-[#10367D] border-[#10367D]'
                             : 'text-neutral-400 border-transparent hover:text-neutral-600'
                         }`}
                       >
@@ -1333,7 +1319,7 @@ export default function SuperadminDashboard() {
                   <div className="p-4">
                     <EmptyState
                       title="Belum ada data wilayah"
-                      description={`Tidak ada wilayah yang sesuai dengan kriteria pencarian dari backend.`}
+                      description={`Tidak ada wilayah yang sesuai dengan kriteria pencarian.`}
                     />
                   </div>
                 ) : (
@@ -1435,7 +1421,7 @@ export default function SuperadminDashboard() {
 
                             <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-[#66CDAA] rounded-full"
+                                className="h-full bg-[#10367D] rounded-full"
                                 style={{
                                   width: `${region.sharePercentage}%`
                                 }}
@@ -1490,7 +1476,7 @@ export default function SuperadminDashboard() {
                         <td colSpan={4}>
                           <EmptyState
                             title="Belum ada data wilayah"
-                            description={`Tidak ada wilayah yang sesuai dengan kriteria pencarian dari backend.`}
+                            description={`Tidak ada wilayah yang sesuai dengan kriteria pencarian.`}
                           />
                         </td>
                       </tr>
@@ -1571,7 +1557,7 @@ export default function SuperadminDashboard() {
 
                                   <div className="flex-1 h-1 bg-neutral-100 rounded-full overflow-hidden">
                                     <div
-                                      className="h-full bg-[#66CDAA] rounded-full"
+                                      className="h-full bg-[#10367D] rounded-full"
                                       style={{
                                         width: `${barWidth}%`
                                       }}
@@ -1608,7 +1594,7 @@ export default function SuperadminDashboard() {
                   Aktivitas Escrow Terbaru
                 </h2>
 
-                <button className="text-[10px] font-semibold text-[#66CDAA] hover:underline cursor-pointer">
+                <button className="text-[10px] font-semibold text-[#10367D] hover:underline cursor-pointer">
                   Lihat Semua
                 </button>
               </div>
@@ -1617,8 +1603,7 @@ export default function SuperadminDashboard() {
                 {filteredActivities.length ===
                 0 ? (
                   <div className="text-center py-8 text-neutral-400 text-[10px]">
-                    Tidak ada riwayat aktivitas
-                    escrow dari backend.
+                    Tidak ada riwayat aktivitas escrow.
                   </div>
                 ) : (
                   filteredActivities.map(
@@ -1693,7 +1678,6 @@ export default function SuperadminDashboard() {
                 )}
               </div>
 
-              {/* Kontrol Navigasi Paginasi Sederhana untuk Escrow Ledger */}
               {paginationInfo &&
                 paginationInfo.totalPages >
                   1 && (
