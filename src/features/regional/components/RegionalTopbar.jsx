@@ -87,8 +87,9 @@ export default function RegionalTopbar({
     !rawAvatar.startsWith('http') &&
     !rawAvatar.startsWith('data:')
   ) {
-    const baseURL =
-      'http://localhost:3000';
+    const baseURL = apiClient.defaults.baseURL 
+      ? apiClient.defaults.baseURL.replace('/api', '') 
+      : 'http://localhost:3000';
 
     formattedAvatar =
       `${baseURL}${rawAvatar}`;

@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { 
   MapPin, 
   Plus, 
@@ -18,6 +20,22 @@ import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { getAllRegions, createRegion, updateRegion } from '../../../services/regionService';
+
+// Fix untuk default icon Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+function ChangeView({ center, zoom = 11 }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, map, zoom]);
+  return null;
+}
 
 export default function RegionsManagement() {
   const [regions, setRegions] = useState([]);
@@ -372,15 +390,17 @@ export default function RegionsManagement() {
         <div className="space-y-3 text-[10px]">
           <div className="rounded-xl overflow-hidden border border-neutral-200 h-60 relative">
             {selectedRegion?.latitude && selectedRegion?.longitude ? (
-              <div className="absolute inset-0 overflow-hidden">
-                <iframe
-                  title="Region Map Preview"
-                  width="100%"
-                  height="125%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedRegion.longitude - 0.1}%2C${selectedRegion.latitude - 0.1}%2C${selectedRegion.longitude + 0.1}%2C${selectedRegion.latitude + 0.1}&layer=mapnik&marker=${selectedRegion.latitude}%2C${selectedRegion.longitude}`}
-                  style={{ border: 0, marginTop: '-24px' }}
-                ></iframe>
+              <div className="absolute inset-0 z-0">
+                <MapContainer center={[selectedRegion.latitude, selectedRegion.longitude]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[selectedRegion.latitude, selectedRegion.longitude]} />
+                  <Circle 
+                    center={[selectedRegion.latitude, selectedRegion.longitude]} 
+                    radius={(selectedRegion.radiusKm || 20) * 1000} 
+                    pathOptions={{ color: '#10367D', fillColor: '#10367D', fillOpacity: 0.15 }}
+                  />
+                  <ChangeView center={[selectedRegion.latitude, selectedRegion.longitude]} />
+                </MapContainer>
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-neutral-400">Koordinat peta belum tersedia</div>
@@ -472,16 +492,18 @@ export default function RegionsManagement() {
 
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Preview Titik Pusat di Peta</label>
-            <div className="rounded-xl overflow-hidden border border-neutral-200 h-40 relative">
-              <div className="absolute inset-0 overflow-hidden">
-                <iframe
-                  title="Live Map Preview"
-                  width="100%"
-                  height="135%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${formData.longitude - 0.08}%2C${formData.latitude - 0.08}%2C${formData.longitude + 0.08}%2C${formData.latitude + 0.08}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
-                  style={{ border: 0, marginTop: '-30px' }}
-                ></iframe>
+            <div className="rounded-xl overflow-hidden border border-neutral-200 h-40 relative z-0">
+              <div className="absolute inset-0 z-0">
+                <MapContainer center={[formData.latitude, formData.longitude]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[formData.latitude, formData.longitude]} />
+                  <Circle 
+                    center={[formData.latitude, formData.longitude]} 
+                    radius={(formData.radiusKm || 20) * 1000} 
+                    pathOptions={{ color: '#10367D', fillColor: '#10367D', fillOpacity: 0.15 }}
+                  />
+                  <ChangeView center={[formData.latitude, formData.longitude]} />
+                </MapContainer>
               </div>
             </div>
           </div>

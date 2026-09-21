@@ -14,6 +14,7 @@ import PricingManagement from './features/superadmin/views/PricingManagement';
 import AuditLedger from './features/superadmin/views/AuditLedger';
 import UserGovernance from './features/superadmin/views/UserGovernance';
 import SuperadminAccountSettings from './features/superadmin/views/SuperadminAccountSettings';
+import MerchandiseManagement from './features/superadmin/views/MerchandiseManagement';
 
 // Regional
 import RegionalLayout from './features/regional/RegionalLayout';
@@ -51,6 +52,7 @@ import BiometricOnboarding from './features/customer/views/BiometricOnboarding';
 import SearchTrip from './features/customer/views/SearchTrip';
 import MyTickets from './features/customer/views/MyTickets';
 import CustomerAccountSettings from './features/customer/views/CustomerAccountSettings';
+import CustomerRewards from './features/customer/views/CustomerRewards';
 
 function CustomerIndexRedirect() {
   const { isCustomerVerified } = useAuth();
@@ -124,6 +126,7 @@ export default function App() {
         <Route path="wilayah" element={<RegionsManagement />} />
         <Route path="admin-wilayah" element={<RegionalAdminsManagement />} />
         <Route path="tarif" element={<PricingManagement />} />
+        <Route path="merchandise" element={<MerchandiseManagement />} />
         <Route path="audit" element={<AuditLedger />} />
         <Route path="governance" element={<UserGovernance />} />
         <Route path="profile/pengaturan" element={<SuperadminAccountSettings />} />
@@ -204,6 +207,7 @@ export default function App() {
         <Route path="onboarding" element={<BiometricOnboarding />} />
         <Route path="booking" element={<SearchTrip />} />
         <Route path="tickets" element={<MyTickets />} />
+        <Route path="rewards" element={<CustomerRewards />} />
         <Route path="profile" element={<Navigate to="pengaturan" replace />} />
         <Route path="profile/pengaturan" element={<CustomerAccountSettings />} />
         <Route path="*" element={<CustomerIndexRedirect />} />

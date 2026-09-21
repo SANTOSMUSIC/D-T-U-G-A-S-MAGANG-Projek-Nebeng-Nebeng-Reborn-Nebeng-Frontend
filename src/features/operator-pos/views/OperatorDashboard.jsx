@@ -26,6 +26,7 @@ export default function OperatorDashboard() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [directionFilter, setDirectionFilter] = useState('all');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [paginationMeta, setPaginationMeta] = useState({
     total: 0,
@@ -47,11 +48,22 @@ export default function OperatorDashboard() {
     const loadOperatorData = async () => {
       setIsLoadingTrips(true);
       try {
-        const result = await operatorService.getTrips({
+        const params = {
           page: currentPage,
           limit: limit,
-          ...(operatorPosId && { posId: operatorPosId }),
-        });
+        };
+        
+        if (operatorPosId) {
+          if (directionFilter === 'masuk') {
+            params.destinationPointId = operatorPosId;
+          } else if (directionFilter === 'keluar') {
+            params.originPointId = operatorPosId;
+          } else {
+            params.posId = operatorPosId;
+          }
+        }
+        
+        const result = await operatorService.getTrips(params);
 
         if (!isMounted) return;
 
@@ -110,7 +122,7 @@ export default function OperatorDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [currentPage, limit, operatorPosId, refreshTrigger]);
+  }, [currentPage, limit, operatorPosId, refreshTrigger, directionFilter]);
 
   const incomingCount = tripsSchedule.filter((t) => t.type === 'Masuk').length;
   const outgoingCount = tripsSchedule.filter((t) => t.type === 'Keluar').length;
@@ -273,21 +285,41 @@ export default function OperatorDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px]">
-            <span className="text-neutral-500 font-medium">Tampilkan per halaman:</span>
-            <select
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="border border-neutral-200 rounded-lg px-2.5 py-1 bg-white text-neutral-700 font-semibold focus:outline-none focus:border-[#10367D]"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+          <div className="flex items-center gap-3 text-[11px]">
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-500 font-medium hidden sm:inline">Arah Trip:</span>
+              <select
+                value={directionFilter}
+                onChange={(e) => {
+                  setDirectionFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="border border-neutral-200 rounded-lg px-2.5 py-1 bg-white text-neutral-700 font-semibold focus:outline-none focus:border-[#10367D]"
+              >
+                <option value="all">Semua Arah</option>
+                <option value="masuk">Masuk Pos</option>
+                <option value="keluar">Keluar Pos</option>
+              </select>
+            </div>
+            
+            <div className="w-px h-4 bg-neutral-200 hidden sm:block"></div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-500 font-medium hidden sm:inline">Tampilkan:</span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-neutral-200 rounded-lg px-2.5 py-1 bg-white text-neutral-700 font-semibold focus:outline-none focus:border-[#10367D]"
+              >
+                <option value={5}>5 baris</option>
+                <option value={10}>10 baris</option>
+                <option value={20}>20 baris</option>
+                <option value={50}>50 baris</option>
+              </select>
+            </div>
           </div>
         </div>
 

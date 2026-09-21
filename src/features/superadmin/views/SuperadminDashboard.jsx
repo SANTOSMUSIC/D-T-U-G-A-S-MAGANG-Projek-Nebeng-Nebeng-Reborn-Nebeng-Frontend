@@ -210,6 +210,14 @@ export default function SuperadminDashboard() {
     return list;
   }, [regionalActivities, regionTab, mainQuery, filterSortBy]);
 
+  const [regionPage, setRegionPage] = useState(1);
+  const regionLimit = 5;
+
+  const paginatedRegions = useMemo(() => {
+    const start = (regionPage - 1) * regionLimit;
+    return filteredRegions.slice(start, start + regionLimit);
+  }, [filteredRegions, regionPage]);
+
   const filteredActivities = useMemo(() => {
     const q = mainQuery.toLowerCase().trim();
     if (!q) return recentActivity;
@@ -1249,7 +1257,7 @@ export default function SuperadminDashboard() {
               </div>
 
               <div className="block sm:hidden divide-y divide-gray-100">
-                {filteredRegions.length ===
+                {paginatedRegions.length ===
                 0 ? (
                   <div className="p-4">
                     <EmptyState
@@ -1258,7 +1266,7 @@ export default function SuperadminDashboard() {
                     />
                   </div>
                 ) : (
-                  filteredRegions.map(
+                  paginatedRegions.map(
                     (
                       region,
                       index
@@ -1405,7 +1413,7 @@ export default function SuperadminDashboard() {
                   </thead>
 
                   <tbody className="divide-y divide-gray-100">
-                    {filteredRegions.length ===
+                    {paginatedRegions.length ===
                     0 ? (
                       <tr>
                         <td colSpan={4}>
@@ -1416,7 +1424,7 @@ export default function SuperadminDashboard() {
                         </td>
                       </tr>
                     ) : (
-                      filteredRegions.map(
+                      paginatedRegions.map(
                         (
                           region,
                           index
@@ -1521,6 +1529,30 @@ export default function SuperadminDashboard() {
                   </tbody>
                 </table>
               </div>
+              
+              {filteredRegions.length > regionLimit && (
+                <div className="flex items-center justify-between p-4 border-t border-neutral-100 text-[9px] text-neutral-500 bg-neutral-50/50 rounded-b-2xl">
+                  <span>
+                    Hal {regionPage} dari {Math.ceil(filteredRegions.length / regionLimit)}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={regionPage <= 1}
+                      onClick={() => setRegionPage((prev) => Math.max(prev - 1, 1))}
+                      className="px-3 py-1.5 bg-white border border-neutral-200 shadow-sm rounded-lg font-medium disabled:opacity-40 cursor-pointer"
+                    >
+                      Sebelumnya
+                    </button>
+                    <button
+                      disabled={regionPage >= Math.ceil(filteredRegions.length / regionLimit)}
+                      onClick={() => setRegionPage((prev) => prev + 1)}
+                      className="px-3 py-1.5 bg-white border border-neutral-200 shadow-sm rounded-lg font-medium disabled:opacity-40 cursor-pointer"
+                    >
+                      Berikutnya
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col">
