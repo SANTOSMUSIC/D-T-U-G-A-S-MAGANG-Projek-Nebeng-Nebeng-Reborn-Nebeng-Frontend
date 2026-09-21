@@ -35,13 +35,12 @@ export default function MitraSidebar({
       locked: !isVerified,
       lockMessage: 'Fitur terkunci. Memerlukan verifikasi Admin Regional.'
     },
-    {
+    ...(!isVerified ? [{
       name: 'Onboarding & Verifikasi',
       icon: UserCheck,
-      locked: isVerified,
-      label: isVerified ? 'Verifikasi Selesai' : 'Onboarding & Verifikasi',
-      lockMessage: 'Verifikasi Anda telah disetujui'
-    },
+      locked: false,
+      label: 'Onboarding & Verifikasi',
+    }] : []),
     {
       name: 'Kelola Trip & Jadwal',
       icon: Calendar,

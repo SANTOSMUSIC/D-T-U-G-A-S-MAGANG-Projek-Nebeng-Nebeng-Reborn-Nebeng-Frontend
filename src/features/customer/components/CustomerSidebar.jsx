@@ -3,6 +3,7 @@ import {
   UserCheck,
   Compass,
   Ticket,
+  Gift,
   User,
   LogOut,
   AlertTriangle,
@@ -14,8 +15,6 @@ import {
 import logoAsset from '../../../assets/logo.png';
 
 const PRIMARY_COLOR = '#10367D';
-const PRIMARY_HOVER = '#0C2C66';
-const PRIMARY_ACCENT = '#74B4D9';
 
 export default function CustomerSidebar({
   activeMenu = 'Cari & Booking Trip',
@@ -47,6 +46,11 @@ export default function CustomerSidebar({
     {
       name: 'Tickets & Digital QR',
       icon: Ticket,
+      locked: !isCustomerVerified,
+    },
+    {
+      name: 'Rewards & Penukaran',
+      icon: Gift,
       locked: !isCustomerVerified,
     },
     {
@@ -126,8 +130,12 @@ export default function CustomerSidebar({
 
           {customerProfile?.fullName && (
             <div className="mx-2 mb-5 p-3 rounded-xl bg-white/10 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
-                <User className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0 overflow-hidden">
+                {customerProfile?.photoDataUrl ? (
+                  <img src={customerProfile.photoDataUrl} alt="Foto Profil" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold text-white truncate">

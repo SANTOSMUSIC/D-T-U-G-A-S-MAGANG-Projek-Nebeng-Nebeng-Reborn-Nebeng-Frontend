@@ -35,13 +35,11 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
   const profileRef = useRef(null);
   const notifRef = useRef(null);
 
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Duplikasi Akun Mitra', desc: '3 akun mitra terdeteksi ganda di Surabaya', time: '10 menit lalu', unread: true },
-    { id: 2, title: 'Lonjakan Refund', desc: 'Beban operasional Region Jakarta meningkat 18%', time: '1 jam lalu', unread: true },
-    { id: 3, title: 'Pencairan Komisi', desc: 'Pencairan komisi Jakarta berhasil diproses', time: '3 jam lalu', unread: false }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [systemWarnings, setSystemWarnings] = useState([]);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+  const warningCount = systemWarnings.length;
 
   const markAllNotifsAsRead = () => {
     setNotifications(notifications.map((n) => ({ ...n, unread: false })));
@@ -88,7 +86,7 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
     const baseURL = apiClient.defaults.baseURL 
       ? apiClient.defaults.baseURL.replace('/api', '') 
       : 'http://localhost:3000';
-    avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : `${baseURL}${rawAvatar}`;
+    avatarUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:')) ? rawAvatar : `${baseURL}${rawAvatar}`;
   }
 
   return (
@@ -102,8 +100,10 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
         aria-label="Peringatan Sistem"
         className="relative w-10 h-10 sm:w-9 sm:h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-amber-600 transition shadow-sm cursor-pointer shrink-0"
       >
-        <AlertTriangle className="w-4 h-4 text-amber-500" />
-        <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+        <AlertTriangle className={`w-4 h-4 ${warningCount > 0 ? 'text-amber-500' : 'text-neutral-500'}`} />
+        {warningCount > 0 && (
+          <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+        )}
       </button>
 
       {/* Tombol Notifikasi */}
@@ -140,15 +140,21 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
               )}
             </div>
             <div className="max-h-64 overflow-y-auto divide-y divide-neutral-50">
-              {notifications.map((n) => (
-                <div key={n.id} className={`p-3 hover:bg-neutral-50 transition cursor-pointer ${n.unread ? 'bg-brand-50' : ''}`}>
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="text-[12px] font-semibold text-neutral-800">{n.title}</p>
-                    <span className="text-[10px] text-neutral-400">{n.time}</span>
+              {notifications.length > 0 ? (
+                notifications.map((n) => (
+                  <div key={n.id} className={`p-3 hover:bg-neutral-50 transition cursor-pointer ${n.unread ? 'bg-brand-50' : ''}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="text-[12px] font-semibold text-neutral-800">{n.title}</p>
+                      <span className="text-[10px] text-neutral-400">{n.time}</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 leading-relaxed">{n.desc}</p>
                   </div>
-                  <p className="text-[11px] text-neutral-500 leading-relaxed">{n.desc}</p>
+                ))
+              ) : (
+                <div className="p-4 text-center text-neutral-500 text-[12px]">
+                  Tidak ada notifikasi baru.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -232,20 +238,21 @@ export default function SuperadminHeader({ session, role, superadminProfile, onV
               </button>
             </div>
             <div className="space-y-3">
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
-                <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[12px] font-semibold text-amber-900">Lonjakan Refund Region Jakarta</p>
-                  <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">Beban refund naik +18% melampaui ambang batas operasional bulanan.</p>
+              {systemWarnings.length > 0 ? (
+                systemWarnings.map((warning, idx) => (
+                  <div key={idx} className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
+                    <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[12px] font-semibold text-amber-900">{warning.title}</p>
+                      <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">{warning.desc}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-neutral-500 text-[12px]">
+                  Tidak ada peringatan sistem saat ini.
                 </div>
-              </div>
-              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 flex items-start gap-3">
-                <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[12px] font-semibold text-rose-900">Duplikasi Akun Terdeteksi</p>
-                  <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">3 Mitra teridentifikasi memiliki data ganda di Region Surabaya.</p>
-                </div>
-              </div>
+              )}
             </div>
             <button
               onClick={() => setShowWarningModal(false)}

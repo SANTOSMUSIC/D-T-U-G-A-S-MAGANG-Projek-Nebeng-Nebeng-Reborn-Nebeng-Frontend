@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { ChevronDown, User, Settings } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import MitraProfileModal from './MitraProfileModal';
@@ -24,10 +24,24 @@ export default function MitraTopbar({ onSettingsClick }) {
   const [userData, setUserData] = useState(null);
   const dropdownRef = useRef(null);
 
+  // Ambil data profil dari database
+  const fetchUserData = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      if (response.data) {
+        setUserData(response.data);
+      }
+    } catch (err) {
+      console.error('Gagal mengambil data user untuk Topbar:', err);
+    }
+  }, []);
+
+  // Sync data profil secara otomatis & aman dari ESLint warning
   useEffect(() => {
     let isMounted = true;
 
-    const fetchUserData = async () => {
+    // Ambil data saat komponen pertama kali dirender secara aman
+    const loadInitialData = async () => {
       try {
         const response = await apiClient.get('/auth/me');
         if (isMounted && response.data) {
@@ -38,13 +52,29 @@ export default function MitraTopbar({ onSettingsClick }) {
       }
     };
 
-    fetchUserData();
+    loadInitialData();
+
+    // Event listener untuk update otomatis saat tab di-fokuskan kembali
+    const handleFocus = () => {
+      fetchUserData();
+    };
+
+    // Event listener custom jika ada bagian aplikasi lain yang memperbarui profil
+    const handleProfileUpdate = () => {
+      fetchUserData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('profileUpdated', handleProfileUpdate);
 
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
-  }, []);
+  }, [fetchUserData]);
 
+  // Handle klik di luar dropdown
   useEffect(() => {
     if (!isDropdownOpen) return undefined;
 
@@ -67,7 +97,10 @@ export default function MitraTopbar({ onSettingsClick }) {
   const displayName = userData?.name || 'Mitra Nebeng';
   const firstName = displayName.split(' ')[0];
   const displayRole = 'Mitra';
-  const photoUrl = getFullFileUrl(userData?.avatar);
+
+  // Mendapatkan path avatar terbaru dari database
+  const rawAvatarPath = userData?.avatar || userData?.profilePicture || userData?.photo;
+  const photoUrl = getFullFileUrl(rawAvatarPath);
 
   const initials =
     displayName
@@ -82,7 +115,7 @@ export default function MitraTopbar({ onSettingsClick }) {
     <div className="sticky top-0 z-10 bg-[#f8f9fa]/85 backdrop-blur-sm pl-20 pr-4 sm:pr-6 lg:px-8 pt-4 pb-3 font-['Inter'] flex justify-end">
       <div className="relative" ref={dropdownRef}>
         <button
-          onClick={() => setIsDropdownOpen((v) => !v)}
+          onClick={() => setIsDropdownOpen((prev) => !prev)}
           className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full bg-white border border-neutral-100 shadow-sm hover:shadow transition cursor-pointer"
         >
           <div
@@ -186,7 +219,10 @@ export default function MitraTopbar({ onSettingsClick }) {
 
       <MitraProfileModal
         isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
+        onClose={() => {
+          setShowProfileModal(false);
+          fetchUserData();
+        }}
         onSettingsClick={onSettingsClick}
       />
     </div>

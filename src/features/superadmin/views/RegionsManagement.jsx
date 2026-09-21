@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { 
   MapPin, 
   Plus, 
@@ -18,6 +20,22 @@ import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import { getAllRegions, createRegion, updateRegion } from '../../../services/regionService';
+
+// Fix untuk default icon Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+function ChangeView({ center, zoom = 11 }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, map, zoom]);
+  return null;
+}
 
 export default function RegionsManagement() {
   const [regions, setRegions] = useState([]);
@@ -52,44 +70,45 @@ export default function RegionsManagement() {
     }, 3500);
   };
 
+  // Fungsi fetchRegions tanpa pemicu setState sinkron yang mengganggu Effect
+  const fetchRegions = useCallback(async (page, isInitial = false) => {
+    try {
+      if (!isInitial) {
+        setIsFetchingPage(true);
+      }
+
+      const res = await getAllRegions(page, 10);
+      const regionList = res?.data || res;
+      setRegions(Array.isArray(regionList) ? regionList : []);
+
+      if (res?.pagination) {
+        setPaginationMeta(res.pagination);
+      }
+    } catch (err) {
+      console.error('Gagal memuat data wilayah:', err);
+      showNotification('Gagal memuat data wilayah dari server.', 'error');
+    } finally {
+      setIsLoadingRegions(false);
+      setIsFetchingPage(false);
+    }
+  }, []);
+
+  // Fetch data saat pertama kali muat atau saat currentPage berubah
   useEffect(() => {
-    let isMounted = true;
+    let ignore = false;
 
-    async function loadRegionsData() {
-      try {
-        if (regions.length === 0) {
-          setIsLoadingRegions(true);
-        } else {
-          setIsFetchingPage(true);
-        }
-
-        const res = await getAllRegions(currentPage, 10);
-        
-        if (isMounted) {
-          const regionList = res?.data || res;
-          setRegions(Array.isArray(regionList) ? regionList : []);
-
-          if (res?.pagination) {
-            setPaginationMeta(res.pagination);
-          }
-        }
-      } catch (err) {
-        console.error('Gagal memuat data wilayah:', err);
-        showNotification('Gagal memuat data wilayah dari server.', 'error');
-      } finally {
-        if (isMounted) {
-          setIsLoadingRegions(false);
-          setIsFetchingPage(false);
-        }
+    async function loadData() {
+      if (!ignore) {
+        await fetchRegions(currentPage, true);
       }
     }
 
-    loadRegionsData();
+    loadData();
 
     return () => {
-      isMounted = false;
+      ignore = true;
     };
-  }, [currentPage]);
+  }, [currentPage, fetchRegions]);
 
   const filteredRegions = regions.filter(region => 
     region.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,13 +191,18 @@ export default function RegionsManagement() {
       if (isEditing) {
         await updateRegion(currentId, payload);
         showNotification('Wilayah operasional berhasil diperbarui!', 'success');
+        await fetchRegions(currentPage); // Update data langsung
       } else {
         await createRegion(payload);
         showNotification('Wilayah operasional baru berhasil ditambahkan!', 'success');
+        if (currentPage === 1) {
+          await fetchRegions(1);
+        } else {
+          setCurrentPage(1);
+        }
       }
 
       setIsModalOpen(false);
-      setCurrentPage(1);
     } catch (err) {
       console.error('Gagal menyimpan wilayah:', err);
       showNotification(err.response?.data?.message || 'Terjadi kesalahan saat menyimpan wilayah.', 'error');
@@ -194,7 +218,7 @@ export default function RegionsManagement() {
       });
       showNotification(`Status wilayah ${regionToToggle.name} berhasil diubah!`, 'success');
       setRegionToToggle(null);
-      setCurrentPage((prev) => prev); 
+      await fetchRegions(currentPage); // Update data langsung
     } catch (err) {
       console.error('Gagal mengubah status wilayah:', err);
       showNotification('Gagal mengubah status wilayah.', 'error');
@@ -203,23 +227,6 @@ export default function RegionsManagement() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-
-      {notification.show && (
-        <div className={`p-4 rounded-2xl flex items-center justify-between text-[11px] font-bold shadow-sm transition-all ${
-          notification.type === 'success' 
-            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
-            : 'bg-rose-50 border border-rose-200 text-rose-800'
-        }`}>
-          <div className="flex items-center gap-2">
-            {notification.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-rose-600" />}
-            <span>{notification.message}</span>
-          </div>
-          <button onClick={() => setNotification({ ...notification, show: false })} className="text-neutral-400 hover:text-neutral-600">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -246,6 +253,22 @@ export default function RegionsManagement() {
           <span>Tambah Wilayah Baru</span>
         </button>
       </div>
+
+      {notification.show && (
+        <div className={`p-4 rounded-2xl flex items-center justify-between text-[11px] font-bold shadow-sm transition-all ${
+          notification.type === 'success' 
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+            : 'bg-rose-50 border border-rose-200 text-rose-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {notification.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-rose-600" />}
+            <span>{notification.message}</span>
+          </div>
+          <button onClick={() => setNotification({ ...notification, show: false })} className="text-neutral-400 hover:text-neutral-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
@@ -367,15 +390,17 @@ export default function RegionsManagement() {
         <div className="space-y-3 text-[10px]">
           <div className="rounded-xl overflow-hidden border border-neutral-200 h-60 relative">
             {selectedRegion?.latitude && selectedRegion?.longitude ? (
-              <div className="absolute inset-0 overflow-hidden">
-                <iframe
-                  title="Region Map Preview"
-                  width="100%"
-                  height="125%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedRegion.longitude - 0.1}%2C${selectedRegion.latitude - 0.1}%2C${selectedRegion.longitude + 0.1}%2C${selectedRegion.latitude + 0.1}&layer=mapnik&marker=${selectedRegion.latitude}%2C${selectedRegion.longitude}`}
-                  style={{ border: 0, marginTop: '-24px' }}
-                ></iframe>
+              <div className="absolute inset-0 z-0">
+                <MapContainer center={[selectedRegion.latitude, selectedRegion.longitude]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[selectedRegion.latitude, selectedRegion.longitude]} />
+                  <Circle 
+                    center={[selectedRegion.latitude, selectedRegion.longitude]} 
+                    radius={(selectedRegion.radiusKm || 20) * 1000} 
+                    pathOptions={{ color: '#10367D', fillColor: '#10367D', fillOpacity: 0.15 }}
+                  />
+                  <ChangeView center={[selectedRegion.latitude, selectedRegion.longitude]} />
+                </MapContainer>
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-neutral-400">Koordinat peta belum tersedia</div>
@@ -467,16 +492,18 @@ export default function RegionsManagement() {
 
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-neutral-500 uppercase">Preview Titik Pusat di Peta</label>
-            <div className="rounded-xl overflow-hidden border border-neutral-200 h-40 relative">
-              <div className="absolute inset-0 overflow-hidden">
-                <iframe
-                  title="Live Map Preview"
-                  width="100%"
-                  height="135%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${formData.longitude - 0.08}%2C${formData.latitude - 0.08}%2C${formData.longitude + 0.08}%2C${formData.latitude + 0.08}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
-                  style={{ border: 0, marginTop: '-30px' }}
-                ></iframe>
+            <div className="rounded-xl overflow-hidden border border-neutral-200 h-40 relative z-0">
+              <div className="absolute inset-0 z-0">
+                <MapContainer center={[formData.latitude, formData.longitude]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[formData.latitude, formData.longitude]} />
+                  <Circle 
+                    center={[formData.latitude, formData.longitude]} 
+                    radius={(formData.radiusKm || 20) * 1000} 
+                    pathOptions={{ color: '#10367D', fillColor: '#10367D', fillOpacity: 0.15 }}
+                  />
+                  <ChangeView center={[formData.latitude, formData.longitude]} />
+                </MapContainer>
               </div>
             </div>
           </div>

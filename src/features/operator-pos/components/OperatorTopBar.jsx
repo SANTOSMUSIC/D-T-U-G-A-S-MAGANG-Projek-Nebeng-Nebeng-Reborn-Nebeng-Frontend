@@ -76,6 +76,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
               email: freshEmail,
               phone: freshPhone,
               photoDataUrl: formattedAvatar,
+              assignedPickupPointName: dbUser.assignedPickupPointName,
             });
           }
         }
@@ -92,6 +93,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const hasCustomName = Boolean(
@@ -103,9 +105,14 @@ export default function OperatorTopbar({ onSettingsClick }) {
     ? adminProfile.fullName || adminProfile.name
     : 'Operator Pos';
 
-  const roleLine = hasCustomName
-    ? 'Operator Pos'
-    : 'Online';
+  const posName =
+    adminProfile?.assignedPickupPointName ||
+    adminProfile?.posName ||
+    '';
+
+  const roleLine = posName
+    ? `Operator - ${posName}`
+    : 'Operator Pos';
 
   const initials = getInitials(displayName);
 

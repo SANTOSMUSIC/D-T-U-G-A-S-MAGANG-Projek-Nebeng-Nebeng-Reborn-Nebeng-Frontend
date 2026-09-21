@@ -10,7 +10,7 @@ import apiClient from '../../../services/apiClient';
 
 export default function PosMitraManagement() {
   const toast = useToast();
-  const { user } = useAuth();
+  const { session, adminProfile } = useAuth();
   const [activeRegionId, setActiveRegionId] = useState(null);
   const [posList, setPosList] = useState([]);
   const [cityList, setCityList] = useState([]);
@@ -38,7 +38,7 @@ export default function PosMitraManagement() {
     const loadInitialData = async () => {
       try {
         if (isMounted) setIsLoadingPos(true);
-        const regId = user?.regionId ? String(user.regionId) : null;
+        const regId = adminProfile?.regionId || session?.regionId ? String(adminProfile?.regionId || session?.regionId) : null;
         
         const [posData, cityRes, userRes] = await Promise.all([
           regionalService.getPickupPoints(regId).catch(() => []),
@@ -94,7 +94,7 @@ export default function PosMitraManagement() {
       isMounted = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.regionId]);
+  }, [session?.regionId, adminProfile?.regionId]);
 
   const handleAutoDetectCoordinate = async () => {
     if (!locationSearchQuery && !formData.address && !formData.name) {
@@ -129,7 +129,7 @@ export default function PosMitraManagement() {
 
   const handleOpenAdd = () => {
     setIsEditing(false);
-    const regId = activeRegionId || user?.regionId || '1';
+    const regId = activeRegionId || adminProfile?.regionId || session?.regionId || '1';
     const defaultCityId = cityList.length > 0 ? String(cityList[0].id) : '';
     
     setFormData({ 
@@ -155,7 +155,7 @@ export default function PosMitraManagement() {
       longitude: pos.long,
       cityId: pos.cityId ? String(pos.cityId) : (cityList.length > 0 ? String(cityList[0].id) : ''),
       operatorId: pos.operatorId || '',
-      regionId: String(activeRegionId || user?.regionId || '1')
+      regionId: String(activeRegionId || adminProfile?.regionId || session?.regionId || '1')
     });
     setLocationSearchQuery(pos.name);
     setIsModalOpen(true);
@@ -199,7 +199,7 @@ export default function PosMitraManagement() {
     }
 
     try {
-      const regId = activeRegionId || user?.regionId || '1';
+      const regId = activeRegionId || adminProfile?.regionId || session?.regionId || '1';
 
       const payload = {
         name: formData.name.trim(),
@@ -250,7 +250,7 @@ export default function PosMitraManagement() {
       toast.success(`Pos berhasil dinonaktifkan.`, { title: 'Berhasil' });
       setPosToDelete(null);
       
-      const regId = activeRegionId || user?.regionId;
+      const regId = activeRegionId || adminProfile?.regionId || session?.regionId;
       const posData = await regionalService.getPickupPoints(regId);
       const rawPos = Array.isArray(posData) ? posData : (posData?.data || []);
       const formattedPos = rawPos.map(p => ({
@@ -297,13 +297,23 @@ export default function PosMitraManagement() {
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Kelola lokasi pos, koordinat lat/long, penugasan operator wilayah, serta cetak QR Code.</p>
         </div>
 
-        <button 
-          onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
-        >
-          <Plus size={14} />
-          <span>Tambah Pos Baru</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsCityModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
+          >
+            <Building2 size={14} />
+            <span>Tambah Kota</span>
+          </button>
+          
+          <button 
+            onClick={handleOpenAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm shrink-0"
+          >
+            <Plus size={14} />
+            <span>Tambah Pos Baru</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex items-center justify-between gap-3">
@@ -426,13 +436,6 @@ export default function PosMitraManagement() {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-[9px] font-bold text-neutral-500 uppercase">Kota / Kabupaten</label>
-                <button 
-                  type="button" 
-                  onClick={() => setIsCityModalOpen(true)}
-                  className="text-[9px] font-bold text-[#10367D] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Building2 size={11} /> + Tambah Kota
-                </button>
               </div>
               <select 
                 value={formData.cityId} 

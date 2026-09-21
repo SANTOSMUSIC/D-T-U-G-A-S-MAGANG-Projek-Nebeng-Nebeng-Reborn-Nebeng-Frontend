@@ -15,10 +15,15 @@
     "@tanstack/react-query": "^5.101.4",
     "axios": "^1.19.0",
     "html5-qrcode": "^2.3.8",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.31.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+<<<<<<< HEAD
+=======
+    "react-leaflet": "^5.0.0",
+>>>>>>> f52631e2f30d9d41e030edbcaeb918f3231b3f75
     "react-router-dom": "^7.18.2",
     "socket.io-client": "^4.8.3"
   },

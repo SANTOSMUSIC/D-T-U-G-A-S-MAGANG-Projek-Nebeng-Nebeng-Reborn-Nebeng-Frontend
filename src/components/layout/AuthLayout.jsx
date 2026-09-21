@@ -29,7 +29,7 @@ export default function AuthLayout({
       <section
         className="
           w-full
-          max-w-[1080px]
+          max-w-270
           bg-white
           rounded-[30px]
           p-3
@@ -49,9 +49,9 @@ export default function AuthLayout({
             w-full
             md:w-1/2
             shrink-0
-            min-h-[280px]
-            sm:min-h-[340px]
-            md:min-h-[500px]
+            min-h-70
+            sm:min-h-85
+            md:min-h-125
           "
         >
           {/* ILLUSTRATION PANEL */}
@@ -95,7 +95,7 @@ export default function AuthLayout({
             lg:px-16
           "
         >
-          <div className="w-full max-w-[360px]">
+          <div className="w-full max-w-90">
 
             {/* HEADER */}
             <header
@@ -123,8 +123,8 @@ export default function AuthLayout({
                       src={logo}
                       alt={brandName}
                       className="
-                        w-[32px]
-                        h-[32px]
+                        w-8
+                        h-8
                         object-contain
                         shrink-0
                       "
@@ -149,9 +149,9 @@ export default function AuthLayout({
               {subtitle && (
                 <p
                   className="
-                    max-w-[300px]
+                    max-w-75
                     text-[10px]
-                    leading-[1.5]
+                    leading-normal
                     font-normal
                     text-[#A3A3A3]
                   "

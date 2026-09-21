@@ -4,7 +4,6 @@ import apiClient from '../../../services/apiClient';
 
 const PRIMARY_COLOR = '#10367D';
 const PRIMARY_HOVER = '#0C2C66';
-const PRIMARY_ACCENT = '#74B4D9';
 
 const maskNik = (nik) => {
   if (!nik || nik === '-') return '-';

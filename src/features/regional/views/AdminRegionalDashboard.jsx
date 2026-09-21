@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { useToast } from '../../../context/ToastContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import StatCard from '../../../components/ui/StatCard';
@@ -20,8 +21,8 @@ import { useAuth } from '../../../context/AuthContext';
 
 export default function AdminRegionalDashboard() {
   const toast = useToast();
-  const { user } = useAuth();
-
+  const { session, adminProfile } = useAuth();
+  
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
 
@@ -40,7 +41,7 @@ export default function AdminRegionalDashboard() {
         setIsLoading(true);
 
         const data = await regionalService.getRegionalDashboard(
-          user?.regionId
+          adminProfile?.regionId || session?.regionId
         );
 
         if (isMounted && data) {
@@ -83,11 +84,45 @@ export default function AdminRegionalDashboard() {
 
     fetchDashboard();
 
+    const baseUrl = import.meta.env.VITE_API_URL 
+      ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') 
+      : 'http://localhost:3000';
+      
+    const socket = io(`${baseUrl}/tracking`, {
+      transports: ['websocket'],
+    });
+
+    const activeRegionId = adminProfile?.regionId || session?.regionId;
+    if (activeRegionId) {
+      socket.on('connect', () => {
+        socket.emit('joinRegionRoom', { regionId: String(activeRegionId) });
+      });
+
+      socket.on('regionalFleetUpdated', (payload) => {
+        if (!isMounted) return;
+        
+        // Tambahkan sebagai aktivitas log terbaru
+        const scanType = payload.checkpointData?.scanType;
+        const newActivity = {
+          id: `WS-${Date.now()}`,
+          text: `Trip #${payload.tripId} telah scan checkpoint ${scanType === 'checkin_destination' ? 'Tiba' : 'Keberangkatan'}.`,
+          timestamp: new Date(payload.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          type: 'Update Armada'
+        };
+
+        setRecentRegionalActivities(prev => [newActivity, ...prev].slice(0, 10));
+        
+        // Optional: you could refetch dashboard data to update metrics
+        // fetchDashboard();
+      });
+    }
+
     return () => {
       isMounted = false;
+      socket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.regionId]);
+  }, [session?.regionId, adminProfile?.regionId]);
 
   const maskPhone = (phone) => {
     if (!phone || phone.length < 8) return phone;
@@ -107,7 +142,7 @@ export default function AdminRegionalDashboard() {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      admin: user?.name || 'Admin Regional'
+      admin: adminProfile?.name || session?.name || 'Admin Regional'
     };
 
     setEmergencyLogs([newLog, ...emergencyLogs]);
@@ -140,7 +175,7 @@ export default function AdminRegionalDashboard() {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      admin: user?.name || 'Admin Regional'
+      admin: adminProfile?.name || session?.name || 'Admin Regional'
     };
 
     setEmergencyLogs([newLog, ...emergencyLogs]);
@@ -207,7 +242,7 @@ export default function AdminRegionalDashboard() {
 
             <p className="text-[10px] font-bold text-neutral-800">
               {dashboardData?.regionName ||
-                user?.regionName ||
+                session?.regionName || adminProfile?.regionName ||
                 'Memuat Wilayah...'}
             </p>
           </div>

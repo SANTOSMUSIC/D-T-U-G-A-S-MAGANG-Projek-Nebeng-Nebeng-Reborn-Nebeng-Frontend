@@ -7,7 +7,6 @@ import {
   Award,
   Star,
   Sparkles,
-  MapPin,
   KeyRound,
   RefreshCw,
   Eye,
@@ -17,7 +16,9 @@ import {
   AlertTriangle,
   MessageSquare,
   Send,
+  History,
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 import { useToast } from '../../../context/ToastContext';
 import { Skeleton } from '../../../components/ui/Skeleton';
@@ -26,6 +27,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
 import StatCard from '../../../components/ui/StatCard';
 import apiClient from '../../../services/apiClient';
+import TicketTimelineModal from '../components/TicketTimelineModal';
 
 const PRIMARY_COLOR = '#10367D';
 const PRIMARY_ACCENT = '#74B4D9';
@@ -54,6 +56,10 @@ export default function MyTickets() {
   const [activeModalType, setActiveModalType] = useState(null);
   const [showOtpMap, setShowOtpMap] = useState({});
 
+  // State untuk Modal Timeline Checkpoint Real Log
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
+  const [selectedTimelineTicket, setSelectedTimelineTicket] = useState(null);
+
   const [qrDynamicToken, setQrDynamicToken] = useState('SEC-9081');
   const [qrCountdown, setQrCountdown] = useState(30);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -73,210 +79,15 @@ export default function MyTickets() {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      setIsLoadingTickets(true);
-      setIsLoadingRewards(true);
-
-      try {
-        const [resOrders, resReward] = await Promise.all([
-          apiClient.get('/orders/me').catch(() => ({ data: [] })),
-          apiClient.get('/rewards/me').catch(() => ({ data: {} })),
-        ]);
-
-        if (!isMounted) return;
-
-        const ordersData = resOrders.data?.data || resOrders.data || [];
-        const mappedTickets = ordersData.map((order) => {
-          const isParcel = order.type === 'parcel' || order.type === 'barang';
-          const trip = order.trip || {};
-
-          const origin = trip.originPoint?.name || 'Pos Asal';
-          const destination = trip.destinationPoint?.name || 'Pos Tujuan';
-          const mitraName = trip.mitra?.name || 'Mitra';
-
-          const vehicleModel = trip.vehicle
-            ? `${trip.vehicle.model} (${trip.vehicle.plateNumber})`
-            : 'Kendaraan Resmi';
-
-          let statusText = 'Aktif';
-          if (order.status === 'cancelled') {
-            statusText = 'Batal';
-          } else if (order.status === 'completed') {
-            statusText = 'Selesai';
-          }
-
-          return {
-            id: order.id,
-            rawId: order.id,
-            tripId: trip.id,
-            customerId: order.customerId,
-            revieweeId: trip.mitraId || trip.mitra?.id || trip.mitra?.userId,
-            type: order.type,
-            title: isParcel
-              ? `Nebeng Barang (${order.itemOrders?.[0]?.itemCategory || 'Paket'})`
-              : 'Nebeng Penumpang',
-            from: origin,
-            to: destination,
-            mitra: mitraName,
-            vehicle: vehicleModel,
-            schedule: `${trip.departureDate?.split('T')[0] || 'Segera'} • Sesuai Jadwal`,
-            totalPrice: formatRupiah(order.totalPrice),
-            detail: isParcel
-              ? `${order.totalItemsCount || 1} Item (${order.totalWeightKg || 1} Kg)`
-              : `${order.seatsBooked || 1} Kursi Penumpang`,
-            status: statusText,
-            currentStatusText: order.status,
-            otp: order.otpClaim || null,
-            qrCodeTicket: order.qrCodeTicket,
-            trackingLogs: [
-              {
-                status: 'Pesanan Dibuat & Menunggu Pembayaran',
-                location: origin,
-                time: order.createdAt?.split('T')[0] || '-',
-                completed: true,
-                active: true,
-              },
-              {
-                status: 'Checked-in at Pos Asal',
-                location: origin,
-                time: '-',
-                completed: order.status !== 'pending_payment',
-                active: false,
-              },
-              {
-                status: 'In Transit',
-                location: 'Dalam Perjalanan',
-                time: '-',
-                completed: order.status === 'completed',
-                active: false,
-              },
-              {
-                status: 'Arrived at Pos Tujuan',
-                location: destination,
-                time: '-',
-                completed: order.status === 'completed',
-                active: false,
-              },
-            ],
-          };
-        });
-
-        setTickets(mappedTickets);
-
-        const rewardData = resReward.data?.data || resReward.data || {};
-        setRewardSummary({
-          totalPoints:
-            rewardData.currentPoints ??
-            rewardData.totalPoints ??
-            rewardData.rewardPoints ??
-            0,
-          history: rewardData.history || [],
-        });
-      } catch (err) {
-        console.error('Gagal memuat data MyTickets:', err);
-        if (isMounted) {
-          toast.error('Gagal mengambil data tiket dari server.', { title: 'Error' });
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingTickets(false);
-          setIsLoadingRewards(false);
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [toast]);
-
-  useEffect(() => {
-    if (activeModalType !== 'chat') return;
-
-    let isMounted = true;
-
-    const fetchMessagesPeriodic = async () => {
-      const currentId = conversationIdRef.current;
-      if (!currentId) return;
-
-      try {
-        const resMsg = await apiClient.get(`/chat/conversation/${currentId}/messages`);
-        if (isMounted) {
-          setChatMessages(resMsg.data || []);
-        }
-      } catch {
-        // Safe catch
-      }
-    };
-
-    const interval = setInterval(fetchMessagesPeriodic, 2000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [activeModalType]);
-
-  useEffect(() => {
-    let timer;
-    if (activeModalType === 'qr') {
-      timer = setInterval(() => {
-        setQrCountdown((prev) => {
-          if (prev <= 1) {
-            setQrDynamicToken(`SEC-${Math.floor(1000 + Math.random() * 9000)}`);
-            return 30;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => clearInterval(timer);
-  }, [activeModalType]);
-
-  useEffect(() => {
-    if (activeModalType === 'chat') {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, activeModalType]);
-
-  const toggleOtpVisibility = (ticketId) => {
-    setShowOtpMap((prev) => ({
-      ...prev,
-      [ticketId]: !prev[ticketId],
-    }));
-  };
-
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesTab =
-      activeTab === 'aktif'
-        ? ticket.status === 'Aktif'
-        : activeTab === 'riwayat'
-        ? ticket.status === 'Selesai' || ticket.status === 'Batal'
-        : true;
-
-    if (!matchesTab) return false;
-    if (!searchQuery.trim()) return true;
-
-    const q = searchQuery.trim().toLowerCase();
-
-    return (
-      String(ticket.id).toLowerCase().includes(q) ||
-      ticket.from.toLowerCase().includes(q) ||
-      ticket.to.toLowerCase().includes(q) ||
-      ticket.mitra.toLowerCase().includes(q)
-    );
-  });
-
+  // 1. Memuat Data Tiket & Poin dari Backend
   const refreshData = useCallback(async () => {
     try {
-      const res = await apiClient.get('/orders/me');
-      const ordersData = res.data?.data || res.data || [];
+      const [resOrders, resReward] = await Promise.all([
+        apiClient.get('/orders/me').catch(() => ({ data: [] })),
+        apiClient.get('/rewards/me').catch(() => ({ data: {} })),
+      ]);
+
+      const ordersData = resOrders.data?.data || resOrders.data || [];
       const mappedTickets = ordersData.map((order) => {
         const isParcel = order.type === 'parcel' || order.type === 'barang';
         const trip = order.trip || {};
@@ -319,54 +130,157 @@ export default function MyTickets() {
           currentStatusText: order.status,
           otp: order.otpClaim || null,
           qrCodeTicket: order.qrCodeTicket,
-          trackingLogs: [
-            {
-              status: 'Pesanan Dibuat & Menunggu Pembayaran',
-              location: origin,
-              time: order.createdAt?.split('T')[0] || '-',
-              completed: true,
-              active: true,
-            },
-            {
-              status: 'Checked-in at Pos Asal',
-              location: origin,
-              time: '-',
-              completed: order.status !== 'pending_payment',
-              active: false,
-            },
-            {
-              status: 'In Transit',
-              location: 'Dalam Perjalanan',
-              time: '-',
-              completed: order.status === 'completed',
-              active: false,
-            },
-            {
-              status: 'Arrived at Pos Tujuan',
-              location: destination,
-              time: '-',
-              completed: order.status === 'completed',
-              active: false,
-            },
-          ],
+          createdAt: order.createdAt,
+          checkpointsLogs: order.checkpointsLogs || [], // Data audit log nyata dari backend
         };
       });
 
       setTickets(mappedTickets);
+
+      const rewardData = resReward.data?.data || resReward.data || {};
+      setRewardSummary({
+        totalPoints:
+          rewardData.currentPoints ??
+          rewardData.totalPoints ??
+          rewardData.rewardPoints ??
+          0,
+        history: rewardData.history || [],
+      });
     } catch (err) {
       console.error('Gagal memperbarui data:', err);
     }
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const initialLoad = async () => {
+      setIsLoadingTickets(true);
+      setIsLoadingRewards(true);
+      await refreshData();
+      if (isMounted) {
+        setIsLoadingTickets(false);
+        setIsLoadingRewards(false);
+      }
+    };
+    initialLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshData]);
+
+  // 2. KONEKSI WEBSOCKET REAL-TIME CHECKPOINT
+  useEffect(() => {
+    const socket = io('http://localhost:3000/tracking', {
+      transports: ['websocket', 'polling'],
+    });
+
+    // Bergabung ke kamar trip masing-masing tiket yang sedang aktif
+    tickets.forEach((t) => {
+      if (t.tripId && t.status === 'Aktif') {
+        socket.emit('joinTripRoom', { tripId: String(t.tripId) });
+      }
+    });
+
+    // Mendengarkan sinyal scan dari Operator Pos Asal / Tujuan
+    socket.on('checkpointScanned', (data) => {
+      console.log('Live Checkpoint Scanned via WebSocket:', data);
+
+      toast.info(data.message || 'Status checkpoint tiket telah diperbarui!', {
+        title: 'Pembaruan Checkpoint Live',
+      });
+
+      // Muat ulang data tiket secara instan agar QR baru & status in_transit langsung muncul
+      refreshData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [tickets, refreshData, toast]);
+
+  // Chat Polling Fallback
+  useEffect(() => {
+    if (activeModalType !== 'chat') return;
+
+    let isMounted = true;
+    const fetchMessagesPeriodic = async () => {
+      const currentId = conversationIdRef.current;
+      if (!currentId) return;
+
+      try {
+        const resMsg = await apiClient.get(`/chat/conversation/${currentId}/messages`);
+        if (isMounted) {
+          setChatMessages(resMsg.data || []);
+        }
+      } catch {
+        // Safe catch
+      }
+    };
+
+    const interval = setInterval(fetchMessagesPeriodic, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeModalType]);
+
+  // Dynamic QR Token Countdown Simulation
+  useEffect(() => {
+    let timer;
+    if (activeModalType === 'qr') {
+      timer = setInterval(() => {
+        setQrCountdown((prev) => {
+          if (prev <= 1) {
+            setQrDynamicToken(`SEC-${Math.floor(1000 + Math.random() * 9000)}`);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [activeModalType]);
+
+  useEffect(() => {
+    if (activeModalType === 'chat') {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeModalType]);
+
+  const toggleOtpVisibility = (ticketId) => {
+    setShowOtpMap((prev) => ({
+      ...prev,
+      [ticketId]: !prev[ticketId],
+    }));
+  };
+
+  const filteredTickets = tickets.filter((ticket) => {
+    const matchesTab =
+      activeTab === 'aktif'
+        ? ticket.status === 'Aktif'
+        : activeTab === 'riwayat'
+        ? ticket.status === 'Selesai' || ticket.status === 'Batal'
+        : true;
+
+    if (!matchesTab) return false;
+    if (!searchQuery.trim()) return true;
+
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      String(ticket.id).toLowerCase().includes(q) ||
+      ticket.from.toLowerCase().includes(q) ||
+      ticket.to.toLowerCase().includes(q) ||
+      ticket.mitra.toLowerCase().includes(q)
+    );
+  });
+
   const handleCancelTicket = async () => {
     if (!selectedTicket || isCancelling) return;
-
     setIsCancelling(true);
 
     try {
       await apiClient.patch(`/orders/${selectedTicket.rawId}/cancel`);
       toast.success('Pesanan berhasil dibatalkan dan kuota dikembalikan.', { title: 'Sukses' });
-
       setActiveModalType(null);
       setSelectedTicket(null);
       await refreshData();
@@ -412,7 +326,6 @@ export default function MyTickets() {
 
   const handleSendChatMessage = async (e) => {
     e.preventDefault();
-
     if (!newMessageText.trim() || !chatConversationId) return;
 
     const textToSend = newMessageText.trim();
@@ -422,7 +335,6 @@ export default function MyTickets() {
       const res = await apiClient.post(`/chat/conversation/${chatConversationId}/messages`, {
         messageText: textToSend,
       });
-
       setChatMessages((prev) => [...prev, res.data]);
     } catch (err) {
       console.error('Gagal kirim pesan:', err);
@@ -434,7 +346,6 @@ export default function MyTickets() {
   const submitReview = async (e) => {
     e.preventDefault();
     if (!selectedTicket || isSubmittingReview) return;
-
     setIsSubmittingReview(true);
 
     try {
@@ -446,7 +357,6 @@ export default function MyTickets() {
       };
 
       await apiClient.post('/reviews', payload);
-
       toast.success('Ulasan berhasil dikirim!', { title: 'Terkirim' });
       setActiveModalType(null);
       setReviewText('');
@@ -465,6 +375,7 @@ export default function MyTickets() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+      {/* Header Halaman */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -475,11 +386,12 @@ export default function MyTickets() {
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">My Tickets & Live Digital QR</h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Tunjukkan QR Code digital di Pos, chat langsung dengan Mitra, dan kelola Poin Reward Anda.
+            Tunjukkan QR Code digital di Pos, pantau audit checkpoint secara live, dan chat langsung dengan Mitra.
           </p>
         </div>
       </div>
 
+      {/* Pencarian Tiket */}
       <div className="relative max-w-sm">
         <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
@@ -491,6 +403,7 @@ export default function MyTickets() {
         />
       </div>
 
+      {/* Tab Navigasi */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setActiveTab('aktif')}
@@ -524,6 +437,7 @@ export default function MyTickets() {
         </button>
       </div>
 
+      {/* Konten Tab */}
       {activeTab !== 'reward' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {isLoadingTickets ? (
@@ -539,7 +453,7 @@ export default function MyTickets() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <StatusBadge variant="purple">{ticket.title}</StatusBadge>
-                    <span className="text-[10px] font-mono font-bold text-neutral-800">ID: {ticket.id}</span>
+                    <span className="text-[10px] font-mono font-bold text-neutral-800">ID: #{ticket.id}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5 text-[12px] font-bold text-neutral-800">
@@ -589,8 +503,16 @@ export default function MyTickets() {
                     </StatusBadge>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <button onClick={() => openModal(ticket, 'detail')} className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-[9px] font-bold transition cursor-pointer">
-                        Detail
+                      {/* Tombol Audit Checkpoint Timeline */}
+                      <button
+                        onClick={() => {
+                          setSelectedTimelineTicket(ticket);
+                          setIsTimelineModalOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer border border-indigo-200"
+                      >
+                        <History className="w-3 h-3" />
+                        Audit Checkpoint
                       </button>
 
                       {ticket.status === 'Aktif' && (
@@ -674,6 +596,7 @@ export default function MyTickets() {
         </div>
       )}
 
+      {/* Modal Chat dengan Mitra */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'chat')}
         onClose={() => {
@@ -725,6 +648,7 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
+      {/* Modal QR Code Tiket */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'qr')}
         onClose={() => setSelectedTicket(null)}
@@ -752,64 +676,14 @@ export default function MyTickets() {
         </div>
       </BaseModal>
 
-      <BaseModal
-        isOpen={Boolean(selectedTicket && activeModalType === 'detail')}
-        onClose={() => setSelectedTicket(null)}
-        title={`Detail Tiket: ${selectedTicket?.id}`}
-        subtitle={selectedTicket?.title}
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4 text-[10px]">
-          <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200 space-y-1">
-            <p className="text-neutral-500">
-              Rute: <strong className="text-neutral-800">{selectedTicket?.from} ➔ {selectedTicket?.to}</strong>
-            </p>
-            <p className="text-neutral-500">
-              Mitra: <strong className="text-neutral-800">{selectedTicket?.mitra}</strong> ({selectedTicket?.vehicle})
-            </p>
-            <p className="text-neutral-500">
-              Detail: <strong className="text-neutral-800">{selectedTicket?.detail}</strong>
-            </p>
-            {selectedTicket?.totalPrice && (
-              <p className="text-neutral-500">
-                Total Bayar: <strong className="text-emerald-600">{selectedTicket.totalPrice}</strong>
-              </p>
-            )}
-            {selectedTicket?.otp && (
-              <p className="text-neutral-500">
-                OTP Penyerahan Barang: <strong className="font-mono text-[11px]" style={{ color: PRIMARY_COLOR }}>{selectedTicket.otp}</strong>
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="font-bold text-neutral-800">Status Tracking Perjalanan</h4>
-            <div className="space-y-2 border-l-2 pl-3 ml-1" style={{ borderColor: `${PRIMARY_ACCENT}66` }}>
-              {selectedTicket?.trackingLogs?.map((log, idx) => (
-                <div key={idx} className="relative space-y-0.5">
-                  <div className={`w-2.5 h-2.5 rounded-full absolute -left-4.25 top-0.5 ${log.completed ? '' : 'bg-neutral-300'}`} style={log.completed ? { backgroundColor: PRIMARY_COLOR } : undefined} />
-                  <p className={`font-bold ${log.completed ? 'text-neutral-800' : 'text-neutral-400'}`}>{log.status}</p>
-                  <p className="text-[8px] text-neutral-400 flex items-center gap-1">
-                    <MapPin className="w-2.5 h-2.5" /> {log.location} • {log.time}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button onClick={() => setSelectedTicket(null)} className="w-full py-2.5 text-white rounded-xl font-bold cursor-pointer transition" style={{ backgroundColor: PRIMARY_COLOR }}>
-            Tutup
-          </button>
-        </div>
-      </BaseModal>
-
+      {/* Modal Ulasan */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'review')}
         onClose={() => {
           if (!isSubmittingReview) setSelectedTicket(null);
         }}
         title="Beri Ulasan Perjalanan"
-        subtitle={`Tiket ${selectedTicket?.id}`}
+        subtitle={`Tiket #${selectedTicket?.id}`}
         maxWidth="max-w-sm"
       >
         <form onSubmit={submitReview} className="space-y-3.5 text-[10px]">
@@ -876,11 +750,12 @@ export default function MyTickets() {
         </form>
       </BaseModal>
 
+      {/* Modal Batalkan Tiket */}
       <BaseModal
         isOpen={Boolean(selectedTicket && activeModalType === 'cancel')}
         onClose={() => { if (!isCancelling) setSelectedTicket(null); }}
         title="Batalkan Tiket"
-        subtitle={selectedTicket?.id}
+        subtitle={`Tiket #${selectedTicket?.id}`}
         maxWidth="max-w-sm"
       >
         <div className="text-center space-y-4 text-[10px]">
@@ -898,6 +773,16 @@ export default function MyTickets() {
           </div>
         </div>
       </BaseModal>
+
+      {/* Modal Riwayat & Audit Checkpoint Real-time (Stepper) */}
+      <TicketTimelineModal
+        isOpen={isTimelineModalOpen}
+        onClose={() => {
+          setIsTimelineModalOpen(false);
+          setSelectedTimelineTicket(null);
+        }}
+        ticket={selectedTimelineTicket}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   Users,
   UserCheck,
   ShoppingBag,
+  Gift,
   Receipt,
   LogOut,
   AlertTriangle,
@@ -26,6 +27,7 @@ const MENU_GROUPS = [
     label: 'Manajemen Lanjutan',
     items: [
       { name: 'Konfigurasi Tarif', icon: ShoppingBag },
+      { name: 'Manajemen Merchandise', icon: Gift },
       { name: 'Audit & Keuangan', icon: Receipt },
       { name: 'User Governance', icon: Users },
     ],

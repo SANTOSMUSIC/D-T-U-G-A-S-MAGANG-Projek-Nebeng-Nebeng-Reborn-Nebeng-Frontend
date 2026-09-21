@@ -4,7 +4,6 @@ import {
   TrendingDown,
   AlertTriangle,
   MapPin,
-  Search,
   SlidersHorizontal,
   CheckCircle2,
   XCircle,
@@ -12,11 +11,8 @@ import {
   Calendar,
   LineChart as LineChartIcon,
   BarChart3,
-  Download,
   ArrowUpRight,
-  ArrowDownRight,
-  Filter,
-  X
+  ArrowDownRight
 } from 'lucide-react';
 import { Skeleton, SkeletonStatCard, SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -100,7 +96,7 @@ export default function SuperadminDashboard() {
           revenueVal: realRevenue,
           revenue: `Rp ${realRevenue.toLocaleString('id-ID')}`,
           sharePercentage: userActivityShare,
-          category: pointsCount > 5 ? 'Metropolitan' : pointsCount > 0 ? 'Kota Besar' : 'Kota Sedang',
+          category: pointsCount > 0 ? 'Kota Besar' : 'Kota Sedang',
           change: reg.change || 0,
         };
       });
@@ -108,7 +104,7 @@ export default function SuperadminDashboard() {
     return [];
   }, [dashboardData]);
 
-  const [selectedChartRegion, setSelectedChartRegion] = useState('Semua');
+  const [selectedChartRegion] = useState('Semua');
 
   const targetRevenueJt = useMemo(() => {
     const totalRevBackend = dashboardData?.overview?.totalRevenue;
@@ -185,7 +181,7 @@ export default function SuperadminDashboard() {
 
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
-  const categoryTabs = ['Semua', 'Metropolitan', 'Kota Besar', 'Kota Sedang'];
+  const categoryTabs = ['Semua', 'Kota Besar', 'Kota Sedang'];
 
   const filteredRegions = useMemo(() => {
     const q = mainQuery.toLowerCase().trim();
@@ -213,6 +209,14 @@ export default function SuperadminDashboard() {
 
     return list;
   }, [regionalActivities, regionTab, mainQuery, filterSortBy]);
+
+  const [regionPage, setRegionPage] = useState(1);
+  const regionLimit = 5;
+
+  const paginatedRegions = useMemo(() => {
+    const start = (regionPage - 1) * regionLimit;
+    return filteredRegions.slice(start, start + regionLimit);
+  }, [filteredRegions, regionPage]);
 
   const filteredActivities = useMemo(() => {
     const q = mainQuery.toLowerCase().trim();
@@ -633,63 +637,6 @@ export default function SuperadminDashboard() {
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <select
-                  value={selectedChartRegion}
-                  onChange={(e) => {
-                    setSelectedChartRegion(e.target.value);
-                    setHoveredIndex(null);
-                  }}
-                  className="pl-8 pr-7 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#74B4D9] cursor-pointer"
-                >
-                  <option value="Semua">
-                    Semua Wilayah
-                  </option>
-
-                  {regionalActivities.map((r) => (
-                    <option
-                      key={r.id}
-                      value={r.name}
-                    >
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-
-                <Filter
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none"
-                />
-              </div>
-
-              <div className="relative flex-1 sm:w-60">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
-
-                <input
-                  type="text"
-                  value={chartQuery}
-                  onChange={(e) => {
-                    setChartQuery(e.target.value);
-                    setHoveredIndex(null);
-                  }}
-                  placeholder="Cari & filter pemasukan..."
-                  className="w-full pl-9 pr-8 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] text-neutral-600 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#74B4D9] transition"
-                />
-
-                {chartQuery && (
-                  <button
-                    onClick={() => {
-                      setChartQuery('');
-                      setHoveredIndex(null);
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            </div>
-
             <div className="flex items-center gap-2 shrink-0">
               <button className="flex items-center gap-2 px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full text-[10px] font-semibold text-neutral-600">
                 <Calendar size={13} />
@@ -719,10 +666,6 @@ export default function SuperadminDashboard() {
                   <BarChart3 size={13} />
                 </button>
               </div>
-
-              <button className="w-7 h-7 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-[#10367D] transition">
-                <Download size={13} />
-              </button>
             </div>
           </div>
 
@@ -1314,7 +1257,7 @@ export default function SuperadminDashboard() {
               </div>
 
               <div className="block sm:hidden divide-y divide-gray-100">
-                {filteredRegions.length ===
+                {paginatedRegions.length ===
                 0 ? (
                   <div className="p-4">
                     <EmptyState
@@ -1323,7 +1266,7 @@ export default function SuperadminDashboard() {
                     />
                   </div>
                 ) : (
-                  filteredRegions.map(
+                  paginatedRegions.map(
                     (
                       region,
                       index
@@ -1470,7 +1413,7 @@ export default function SuperadminDashboard() {
                   </thead>
 
                   <tbody className="divide-y divide-gray-100">
-                    {filteredRegions.length ===
+                    {paginatedRegions.length ===
                     0 ? (
                       <tr>
                         <td colSpan={4}>
@@ -1481,7 +1424,7 @@ export default function SuperadminDashboard() {
                         </td>
                       </tr>
                     ) : (
-                      filteredRegions.map(
+                      paginatedRegions.map(
                         (
                           region,
                           index
@@ -1586,6 +1529,30 @@ export default function SuperadminDashboard() {
                   </tbody>
                 </table>
               </div>
+              
+              {filteredRegions.length > regionLimit && (
+                <div className="flex items-center justify-between p-4 border-t border-neutral-100 text-[9px] text-neutral-500 bg-neutral-50/50 rounded-b-2xl">
+                  <span>
+                    Hal {regionPage} dari {Math.ceil(filteredRegions.length / regionLimit)}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={regionPage <= 1}
+                      onClick={() => setRegionPage((prev) => Math.max(prev - 1, 1))}
+                      className="px-3 py-1.5 bg-white border border-neutral-200 shadow-sm rounded-lg font-medium disabled:opacity-40 cursor-pointer"
+                    >
+                      Sebelumnya
+                    </button>
+                    <button
+                      disabled={regionPage >= Math.ceil(filteredRegions.length / regionLimit)}
+                      onClick={() => setRegionPage((prev) => prev + 1)}
+                      className="px-3 py-1.5 bg-white border border-neutral-200 shadow-sm rounded-lg font-medium disabled:opacity-40 cursor-pointer"
+                    >
+                      Berikutnya
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col">
@@ -1593,10 +1560,6 @@ export default function SuperadminDashboard() {
                 <h2 className="text-[14px] font-semibold text-neutral-800">
                   Aktivitas Escrow Terbaru
                 </h2>
-
-                <button className="text-[10px] font-semibold text-[#10367D] hover:underline cursor-pointer">
-                  Lihat Semua
-                </button>
               </div>
 
               <div className="space-y-3 flex-1">

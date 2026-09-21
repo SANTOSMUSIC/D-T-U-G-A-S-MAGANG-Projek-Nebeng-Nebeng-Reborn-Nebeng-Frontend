@@ -156,6 +156,23 @@ export default function OperatorInspection() {
     try {
       setIsLoading(true);
 
+      let photoUrl = '';
+      if (itemPhoto) {
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', itemPhoto);
+        try {
+          const uploadRes = await apiClient.post('/uploads/file', formDataUpload, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          photoUrl = uploadRes.data.filePath;
+        } catch (uploadError) {
+          console.error('Gagal upload foto barang:', uploadError);
+          toast.error('Gagal mengunggah foto barang. Silakan coba lagi.', { title: 'Upload Gagal' });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const payload = {
         qrCodeTrip: formData.qrCodeTrip.trim().toUpperCase(),
         qrCodeTicket: formData.qrCodeTicket.trim().toUpperCase(),
@@ -163,7 +180,8 @@ export default function OperatorInspection() {
         scanType: 'checkin_origin',
         securitySealQr:
           formData.securitySealQr.trim() ||
-          `SEAL-${Math.floor(100000 + Math.random() * 900000)}`
+          `SEAL-${Math.floor(100000 + Math.random() * 900000)}`,
+        ...(photoUrl && { photoUrl }),
       };
 
       const response = await operatorService.scanCheckpoint(payload);

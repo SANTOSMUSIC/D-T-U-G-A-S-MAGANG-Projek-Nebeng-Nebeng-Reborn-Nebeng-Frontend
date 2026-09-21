@@ -6,13 +6,15 @@ export const operatorService = {
    * @param {Object} params - Parameter query (page, limit, posId, status, date, dll)
    */
   getTrips: async (params = {}) => {
-    const { page = 1, limit = 10, posId, status, date } = params;
+    const { page = 1, limit = 10, posId, destinationPointId, originPointId, status, date } = params;
 
     const response = await apiClient.get('/trips', {
       params: {
         page,
         limit,
         ...(posId ? { posId } : {}),
+        ...(destinationPointId ? { destinationPointId } : {}),
+        ...(originPointId ? { originPointId } : {}),
         ...(status ? { status } : {}),
         ...(date ? { date } : {}),
       },

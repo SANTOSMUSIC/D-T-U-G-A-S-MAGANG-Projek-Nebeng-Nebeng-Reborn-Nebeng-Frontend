@@ -195,10 +195,10 @@ export default function Login({ onSwitchToRegister, onLogin }) {
                 setRememberMe(e.target.checked)
               }
               className="
-                w-[12px]
-                h-[12px]
+                w-3
+                h-3
                 shrink-0
-                rounded-[4px]
+                rounded-sm
                 border-[#D5D5D5]
                 accent-[#10367D]
                 cursor-pointer
@@ -239,7 +239,7 @@ export default function Login({ onSwitchToRegister, onLogin }) {
           aria-busy={isSubmitting}
           className="
             w-full
-            h-[41px]
+            h-10.25
 
             px-4
 
@@ -271,8 +271,8 @@ export default function Login({ onSwitchToRegister, onLogin }) {
             <>
               <span
                 className="
-                  w-[14px]
-                  h-[14px]
+                  w-3.5
+                  h-3.5
                   border-2
                   border-white/40
                   border-t-white
@@ -293,8 +293,8 @@ export default function Login({ onSwitchToRegister, onLogin }) {
 
               <ArrowRight
                 className="
-                  w-[14px]
-                  h-[14px]
+                  w-3.5
+                  h-3.5
                   shrink-0
                 "
               />

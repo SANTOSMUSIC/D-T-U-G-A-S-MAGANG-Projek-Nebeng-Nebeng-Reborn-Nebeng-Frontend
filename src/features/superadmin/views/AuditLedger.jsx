@@ -106,6 +106,7 @@ export default function AuditFinancialReport() {
     return () => {
       isMounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
   const filteredEscrow = escrowLedger.filter((item) => {

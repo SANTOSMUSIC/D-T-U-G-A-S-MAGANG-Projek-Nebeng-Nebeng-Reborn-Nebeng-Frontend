@@ -3,7 +3,6 @@ import { Eye, EyeOff } from 'lucide-react';
 
 export default function AuthInput({
   label,
-  icon: Icon,
   type = 'text',
   showPassword: externalShowPassword,
   togglePassword: externalTogglePassword,
@@ -73,8 +72,8 @@ export default function AuthInput({
           }
           className={`
             w-full
-            h-[40px]
-            sm:h-[41px]
+            h-10
+            sm:h-10.25
 
             pl-4
             ${isPassword ? 'pr-11' : 'pr-4'}
@@ -131,7 +130,7 @@ export default function AuthInput({
               absolute
               inset-y-0
               right-0
-              w-[42px]
+              w-10.5
 
               flex
               items-center
@@ -145,9 +144,9 @@ export default function AuthInput({
             "
           >
             {isShowPassword ? (
-              <EyeOff className="w-[15px] h-[15px]" />
+              <EyeOff className="w-3.75 h-3.75" />
             ) : (
-              <Eye className="w-[15px] h-[15px]" />
+              <Eye className="w-3.75 h-3.75" />
             )}
           </button>
         )}

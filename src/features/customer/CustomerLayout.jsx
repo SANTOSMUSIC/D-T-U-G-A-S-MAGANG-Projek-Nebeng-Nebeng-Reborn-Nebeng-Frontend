@@ -10,10 +10,11 @@ const CUSTOMER_MENU_PATH = {
   'Onboarding Biometrik': 'onboarding',
   'Cari & Booking Trip': 'booking',
   'Tickets & Digital QR': 'tickets',
+  'Rewards & Penukaran': 'rewards',
   'Profil Saya': 'profile',
 };
 
-const VERIFIED_ONLY_SLUGS = ['booking', 'tickets', 'profile'];
+const VERIFIED_ONLY_SLUGS = ['booking', 'tickets', 'rewards', 'profile'];
 
 export default function CustomerLayout() {
   const navigate = useNavigate();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ShieldAlert,
   UserX,
@@ -22,6 +22,8 @@ import {
   Settings2,
   KeyRound,
   ChevronDown,
+  CheckCircle2,
+  Check
 } from 'lucide-react';
 
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
@@ -101,9 +103,16 @@ export default function UserGovernance() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPassword, setShowAddPassword] = useState(false);
-  
+
+  // State Notifikasi Banner User-Friendly
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+  // State Searchable Region Autocomplete Select
   const [regions, setRegions] = useState([]);
   const [isLoadingRegions, setIsLoadingRegions] = useState(false);
+  const [regionSearchQuery, setRegionSearchQuery] = useState('');
+  const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
+  const regionDropdownRef = useRef(null);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -121,15 +130,35 @@ export default function UserGovernance() {
     total: 0,
   });
 
+  // Helper Notifikasi Toast
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: '', type: 'success' });
+    }, 3500);
+  };
+
+  // Close region dropdown saat klik di luar area
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (regionDropdownRef.current && !regionDropdownRef.current.contains(event.target)) {
+        setIsRegionDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     async function fetchRegions() {
       try {
         setIsLoadingRegions(true);
         const response = await apiClient.get('/regions?onlyActive=true');
         const regionData = response.data?.data || response.data || [];
-        setRegions(regionData);
+        setRegions(Array.isArray(regionData) ? regionData : []);
       } catch (err) {
         console.error('Gagal memuat daftar region', err);
+        showNotification('Gagal memuat daftar wilayah operasional.', 'error');
       } finally {
         setIsLoadingRegions(false);
       }
@@ -152,6 +181,7 @@ export default function UserGovernance() {
       }
     } catch (err) {
       console.error('Gagal memuat data pengguna:', err);
+      showNotification('Gagal memuat data pengguna dari server.', 'error');
     } finally {
       setIsLoadingUsers(false);
     }
@@ -217,7 +247,7 @@ export default function UserGovernance() {
     e.preventDefault();
 
     if (!newUser.name || !newUser.email || !newUser.password || !newUser.regionId) {
-      alert('Mohon lengkapi semua field wajib termasuk Wilayah (Region).');
+      showNotification('Mohon lengkapi semua field wajib termasuk Wilayah (Region)!', 'error');
       return;
     }
 
@@ -234,8 +264,11 @@ export default function UserGovernance() {
 
       await createUser(payload);
 
+      showNotification(`Pengguna baru "${newUser.name}" berhasil ditambahkan!`, 'success');
       setShowAddModal(false);
       setShowAddPassword(false);
+      setRegionSearchQuery('');
+      setIsRegionDropdownOpen(false);
 
       setNewUser({
         name: '',
@@ -246,16 +279,17 @@ export default function UserGovernance() {
         password: '',
       });
 
-      await fetchUsersData(currentPage);
+      await fetchUsersData(currentPage, searchTerm, statusFilter);
       await fetchUserStats();
     } catch (err) {
       console.error('Gagal membuat user:', err);
-      alert(err.response?.data?.message || 'Terjadi kesalahan saat membuat pengguna.');
+      showNotification(err.response?.data?.message || 'Terjadi kesalahan saat membuat pengguna baru.', 'error');
     }
   };
 
   const handleExecuteAction = async () => {
     if (!selectedUser || !reason.trim()) {
+      showNotification('Alasan override wajib diisi!', 'error');
       return;
     }
 
@@ -279,15 +313,22 @@ export default function UserGovernance() {
       };
 
       setAuditLogs([logEntry, ...auditLogs]);
+
+      const statusActionText = 
+        actionModal === 'Block' ? 'diblokir' : 
+        actionModal === 'Suspend' ? 'ditangguhkan (suspend)' : 'dipulihkan kembali';
+
+      showNotification(`Akun ${selectedUser.name} berhasil ${statusActionText}!`, 'success');
+
       setActionModal(null);
       setSelectedUser(null);
       setReason('');
 
-      await fetchUsersData(currentPage);
+      await fetchUsersData(currentPage, searchTerm, statusFilter);
       await fetchUserStats();
     } catch (err) {
       console.error('Gagal memperbarui status user:', err);
-      alert(err.response?.data?.message || 'Gagal mengubah status akun.');
+      showNotification(err.response?.data?.message || 'Gagal mengubah status akun pengguna.', 'error');
     }
   };
 
@@ -296,6 +337,15 @@ export default function UserGovernance() {
     if (status === 'suspended') return 'amber';
     return 'rose';
   };
+
+  // Filter rekomendasi wilayah berdasarkan input pengguna
+  const filteredRegions = regions.filter((reg) => {
+    const q = regionSearchQuery.toLowerCase();
+    return (
+      (reg.name && reg.name.toLowerCase().includes(q)) ||
+      (reg.code && reg.code.toLowerCase().includes(q))
+    );
+  });
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -322,7 +372,11 @@ export default function UserGovernance() {
           </div>
 
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setRegionSearchQuery('');
+              setIsRegionDropdownOpen(false);
+              setShowAddModal(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-[#10367D] hover:bg-[#0C2C66] text-white rounded-full text-[10px] sm:text-[11px] font-bold transition cursor-pointer shadow-sm"
           >
             <UserPlus size={14} />
@@ -330,7 +384,6 @@ export default function UserGovernance() {
           </button>
         </div>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex items-center gap-4">
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
@@ -366,6 +419,30 @@ export default function UserGovernance() {
         </div>
       </div>
 
+       {/* Banner Notifikasi Toast User-Friendly */}
+        {notification.show && (
+          <div className={`p-4 rounded-2xl flex items-center justify-between text-[11px] font-bold shadow-sm transition-all ${
+            notification.type === 'success' 
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+              : 'bg-rose-50 border border-rose-200 text-rose-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              {notification.type === 'success' ? (
+                <CheckCircle2 size={16} className="text-emerald-600" />
+              ) : (
+                <AlertTriangle size={16} className="text-rose-600" />
+              )}
+              <span>{notification.message}</span>
+            </div>
+            <button 
+              onClick={() => setNotification({ ...notification, show: false })} 
+              className="text-neutral-400 hover:text-neutral-600 cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -377,7 +454,7 @@ export default function UserGovernance() {
             className="w-full bg-neutral-50 border border-neutral-200 rounded-full pl-9 pr-8 py-2 text-[10px] sm:text-[11px] font-medium text-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#74B4D9] transition"
           />
           {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer">
               <X size={12} />
             </button>
           )}
@@ -563,6 +640,7 @@ export default function UserGovernance() {
         </div>
       )}
 
+      {/* Modal Tambah Pengguna Baru */}
       <BaseModal
         isOpen={Boolean(showAddModal)}
         onClose={() => {
@@ -641,34 +719,63 @@ export default function UserGovernance() {
             </div>
           </div>
 
-          <div>
-            <label className="font-bold text-neutral-600 block mb-1.5">Wilayah Operasional (Region)</label>
+          {/* Searchable Autocomplete Region Select */}
+          <div className="space-y-1 relative" ref={regionDropdownRef}>
+            <label className="font-bold text-neutral-600 block mb-1.5">
+              Wilayah Operasional (Region) <span className="text-rose-600">*Wajib Diisi</span>
+            </label>
+
             <div className="relative">
               <MapPin size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-              <select
-                required
-                value={newUser.regionId}
-                onChange={(e) => setNewUser({ ...newUser, regionId: e.target.value })}
-                disabled={isLoadingRegions || regions.length === 0}
-                className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-8 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9] focus:bg-white transition cursor-pointer disabled:opacity-50"
-              >
-                {isLoadingRegions ? (
-                  <option value="">Memuat wilayah...</option>
-                ) : regions.length === 0 ? (
-                  <option value="">Tidak ada wilayah aktif</option>
-                ) : (
-                  <>
-                    <option value="" disabled>-- Pilih wilayah operasional --</option>
-                    {regions.map((reg) => (
-                      <option key={reg.id} value={reg.id}>
-                        {reg.name} ({reg.code})
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
+              <input
+                type="text"
+                placeholder={isLoadingRegions ? "Memuat wilayah..." : "Cari atau pilih wilayah operasional..."}
+                disabled={isLoadingRegions}
+                value={regionSearchQuery}
+                onFocus={() => setIsRegionDropdownOpen(true)}
+                onChange={(e) => {
+                  setRegionSearchQuery(e.target.value);
+                  setNewUser({ ...newUser, regionId: '' }); // Reset pilihan jika user mengetik ulang
+                  setIsRegionDropdownOpen(true);
+                }}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-8 py-2.5 font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#74B4D9] focus:bg-white transition"
+              />
               <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
             </div>
+
+            {/* Rekomendasi Popup List Dropdown */}
+            {isRegionDropdownOpen && !isLoadingRegions && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg max-h-48 overflow-y-auto divide-y divide-neutral-100">
+                {filteredRegions.length > 0 ? (
+                  filteredRegions.map((reg) => {
+                    const isSelected = String(newUser.regionId) === String(reg.id);
+                    return (
+                      <div
+                        key={reg.id}
+                        onClick={() => {
+                          setNewUser({ ...newUser, regionId: String(reg.id) });
+                          setRegionSearchQuery(`${reg.name} (${reg.code})`);
+                          setIsRegionDropdownOpen(false);
+                        }}
+                        className={`px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition ${
+                          isSelected ? 'bg-blue-50/80 text-[#10367D] font-bold' : 'text-neutral-700'
+                        }`}
+                      >
+                        <div>
+                          <span className="font-semibold">{reg.name}</span>
+                          <span className="text-[8px] text-neutral-400 ml-1.5 font-mono">({reg.code})</span>
+                        </div>
+                        {isSelected && <Check size={13} className="text-[#10367D]" />}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-2.5 text-[9px] text-neutral-400 text-center font-medium">
+                    Wilayah tidak ditemukan
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -717,6 +824,7 @@ export default function UserGovernance() {
         </form>
       </BaseModal>
 
+      {/* Modal Confirm Super-Override Status Action */}
       <BaseModal
         isOpen={Boolean(actionModal && selectedUser)}
         onClose={() => {

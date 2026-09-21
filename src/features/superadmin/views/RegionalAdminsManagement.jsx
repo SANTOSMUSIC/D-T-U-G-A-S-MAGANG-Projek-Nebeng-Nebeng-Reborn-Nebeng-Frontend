@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Users, 
   Plus, 
@@ -9,7 +9,9 @@ import {
   Save, 
   X, 
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -34,6 +36,11 @@ export default function AdminWilayahManagement() {
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
+  // State tambahan untuk Searchable Region Select (Google-like Autocomplete)
+  const [regionSearchQuery, setRegionSearchQuery] = useState('');
+  const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
+  const regionDropdownRef = useRef(null);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -50,6 +57,17 @@ export default function AdminWilayahManagement() {
       setNotification({ show: false, message: '', type: 'success' });
     }, 3500);
   };
+
+  // Close region dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (regionDropdownRef.current && !regionDropdownRef.current.contains(event.target)) {
+        setIsRegionDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadAdminData = useCallback(async (pageToFetch = 1, searchVal = '') => {
     try {
@@ -104,6 +122,8 @@ export default function AdminWilayahManagement() {
   const handleOpenAddModal = () => {
     setIsEditing(false);
     setCurrentId(null);
+    setRegionSearchQuery('');
+    setIsRegionDropdownOpen(false);
     setFormData({
       name: '',
       email: '',
@@ -120,6 +140,11 @@ export default function AdminWilayahManagement() {
     setIsEditing(true);
     setCurrentId(admin.id);
     const matchedRegionId = admin.regionId ? String(admin.regionId) : (admin.region?.id ? String(admin.region.id) : '');
+    
+    // Set teks pencarian ke nama wilayah yang terpilih
+    const matchedRegion = availableRegions.find(r => String(r.id) === matchedRegionId);
+    setRegionSearchQuery(matchedRegion ? `${matchedRegion.name} (${matchedRegion.code})` : '');
+    setIsRegionDropdownOpen(false);
 
     setFormData({
       name: admin.name || '',
@@ -189,23 +214,14 @@ export default function AdminWilayahManagement() {
     }
   };
 
+  // Filter rekomendasi wilayah berdasarkan input pengguna
+  const filteredAvailableRegions = availableRegions.filter(reg => {
+    const q = regionSearchQuery.toLowerCase();
+    return reg.name.toLowerCase().includes(q) || (reg.code && reg.code.toLowerCase().includes(q));
+  });
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
-
-      {notification.show && (
-        <div className={`p-4 rounded-2xl flex items-center justify-between text-[11px] font-bold shadow-sm transition-all ${
-          notification.type === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'
-        }`}>
-          <div className="flex items-center gap-2">
-            {notification.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-rose-600" />}
-            <span>{notification.message}</span>
-          </div>
-          <button onClick={() => setNotification({ ...notification, show: false })} className="text-neutral-400 hover:text-neutral-600">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -249,6 +265,20 @@ export default function AdminWilayahManagement() {
           Total: <span className="font-bold text-neutral-800">{paginationMeta?.totalData || 0} Admin</span>
         </div>
       </div>
+
+      {notification.show && (
+        <div className={`p-4 rounded-2xl flex items-center justify-between text-[11px] font-bold shadow-sm transition-all ${
+          notification.type === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {notification.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-rose-600" />}
+            <span>{notification.message}</span>
+          </div>
+          <button onClick={() => setNotification({ ...notification, show: false })} className="text-neutral-400 hover:text-neutral-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
         <div className={`hidden sm:block overflow-x-auto transition-opacity duration-200 ${isFetchingPage ? 'opacity-40' : 'opacity-100'}`}>
@@ -428,23 +458,61 @@ export default function AdminWilayahManagement() {
             />
           </div>
 
-          <div className="space-y-1">
+          {/* Searchable Autocomplete Select for Region */}
+          <div className="space-y-1 relative" ref={regionDropdownRef}>
             <label className="text-[9px] font-bold text-neutral-500 uppercase">
               Penempatan Wilayah <span className="text-rose-600">*Wajib Diisi</span>
             </label>
-            <select
-              required
-              value={formData.regionId}
-              onChange={(e) => setFormData({...formData, regionId: e.target.value})}
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-semibold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
-            >
-              <option value="">-- Pilih Wilayah Operasional --</option>
-              {availableRegions.map((reg) => (
-                <option key={reg.id} value={reg.id}>
-                  {reg.name} ({reg.code})
-                </option>
-              ))}
-            </select>
+            
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Cari atau pilih wilayah operasional..."
+                value={regionSearchQuery}
+                onFocus={() => setIsRegionDropdownOpen(true)}
+                onChange={(e) => {
+                  setRegionSearchQuery(e.target.value);
+                  setFormData({ ...formData, regionId: '' }); // Reset regionId jika ketik ulang
+                  setIsRegionDropdownOpen(true);
+                }}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-3 pr-8 py-2 text-[10px] font-medium focus:outline-none focus:ring-2 focus:ring-[#74B4D9]"
+              />
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+            </div>
+
+            {/* Recommendations Popup List */}
+            {isRegionDropdownOpen && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg max-h-48 overflow-y-auto divide-y divide-neutral-100">
+                {filteredAvailableRegions.length > 0 ? (
+                  filteredAvailableRegions.map((reg) => {
+                    const isSelected = String(formData.regionId) === String(reg.id);
+                    return (
+                      <div
+                        key={reg.id}
+                        onClick={() => {
+                          setFormData({ ...formData, regionId: String(reg.id) });
+                          setRegionSearchQuery(`${reg.name} (${reg.code})`);
+                          setIsRegionDropdownOpen(false);
+                        }}
+                        className={`px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition ${
+                          isSelected ? 'bg-blue-50/80 text-[#10367D] font-bold' : 'text-neutral-700'
+                        }`}
+                      >
+                        <div>
+                          <span className="font-semibold">{reg.name}</span>
+                          <span className="text-[8px] text-neutral-400 ml-1.5 font-mono">({reg.code})</span>
+                        </div>
+                        {isSelected && <Check size={13} className="text-[#10367D]" />}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-2.5 text-[9px] text-neutral-400 text-center font-medium">
+                    Wilayah tidak ditemukan
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3">

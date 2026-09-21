@@ -5,14 +5,12 @@ import {
   Search, 
   ArrowRight,    
   CheckCircle2, 
-  AlertCircle,
-  KeyRound 
+  AlertCircle
 } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
-import { useTickets } from '../../../context/TicketsContext';
 import { useToast } from '../../../context/ToastContext';
 import apiClient from '../../../services/apiClient';
 
@@ -31,7 +29,6 @@ const inferServiceType = (trip) => {
 
 export default function SearchTrip() {
   const navigate = useNavigate();
-  const { addTicket } = useTickets();
   const toast = useToast();
 
   const [origin, setOrigin] = useState('');
@@ -45,13 +42,9 @@ export default function SearchTrip() {
   const [isLoadingTrips, setIsLoadingTrips] = useState(false);
 
   const [userProfile, setUserProfile] = useState(null);
-  const [showPinWarningModal, setShowPinWarningModal] = useState(false);
 
   const [selectedTrip, setSelectedTrip] = useState(null);
-  const [bookingStep, setBookingStep] = useState('form');
 
-  const [pin, setPin] = useState(['', '', '', '', '', '']);
-  const [paymentGateway] = useState('QRIS');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const [seatCount, setSeatCount] = useState(1);
@@ -65,6 +58,9 @@ export default function SearchTrip() {
 
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+
+  const [paymentMethod, setPaymentMethod] = useState('xendit');
+  const [pin, setPin] = useState('');
 
   const sizeOptions = [
     { code: 'XXS', label: 'XXS (< 1 kg)', weight: 1 },
@@ -160,7 +156,9 @@ export default function SearchTrip() {
   const isBarangValid =
     serviceType === 'barang' ? receiverName.trim() !== '' && isReceiverPhoneValid : true;
 
-  const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid;
+  const isPaymentValid = paymentMethod === 'xendit' ? true : pin.length === 6;
+
+  const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid && isPaymentValid;
 
   const quantity = serviceType === 'barang' ? safeItemCount : safeSeatCount;
   const basePrice = selectedTrip?.price || 0;
@@ -191,16 +189,7 @@ export default function SearchTrip() {
   };
 
   const handleOpenBooking = (trip) => {
-    const hasPinConfigured = Boolean(userProfile?.hasPin || userProfile?.pinHash);
-
-    if (!hasPinConfigured) {
-      setShowPinWarningModal(true);
-      return;
-    }
-
     setSelectedTrip(trip);
-    setBookingStep('form');
-    setPin(['', '', '', '', '', '']);
     setIsCheckingOut(false);
     setSeatCount(1);
     setPassengerName(userProfile?.name || '');
@@ -213,41 +202,9 @@ export default function SearchTrip() {
     setReceiverPhone('');
   };
 
-  const handleProceedToPin = (e) => {
+  const handleCheckout = async (e) => {
     e.preventDefault();
-    if (isFormValid) setBookingStep('pin');
-  };
-
-  const handlePinChange = (val, index) => {
-    const cleaned = val.replace(/\D/g, '');
-    if (!cleaned && val !== '') return;
-
-    if (cleaned.length > 1) {
-      const newPin = [...pin];
-      for (let i = 0; i < 6; i++) newPin[i] = cleaned[i] || '';
-      setPin(newPin);
-      const nextIndex = Math.min(cleaned.length, 5);
-      document.getElementById(`pin-input-${nextIndex}`)?.focus();
-      return;
-    }
-
-    const newPin = [...pin];
-    newPin[index] = cleaned;
-    setPin(newPin);
-
-    if (cleaned && index < 5) {
-      document.getElementById(`pin-input-${index + 1}`)?.focus();
-    }
-  };
-
-  const handlePinKeyDown = (e, index) => {
-    if (e.key === 'Backspace' && !pin[index] && index > 0) {
-      document.getElementById(`pin-input-${index - 1}`)?.focus();
-    }
-  };
-
-  const handleVerifyPinAndCheckout = async () => {
-    if (pin.some((p) => p === '') || isCheckingOut || !selectedTrip) return;
+    if (!isFormValid || isCheckingOut || !selectedTrip) return;
 
     setIsCheckingOut(true);
     try {
@@ -271,46 +228,38 @@ export default function SearchTrip() {
             }),
       };
 
+      // 1. Create Order
       const resOrder = await apiClient.post('/orders', orderPayload);
       const createdOrder = resOrder.data;
       const orderIdStr = String(createdOrder.id);
-      const pinString = pin.join('');
 
-      await apiClient.post('/payments/checkout', {
-        orderId: orderIdStr,
-        paymentGateway: paymentGateway,
-        pin: pinString,
-      });
+      if (paymentMethod === 'xendit') {
+        // 2. Request Xendit Invoice URL
+        const resPayment = await apiClient.post('/payments/xendit/create-invoice', {
+          orderId: orderIdStr
+        });
+        
+        const invoiceUrl = resPayment.data.invoiceUrl;
+  
+        // 3. Redirect ke Payment Gateway (Xendit)
+        toast.success('Mengalihkan ke halaman pembayaran...', { title: 'Tunggu Sebentar' });
+        window.location.href = invoiceUrl;
+      } else {
+        // Dev Mode / Simulasi PIN
+        await apiClient.post('/payments/checkout', {
+          orderId: orderIdStr,
+          paymentGateway: 'MANUAL_SIMULATION',
+          pin: pin
+        });
+        
+        toast.success('Pembayaran Simulasi Berhasil!', { title: 'Berhasil' });
+        setSelectedTrip(null);
+        navigate('/customer/tickets');
+      }
 
-      addTicket({
-        id: orderIdStr,
-        type: serviceType,
-        title: serviceType === 'barang' ? `Nebeng Barang (${itemCategory})` : 'Nebeng Penumpang',
-        from: selectedTrip.originPoint?.name || 'Pos Asal',
-        to: selectedTrip.destinationPoint?.name || 'Pos Tujuan',
-        mitra: selectedTrip.mitra?.name || 'Mitra',
-        vehicle: selectedTrip.vehicle ? `${selectedTrip.vehicle.model}` : '-',
-        schedule: `${selectedTrip.departureDate?.split('T')[0]} • Sesuai Jadwal`,
-        totalPrice: formatRupiah(totalPrice),
-        detail: serviceType === 'barang'
-          ? `${safeItemCount} Item (${totalAccumulatedWeight} Kg)`
-          : `${safeSeatCount} Kursi`,
-        status: 'Aktif',
-        currentStatusText: 'Menunggu Check-in di Pos Asal',
-        otp: createdOrder.otpClaim || null,
-        trackingLogs: [],
-      });
-
-      setBookingStep('success');
-      toast.success('Pemesanan & Otorisasi PIN berhasil!', { title: 'Sukses' });
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Gagal memproses transaksi.';
       toast.error(errorMsg, { title: 'Gagal' });
-
-      if (errorMsg.toLowerCase().includes('pin')) {
-        setBookingStep('pin');
-      }
-    } finally {
       setIsCheckingOut(false);
     }
   };
@@ -465,217 +414,168 @@ export default function SearchTrip() {
       </div>
 
       <BaseModal
-        isOpen={showPinWarningModal}
-        onClose={() => setShowPinWarningModal(false)}
-        title="PIN Transaksi Belum Dibuat"
-        subtitle="Keamanan Akun"
-        maxWidth="max-w-sm"
-      >
-        <div className="text-center space-y-4 text-[11px] py-2">
-          <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-200">
-            <KeyRound className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <p className="font-bold text-neutral-800 text-[13px]">Atur PIN Transaksi Anda</p>
-            <p className="text-neutral-500 leading-relaxed text-[10px]">
-              Untuk alasan keamanan transaksi, Anda diwajibkan membuat 6-digit PIN Transaksi terlebih dahulu sebelum melakukan pemesanan.
-            </p>
-          </div>
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={() => setShowPinWarningModal(false)}
-              className="w-1/2 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl font-bold transition cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              onClick={() => {
-                setShowPinWarningModal(false);
-                navigate('/customer/profile/pengaturan');
-              }}
-              className="w-1/2 py-2.5 text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
-              style={{ backgroundColor: PRIMARY_COLOR }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = PRIMARY_HOVER)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = PRIMARY_COLOR)}
-            >
-              Buat PIN Sekarang
-            </button>
-          </div>
-        </div>
-      </BaseModal>
-
-      <BaseModal
         isOpen={Boolean(selectedTrip)}
         onClose={() => setSelectedTrip(null)}
-        title={bookingStep === 'form' ? 'Formulir Pemesanan' : bookingStep === 'pin' ? 'Konfirmasi PIN' : 'Selesai'}
+        title="Formulir Pemesanan"
         subtitle="Booking Engine"
         maxWidth="max-w-md"
       >
-        {bookingStep === 'form' && (
-          <form onSubmit={handleProceedToPin} className="space-y-3 text-[10px]">
-            {serviceType === 'penumpang' ? (
-              <>
+        <form onSubmit={handleCheckout} className="space-y-3 text-[10px]">
+          {serviceType === 'penumpang' ? (
+            <>
+              <div>
+                <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">
+                  Jumlah Kursi (Maks: {maxAllowedSeats})
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={maxAllowedSeats}
+                  value={seatCount}
+                  onChange={handleSeatChange}
+                  className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
+                />
+                {seatCount > maxAllowedSeats && (
+                  <p className="text-[9px] text-rose-500 mt-0.5">Jumlah kursi melebihi sisa kuota!</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">
-                    Jumlah Kursi (Maks: {maxAllowedSeats})
-                  </label>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Nama Penumpang</label>
                   <input
-                    type="number"
-                    min="1"
-                    max={maxAllowedSeats}
-                    value={seatCount}
-                    onChange={handleSeatChange}
+                    type="text"
+                    required
+                    value={passengerName}
+                    onChange={(e) => setPassengerName(e.target.value)}
                     className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
                   />
-                  {seatCount > maxAllowedSeats && (
-                    <p className="text-[9px] text-rose-500 mt-0.5">Jumlah kursi melebihi sisa kuota!</p>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">No. WhatsApp</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="08123456789"
+                    value={passengerPhone}
+                    onChange={(e) => handlePhoneChange(e.target.value, setPassengerPhone)}
+                    className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
+                  />
+                  {!isPassengerPhoneValid && passengerPhone.length > 0 && (
+                    <p className="text-[9px] text-rose-500 mt-0.5">Format nomor tidak valid</p>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Nama Penumpang</label>
-                    <input
-                      type="text"
-                      required
-                      value={passengerName}
-                      onChange={(e) => setPassengerName(e.target.value)}
-                      className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">No. WhatsApp</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="08123456789"
-                      value={passengerPhone}
-                      onChange={(e) => handlePhoneChange(e.target.value, setPassengerPhone)}
-                      className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
-                    />
-                    {!isPassengerPhoneValid && passengerPhone.length > 0 && (
-                      <p className="text-[9px] text-rose-500 mt-0.5">Format nomor tidak valid</p>
-                    )}
-                  </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Kategori Barang</label>
+                  <select value={itemCategory} onChange={(e) => setItemCategory(e.target.value)} className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none">
+                    <option value="Elektronik">Elektronik</option>
+                    <option value="Pakaian">Pakaian</option>
+                    <option value="Dokumen">Dokumen</option>
+                    <option value="Makanan">Makanan</option>
+                  </select>
                 </div>
-              </>
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Ukuran Paket</label>
+                  <select value={itemSize} onChange={(e) => handleSizeChange(e.target.value)} className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none">
+                    {sizeOptions.map((opt) => (
+                      <option key={opt.code} value={opt.code}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Nama Penerima</label>
+                  <input
+                    type="text"
+                    required
+                    value={receiverName}
+                    onChange={(e) => setReceiverName(e.target.value)}
+                    className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">No. HP Penerima</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="08123456789"
+                    value={receiverPhone}
+                    onChange={(e) => handlePhoneChange(e.target.value, setReceiverPhone)}
+                    className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
+                  />
+                  {!isReceiverPhoneValid && receiverPhone.length > 0 && (
+                    <p className="text-[9px] text-rose-500 mt-0.5">Format nomor tidak valid</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="space-y-2 pt-2 border-t border-neutral-100">
+            <label className="block text-[8px] font-bold text-neutral-400 uppercase">Metode Pembayaran</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('xendit')}
+                className={`py-2 px-3 border rounded-xl text-[10px] font-bold transition ${
+                  paymentMethod === 'xendit' ? 'border-[#10367D] bg-blue-50 text-[#10367D]' : 'border-neutral-200 text-neutral-500'
+                }`}
+              >
+                Virtual Account / E-Wallet (Xendit)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('dev_mode')}
+                className={`py-2 px-3 border rounded-xl text-[10px] font-bold transition ${
+                  paymentMethod === 'dev_mode' ? 'border-[#10367D] bg-blue-50 text-[#10367D]' : 'border-neutral-200 text-neutral-500'
+                }`}
+              >
+                Bypass Pembayaran (Dev Mode)
+              </button>
+            </div>
+          </div>
+
+          {paymentMethod === 'dev_mode' && (
+            <div>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">PIN Transaksi (6 Digit)</label>
+              <input
+                type="password"
+                maxLength={6}
+                required
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="Masukkan 6 digit PIN"
+                className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none tracking-widest text-center"
+              />
+            </div>
+          )}
+
+          <div className="p-3 bg-emerald-50 rounded-xl flex justify-between font-bold border border-emerald-100">
+            <span className="text-neutral-700">Total Biaya:</span>
+            <span style={{ color: PRIMARY_COLOR }}>{formatRupiah(totalPrice)}</span>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!isFormValid || isCheckingOut}
+            className={`w-full py-2.5 text-white rounded-xl font-bold shadow-sm transition cursor-pointer flex items-center justify-center ${
+              isFormValid && !isCheckingOut ? '' : 'bg-neutral-300 cursor-not-allowed'
+            }`}
+            style={(isFormValid && !isCheckingOut) ? { backgroundColor: PRIMARY_COLOR } : undefined}
+          >
+            {isCheckingOut ? (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Kategori Barang</label>
-                    <select value={itemCategory} onChange={(e) => setItemCategory(e.target.value)} className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none">
-                      <option value="Elektronik">Elektronik</option>
-                      <option value="Pakaian">Pakaian</option>
-                      <option value="Dokumen">Dokumen</option>
-                      <option value="Makanan">Makanan</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Ukuran Paket</label>
-                    <select value={itemSize} onChange={(e) => handleSizeChange(e.target.value)} className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none">
-                      {sizeOptions.map((opt) => (
-                        <option key={opt.code} value={opt.code}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Nama Penerima</label>
-                    <input
-                      type="text"
-                      required
-                      value={receiverName}
-                      onChange={(e) => setReceiverName(e.target.value)}
-                      className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">No. HP Penerima</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="08123456789"
-                      value={receiverPhone}
-                      onChange={(e) => handlePhoneChange(e.target.value, setReceiverPhone)}
-                      className="w-full p-2 bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
-                    />
-                    {!isReceiverPhoneValid && receiverPhone.length > 0 && (
-                      <p className="text-[9px] text-rose-500 mt-0.5">Format nomor tidak valid</p>
-                    )}
-                  </div>
-                </div>
-              </>
+              'Lanjut Pembayaran'
             )}
-
-            <div className="p-3 bg-emerald-50 rounded-xl flex justify-between font-bold border border-emerald-100">
-              <span className="text-neutral-700">Total Biaya:</span>
-              <span style={{ color: PRIMARY_COLOR }}>{formatRupiah(totalPrice)}</span>
-            </div>
-
-            <button
-              type="submit"
-              disabled={!isFormValid}
-              className={`w-full py-2.5 text-white rounded-xl font-bold shadow-sm transition cursor-pointer ${
-                isFormValid ? '' : 'bg-neutral-300 cursor-not-allowed'
-              }`}
-              style={isFormValid ? { backgroundColor: PRIMARY_COLOR } : undefined}
-            >
-              Lanjut ke Konfirmasi PIN
-            </button>
-          </form>
-        )}
-
-        {bookingStep === 'pin' && (
-          <div className="space-y-4 text-center text-[10px]">
-            <p className="text-neutral-600 font-medium">Masukkan PIN 6 Digit Anda untuk mengonfirmasi pemesanan:</p>
-            <div className="flex justify-center gap-1.5">
-              {pin.map((digit, index) => (
-                <input
-                  key={index}
-                  id={`pin-input-${index}`}
-                  type="password"
-                  maxLength="1"
-                  value={digit}
-                  onChange={(e) => handlePinChange(e.target.value, index)}
-                  onKeyDown={(e) => handlePinKeyDown(e, index)}
-                  className="w-8 h-9 text-center bg-neutral-50 border border-neutral-200 rounded-xl font-bold focus:outline-none"
-                  onFocus={(e) => (e.currentTarget.style.borderColor = PRIMARY_COLOR)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
-                />
-              ))}
-            </div>
-            <button
-              onClick={handleVerifyPinAndCheckout}
-              disabled={pin.some(p => p === '') || isCheckingOut}
-              className={`w-full py-2.5 text-white rounded-xl font-bold transition cursor-pointer ${
-                pin.some(p => p === '') || isCheckingOut
-                  ? 'bg-neutral-300 cursor-not-allowed'
-                  : ''
-              }`}
-              style={!(pin.some(p => p === '') || isCheckingOut) ? { backgroundColor: PRIMARY_COLOR } : undefined}
-            >
-              {isCheckingOut ? 'Memproses Pesanan...' : 'Konfirmasi Pemesanan'}
-            </button>
-          </div>
-        )}
-
-        {bookingStep === 'success' && (
-          <div className="text-center py-4 space-y-3 text-[10px]">
-            <p className="font-bold text-emerald-600 text-[14px]">Pemesanan Berhasil!</p>
-            <p className="text-neutral-500">Tiket dan kode OTP Anda telah terbit.</p>
-            <button
-              onClick={() => { setSelectedTrip(null); navigate('/customer/tickets'); }}
-              className="py-2.5 px-6 text-white rounded-xl font-bold transition cursor-pointer shadow-sm"
-              style={{ backgroundColor: PRIMARY_COLOR }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = PRIMARY_HOVER)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = PRIMARY_COLOR)}
-            >
-              Lihat Tiket Saya
-            </button>
-          </div>
-        )}
+          </button>
+        </form>
       </BaseModal>
     </div>
   );

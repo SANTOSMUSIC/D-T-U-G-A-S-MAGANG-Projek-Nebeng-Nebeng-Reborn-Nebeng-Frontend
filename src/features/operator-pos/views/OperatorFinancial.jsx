@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, DollarSign, Printer, Wallet } from 'lucide-react';
+import { FileText, DollarSign, Printer, Wallet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
@@ -18,14 +18,24 @@ export default function OperatorFinancial() {
   const [posInfo, setPosInfo] = useState(null);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
+  // State Pagination & Limit
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [paginationMeta, setPaginationMeta] = useState({
+    totalData: 0,
+    totalPages: 1,
+    currentPage: 1,
+  });
+
   useEffect(() => {
-    let isMounted = true;
+    let ignore = false;
 
-    async function fetchOperatorFinancials() {
+    const fetchData = async () => {
+      setIsLoadingTransactions(true);
       try {
-        if (isMounted) setIsLoadingTransactions(true);
+        const responseData = await operatorService.getPayments(currentPage, limit);
 
-        const responseData = await operatorService.getPayments();
+        if (ignore) return;
 
         const dataArray = Array.isArray(responseData)
           ? responseData
@@ -47,7 +57,7 @@ export default function OperatorFinancial() {
           }
 
           return {
-            id: String(trx.id || `TRX-${String(index + 1).padStart(3, '0')}`),
+            id: String(trx.id || `TRX-${String((currentPage - 1) * limit + index + 1).padStart(3, '0')}`),
             amount: Number(trx.amount || 0),
             type: gateway,
             method: readableMethod,
@@ -61,30 +71,54 @@ export default function OperatorFinancial() {
           };
         });
 
-        if (isMounted) {
-          setDailyTransactions(formatted);
-          if (!responseData?.posSummary) {
-            const calculatedTotal = formatted.reduce((acc, curr) => acc + curr.amount, 0);
-            setServerTotalRevenue(calculatedTotal);
-          }
+        setDailyTransactions(formatted);
+
+        if (responseData?.meta) {
+          setPaginationMeta({
+            totalData: responseData.meta.totalData || responseData.meta.total || formatted.length,
+            totalPages: responseData.meta.totalPages || Math.ceil((responseData.meta.totalData || formatted.length) / limit),
+            currentPage: responseData.meta.currentPage || currentPage,
+          });
+        } else {
+          const total = responseData?.total || formatted.length;
+          setPaginationMeta({
+            totalData: total,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+            currentPage: currentPage,
+          });
+        }
+
+        if (!responseData?.posSummary) {
+          const calculatedTotal = formatted.reduce((acc, curr) => acc + curr.amount, 0);
+          setServerTotalRevenue(calculatedTotal);
         }
       } catch (error) {
-        console.error('Gagal mengambil data keuangan dari database:', error);
-        if (isMounted) {
+        if (!ignore) {
+          console.error('Gagal mengambil data keuangan dari database:', error);
           setDailyTransactions([]);
           setServerTotalRevenue(0);
+          setPaginationMeta({ totalData: 0, totalPages: 1, currentPage: 1 });
         }
       } finally {
-        if (isMounted) setIsLoadingTransactions(false);
+        if (!ignore) {
+          setIsLoadingTransactions(false);
+        }
       }
-    }
+    };
 
-    fetchOperatorFinancials();
+    fetchData();
 
     return () => {
-      isMounted = false;
+      ignore = true;
     };
-  }, []);
+  }, [currentPage, limit]);
+
+  // Handler ubah limit data per halaman
+  const handleLimitChange = (e) => {
+    const newLimit = Number(e.target.value);
+    setLimit(newLimit);
+    setCurrentPage(1); // Reset ke halaman pertama saat limit diubah
+  };
 
   const totalRevenue = serverTotalRevenue;
   const qrisRevenue = dailyTransactions
@@ -193,9 +227,27 @@ export default function OperatorFinancial() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6 space-y-4">
-          <h2 className="text-[14px] font-bold text-neutral-800">
-            Rincian Transaksi Shift Aktif (Database)
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-[14px] font-bold text-neutral-800">
+              Rincian Transaksi Shift Aktif (Database)
+            </h2>
+
+            {/* Selector Option Limit */}
+            <div className="flex items-center gap-2 self-end sm:self-auto text-[10px]">
+              <span className="text-neutral-500 font-semibold">Tampilkan:</span>
+              <select
+                value={limit}
+                onChange={handleLimitChange}
+                className="bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 font-bold text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#74B4D9] cursor-pointer"
+              >
+                <option value={5}>5 baris</option>
+                <option value={10}>10 baris</option>
+                <option value={20}>20 baris</option>
+                <option value={50}>50 baris</option>
+              </select>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -208,7 +260,7 @@ export default function OperatorFinancial() {
               </thead>
               <tbody className="divide-y divide-neutral-100 text-[9px]">
                 {isLoadingTransactions ? (
-                  <SkeletonTableRows rows={3} columns={4} />
+                  <SkeletonTableRows rows={limit > 5 ? 5 : limit} columns={4} />
                 ) : dailyTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={4}>
@@ -245,6 +297,60 @@ export default function OperatorFinancial() {
               </tbody>
             </table>
           </div>
+
+          {/* Controls Pagination UI Footer */}
+          {!isLoadingTransactions && dailyTransactions.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-neutral-100 text-[10px]">
+              <span className="text-neutral-500">
+                Menampilkan halaman <strong>{paginationMeta.currentPage}</strong> dari <strong>{paginationMeta.totalPages}</strong> (Total {paginationMeta.totalData} data)
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-lg font-bold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition"
+                >
+                  <ChevronLeft size={12} />
+                  Sebelumnya
+                </button>
+
+                <div className="flex items-center gap-1 px-2">
+                  {Array.from({ length: paginationMeta.totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === paginationMeta.totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((page, idx, array) => {
+                      const prevPage = array[idx - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsis && <span className="text-neutral-400 px-1">...</span>}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-7 h-7 rounded-lg text-[10px] font-bold cursor-pointer transition ${
+                              currentPage === page
+                                ? 'bg-[#10367D] text-white shadow-xs'
+                                : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <button
+                  disabled={currentPage >= paginationMeta.totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, paginationMeta.totalPages))}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-lg font-bold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition"
+                >
+                  Selanjutnya
+                  <ChevronRight size={12} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -267,7 +373,7 @@ export default function OperatorFinancial() {
           <div className="border border-black p-2.5 rounded">
             <p className="text-[9px] font-bold uppercase text-gray-700">Total Transaksi Pos</p>
             <p className="text-sm font-black mt-1">Rp {totalRevenue.toLocaleString('id-ID')}</p>
-            <p className="text-[8px] text-gray-500">{dailyTransactions.length} Transaksi Tercatat</p>
+            <p className="text-[8px] text-gray-500">{paginationMeta.totalData || dailyTransactions.length} Transaksi Tercatat</p>
           </div>
           <div className="border border-black p-2.5 rounded">
             <p className="text-[9px] font-bold uppercase text-gray-700">Pendapatan QRIS</p>
