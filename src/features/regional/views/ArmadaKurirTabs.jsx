@@ -17,7 +17,7 @@ export default function ArmadaKurirTabs() {
               : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-[#74B4D9]/15'
           }`}
         >
-          Data Armada Kendaraan
+          Data Kendaraan Mitra
         </button>
 
         <button
@@ -28,7 +28,7 @@ export default function ArmadaKurirTabs() {
               : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-[#74B4D9]/15'
           }`}
         >
-          Data Kurir & Driver
+          Data Operator
         </button>
 
       </div>

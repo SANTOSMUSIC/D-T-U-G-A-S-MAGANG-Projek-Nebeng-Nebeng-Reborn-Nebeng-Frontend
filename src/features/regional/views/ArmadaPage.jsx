@@ -8,7 +8,7 @@ import { regionalService } from '../../../services/regionalService';
 
 export default function FleetCourierPage() {
   const toast = useToast();
-  const { user } = useAuth();
+  const { session, adminProfile } = useAuth();
   const [mitraFleetList, setMitraFleetList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,8 +23,9 @@ export default function FleetCourierPage() {
       try {
         if (isMounted) setIsLoading(true);
 
-        const currentRegionId = user?.regionId
-          ? String(user.regionId)
+        const operatorProfile = adminProfile || session;
+        const currentRegionId = operatorProfile?.regionId
+          ? String(operatorProfile.regionId)
           : null;
 
         const [userRes, vehicleRes] = await Promise.all([
@@ -101,7 +102,8 @@ export default function FleetCourierPage() {
     return () => {
       isMounted = false;
     };
-  }, [user?.regionId, currentPage, limit, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.regionId, adminProfile?.regionId, currentPage, limit]);
 
   const filteredData = mitraFleetList.filter((m) =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

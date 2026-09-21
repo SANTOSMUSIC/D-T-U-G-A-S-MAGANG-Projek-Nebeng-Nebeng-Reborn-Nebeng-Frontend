@@ -67,7 +67,7 @@ export default function PosMitraManagement() {
         const validOperators = rawUsers.filter(op => {
           const opRegion = op.regionId ? String(op.regionId) : null;
           if (!regId) return op.status === 'active';
-          return opRegion === String(regId) && op.status === 'active';
+          return (opRegion === String(regId) || !opRegion) && op.status === 'active';
         });
 
         if (isMounted) {
@@ -130,6 +130,7 @@ export default function PosMitraManagement() {
   const handleOpenAdd = () => {
     setIsEditing(false);
     const regId = activeRegionId || adminProfile?.regionId || session?.regionId || '1';
+
     const defaultCityId = cityList.length > 0 ? String(cityList[0].id) : '';
     
     setFormData({ 
@@ -148,6 +149,8 @@ export default function PosMitraManagement() {
   const handleOpenEdit = (pos) => {
     setIsEditing(true);
     setCurrentPos(pos);
+    const regId = activeRegionId || adminProfile?.regionId || session?.regionId || '1';
+
     setFormData({ 
       name: pos.name, 
       address: pos.address, 
@@ -155,7 +158,7 @@ export default function PosMitraManagement() {
       longitude: pos.long,
       cityId: pos.cityId ? String(pos.cityId) : (cityList.length > 0 ? String(cityList[0].id) : ''),
       operatorId: pos.operatorId || '',
-      regionId: String(activeRegionId || adminProfile?.regionId || session?.regionId || '1')
+      regionId: String(regId)
     });
     setLocationSearchQuery(pos.name);
     setIsModalOpen(true);
@@ -446,9 +449,20 @@ export default function PosMitraManagement() {
                 {cityList.length === 0 ? (
                   <option value="">Belum ada data kota.</option>
                 ) : (
-                  cityList.map((city) => (
-                    <option key={city.id} value={city.id}>{city.name} ({city.province})</option>
-                  ))
+                  <>
+                    <optgroup label="Kota di Wilayah Ini (Berdasarkan Pos)">
+                      {cityList
+                        .filter(c => new Set(posList.map(p => p.cityId)).has(String(c.id)))
+                        .map((city) => (
+                          <option key={`region-${city.id}`} value={city.id}>{city.name} ({city.province})</option>
+                        ))}
+                    </optgroup>
+                    <optgroup label="Semua Kota (Nasional)">
+                      {cityList.map((city) => (
+                        <option key={`all-${city.id}`} value={city.id}>{city.name} ({city.province})</option>
+                      ))}
+                    </optgroup>
+                  </>
                 )}
               </select>
             </div>

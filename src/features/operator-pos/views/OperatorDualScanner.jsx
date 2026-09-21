@@ -229,7 +229,7 @@ export default function OperatorDualScanner() {
                 : undefined
             }
           >
-            Scan 1 (Origin / Asal)
+            Scan 1 Asal
           </button>
 
           <button
@@ -246,7 +246,7 @@ export default function OperatorDualScanner() {
                 : undefined
             }
           >
-            Scan 2 (Destination / Tujuan)
+            Scan 2 Tujuan
           </button>
         </div>
       </div>

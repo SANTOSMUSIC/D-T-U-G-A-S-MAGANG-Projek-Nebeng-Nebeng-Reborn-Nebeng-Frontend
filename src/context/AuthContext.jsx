@@ -153,6 +153,7 @@ export function AuthProvider({ children }) {
     adminProfile: session?.adminProfile ?? null,
     mitraProfile: session?.mitraProfile ?? null,
     superadminProfile: session?.superadminProfile ?? null,
+    user: session?.customerProfile || session?.adminProfile || session?.mitraProfile || session?.superadminProfile || session || null,
     login,
     logout,
     markCustomerVerified,

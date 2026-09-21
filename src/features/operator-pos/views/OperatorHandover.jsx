@@ -97,6 +97,7 @@ export default function OperatorHandover() {
         posId: String(posId),
         scanType: 'checkin_destination',
         otpClaim: cleanOtp,
+        recipientName: recipientName.trim(),
       };
 
       const res = await apiClient.post('/checkpoints/scan', payload);
@@ -233,18 +234,7 @@ export default function OperatorHandover() {
             onSubmit={handleHandoverSubmit}
             className="space-y-3.5 text-[10px]"
           >
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS BERTUGAS (OTOMATIS)
-              </label>
-
-              <input
-                type="text"
-                disabled
-                value={posId}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100 font-mono text-[10px] cursor-not-allowed"
-              />
-            </div>
+            <input type="hidden" value={posId} />
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">

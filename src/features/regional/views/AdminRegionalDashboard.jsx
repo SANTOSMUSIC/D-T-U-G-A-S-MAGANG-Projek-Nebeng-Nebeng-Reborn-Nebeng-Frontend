@@ -277,18 +277,14 @@ export default function AdminRegionalDashboard() {
         <StatCard
           title="TRIP DISRUPTED (KENDALA)"
           value={`${disruptedTrips.length} Trip`}
-          subtitle={
-            disruptedTrips.length > 0
-              ? 'Butuh Penanganan Rute'
-              : 'Aman Lancar'
-          }
+          subtitle="Fitur dalam pengembangan"
           icon={AlertTriangle}
         />
 
         <StatCard
           title="ANTREAN VERIFIKASI"
           value={`${
-            dashboardData?.metrics?.pendingVerificationCount ?? 0
+            dashboardData?.metrics?.pendingVerificationsCount ?? 0
           } Berkas`}
           subtitle="Menunggu review KTP & Face ID"
           icon={ShieldCheck}

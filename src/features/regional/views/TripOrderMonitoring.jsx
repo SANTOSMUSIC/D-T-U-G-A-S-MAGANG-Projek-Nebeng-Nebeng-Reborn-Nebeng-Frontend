@@ -23,7 +23,7 @@ import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../services/apiClient';
 
 export default function RegionalTripMonitoringPage() {
-  const { user } = useAuth();
+  const { session, adminProfile } = useAuth();
   const leafletMapInstance = useRef(null);
   const movingMarkerRef = useRef(null);
   const traveledLineRef = useRef(null);
@@ -53,7 +53,7 @@ export default function RegionalTripMonitoringPage() {
     const loadTrips = async () => {
       try {
         if (isMounted) setIsLoadingTrips(true);
-        const currentRegionId = user?.regionId ? String(user.regionId) : null;
+        const currentRegionId = (adminProfile?.regionId || session?.regionId) ? String(adminProfile?.regionId || session?.regionId) : null;
 
         const params = {
           page: currentPage,
@@ -139,7 +139,7 @@ export default function RegionalTripMonitoringPage() {
     return () => {
       isMounted = false;
     };
-  }, [user?.regionId, currentPage, limit, statusFilter, searchQuery]);
+  }, [adminProfile?.regionId, session?.regionId, currentPage, limit, statusFilter, searchQuery]);
 
   useEffect(() => {
     if (!document.getElementById('leaflet-css')) {
@@ -521,7 +521,7 @@ export default function RegionalTripMonitoringPage() {
                 <th className="py-3 px-5">Rute (Asal &rarr; Tujuan)</th>
                 <th className="py-3 px-5">Status Trip</th>
                 <th className="py-3 px-5 text-center">Driver Score</th>
-                <th className="py-3 px-5 text-center">Aksi Cerdas</th>
+                <th className="py-3 px-5 text-center">Aksi</th>
               </tr>
             </thead>
 

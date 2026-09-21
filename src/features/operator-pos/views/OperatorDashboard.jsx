@@ -19,7 +19,7 @@ const PRIMARY_COLOR = '#10367D';
 const PRIMARY_ACCENT = '#74B4D9';
 
 export default function OperatorDashboard() {
-  const { user } = useAuth();
+  const { session, adminProfile } = useAuth();
 
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [tripsSchedule, setTripsSchedule] = useState([]);
@@ -35,8 +35,9 @@ export default function OperatorDashboard() {
     totalPages: 1,
   });
 
+  const operatorProfile = adminProfile || session;
   const operatorPosId =
-    user?.assignedPickupPointId || user?.posId || user?.pickupPointId;
+    operatorProfile?.assignedPickupPointId || operatorProfile?.posId || operatorProfile?.pickupPointId;
 
   const handleRefresh = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -193,7 +194,7 @@ export default function OperatorDashboard() {
               className="text-[9px] font-bold uppercase tracking-widest"
               style={{ color: PRIMARY_COLOR }}
             >
-              POS OPERASIONAL WILAYAH | {user?.name ? user.name.toUpperCase() : 'OPERATOR POS'}
+              POS OPERASIONAL WILAYAH | {operatorProfile?.name ? operatorProfile.name.toUpperCase() : 'OPERATOR POS'}
             </span>
           </div>
 

@@ -270,18 +270,7 @@ export default function OperatorInspection() {
             onSubmit={handleScanAndSeal}
             className="space-y-3.5 text-[10px]"
           >
-            <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                ID POS TEMPAT BERTUGAS (OTOMATIS)
-              </label>
-
-              <input
-                type="text"
-                disabled
-                value={formData.posId}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100 font-medium text-[10px] font-mono cursor-not-allowed"
-              />
-            </div>
+            <input type="hidden" value={formData.posId} />
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">

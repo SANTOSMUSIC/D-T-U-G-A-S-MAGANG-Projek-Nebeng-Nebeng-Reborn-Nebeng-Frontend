@@ -9,7 +9,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 
 export default function KurirPage() {
   const toast = useToast();
-  const { user } = useAuth();
+  const { session, adminProfile } = useAuth();
   const [kurirList, setKurirList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,7 +24,8 @@ export default function KurirPage() {
       try {
         if (isMounted) setIsLoading(true);
 
-        const currentRegionId = user?.regionId ? String(user.regionId) : null;
+        const operatorProfile = adminProfile || session;
+        const currentRegionId = operatorProfile?.regionId ? String(operatorProfile.regionId) : null;
         const response = await regionalService.getUsersByRole(
           'operator', 
           currentRegionId, 
@@ -42,7 +43,7 @@ export default function KurirPage() {
           phone: item.phone || '-',
           status: item.status === 'active' ? 'Aktif' : 'Nonaktif',
           statusVerification: item.statusVerification || 'unverified',
-          assignedPos: item.assignedPickupPointId ? `Pos ID: ${item.assignedPickupPointId}` : 'Belum Ditugaskan'
+          assignedPos: item.assignedPickupPointName || (item.assignedPickupPointId ? `Pos ID: ${item.assignedPickupPointId}` : 'Belum Ditugaskan')
         }));
 
         if (isMounted) {
@@ -64,7 +65,8 @@ export default function KurirPage() {
     return () => {
       isMounted = false;
     };
-  }, [user?.regionId, currentPage, limit, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.regionId, adminProfile?.regionId, currentPage, limit]);
 
   const filteredData = kurirList.filter((k) =>
     k.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,11 +82,11 @@ export default function KurirPage() {
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-[#10367D] animate-pulse"></span>
             <span className="text-[9px] font-bold uppercase tracking-widest text-[#10367D]">
-              MANAJEMEN KURIR & DRIVER POS
+              MANAJEMEN OPERATOR
             </span>
           </div>
           <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
-            Daftar Operator & Kurir Wilayah
+            Daftar Operator
           </h1>
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
             Kelola dan pantau status keaktifan serta penugasan pos kurir di wilayah operasional Anda.

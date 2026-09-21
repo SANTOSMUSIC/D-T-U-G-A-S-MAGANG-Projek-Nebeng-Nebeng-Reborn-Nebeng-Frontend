@@ -47,12 +47,7 @@ export default function RegionalTopbar({
       }
     }
 
-    if (
-      !initialUser?.name ||
-      initialUser.name === 'Admin Regional'
-    ) {
-      fetchLatestProfile();
-    }
+    fetchLatestProfile();
 
     return () => {
       isMounted = false;

@@ -104,23 +104,21 @@ export default function MitraBalance() {
         params: {
           page: escrowPage,
           limit: escrowLimit,
+          activeEscrow: 'true',
         },
       });
 
       if (tripsRes.data) {
         const allTrips = Array.isArray(tripsRes.data) ? tripsRes.data : tripsRes.data.data || [];
         
-        const activeEscrows = allTrips.filter(
-          (t) => ['scheduled', 'in_origin_pos', 'in_transit', 'arrived_dest_pos'].includes(t.status)
-        );
-        setEscrowTransactions(activeEscrows);
+        setEscrowTransactions(allTrips);
 
         if (tripsRes.data.meta) {
           setTotalEscrowPages(tripsRes.data.meta.totalPages || 1);
           setTotalEscrowItems(tripsRes.data.meta.total || 0);
         } else {
           setTotalEscrowPages(1);
-          setTotalEscrowItems(activeEscrows.length);
+          setTotalEscrowItems(allTrips.length);
         }
       }
     } catch (error) {
@@ -129,14 +127,11 @@ export default function MitraBalance() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, escrowPage, escrowLimit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escrowPage, escrowLimit]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchWalletData();
-    }, 0);
-
-    return () => clearTimeout(timer);
+    fetchWalletData();
   }, [fetchWalletData]);
 
   const maskAccountNumber = (accNum) => {
@@ -445,7 +440,7 @@ export default function MitraBalance() {
                   <tr className="border-b border-neutral-100 text-[9px] text-neutral-400 uppercase font-semibold">
                     <th className="py-3 px-3">ID Perjalanan</th>
                     <th className="py-3 px-3">Rute Perjalanan</th>
-                    <th className="py-3 px-3">Nominal Escrow</th>
+                    <th className="py-3 px-3">Tarif Trip</th>
                     <th className="py-3 px-3">Status Sistem</th>
                   </tr>
                 </thead>
