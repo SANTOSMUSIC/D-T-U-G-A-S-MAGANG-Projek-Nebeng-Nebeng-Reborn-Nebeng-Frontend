@@ -435,7 +435,9 @@ export default function MitraTripManagement() {
             })()}
 
             <div>
-              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Tarif Trip (Rp)</label>
+              <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                {layananCategory === 'penumpang' ? 'Tarif Dasar Per Kursi (Rp)' : 'Tarif Dasar Per Paket (Rp)'}
+              </label>
               <input 
                 type="number" 
                 name="price" 
@@ -526,7 +528,9 @@ export default function MitraTripManagement() {
 
                   <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-200">
                     <div className="text-right">
-                      <span className="text-[8px] uppercase font-bold text-neutral-400 block">Tarif Trip</span>
+                      <span className="text-[8px] uppercase font-bold text-neutral-400 block">
+                        {trip.serviceType === 'barang' ? 'Tarif / Paket' : 'Tarif / Kursi'}
+                      </span>
                       <span className="text-[12px] font-bold text-emerald-600">Rp {Number(trip.price || 0).toLocaleString('id-ID')}</span>
                     </div>
                     {trip.status === 'scheduled' && (

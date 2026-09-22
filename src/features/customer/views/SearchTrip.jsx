@@ -77,8 +77,10 @@ export default function SearchTrip() {
     const loadData = async () => {
       setIsLoadingTrips(true);
       try {
-        const params = {};
-        if (date) params.date = date;
+        const params = {
+          status: 'scheduled',
+          date: date || TODAY_ISO,
+        };
         if (origin) params.originPointId = origin;
         if (destination) params.destinationPointId = destination;
 

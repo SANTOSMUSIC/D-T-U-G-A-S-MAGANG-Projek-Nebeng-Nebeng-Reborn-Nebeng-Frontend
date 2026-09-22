@@ -52,6 +52,7 @@ export default function OperatorDashboard() {
         const params = {
           page: currentPage,
           limit: limit,
+          date: new Date().toISOString().split('T')[0],
         };
         
         if (operatorPosId) {

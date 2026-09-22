@@ -89,7 +89,7 @@ export default function RegionalTripMonitoringPage() {
             id: String(t.id),
             rawStatus: t.status,
             passenger: t.customer?.name || t.passengerName || 'Pelanggan Umum',
-            driver: t.driver?.name || t.mitraName || 'Driver Mitra',
+            driver: t.mitra?.name || t.driver?.name || 'Driver Mitra',
             vehicle: t.vehicle
               ? `${t.vehicle.type} (${t.vehicle.plateNumber})`
               : 'Kendaraan Standar',
@@ -102,8 +102,8 @@ export default function RegionalTripMonitoringPage() {
             time: t.createdAt
               ? new Date(t.createdAt).toLocaleString('id-ID')
               : 'Hari ini',
-            originCoord: t.originCoord || { lat: -7.5623, lng: 110.8122 },
-            destinationCoord: t.destinationCoord || { lat: -7.5753, lng: 110.8278 },
+            originCoord: (t.originPoint?.lat && t.originPoint?.lng) ? { lat: t.originPoint.lat, lng: t.originPoint.lng } : { lat: -7.5623, lng: 110.8122 },
+            destinationCoord: (t.destinationPoint?.lat && t.destinationPoint?.lng) ? { lat: t.destinationPoint.lat, lng: t.destinationPoint.lng } : { lat: -7.5753, lng: 110.8278 },
             dms: {
               fatigueStatus: 'Aman / Normal',
               distractionAlerts: 0,
@@ -633,7 +633,7 @@ export default function RegionalTripMonitoringPage() {
                     }`}
                   >
                     <Radio size={10} />
-                    <span>{isLiveTrackingActive ? 'Live Tracking (WebSocket Aktif)' : 'Mode Replay Simulasi'}</span>
+                    <span>{isLiveTrackingActive ? (livePosition ? 'Live Tracking Aktif' : 'Menunggu GPS Mitra...') : 'Mode Replay Simulasi'}</span>
                   </button>
                 </div>
 

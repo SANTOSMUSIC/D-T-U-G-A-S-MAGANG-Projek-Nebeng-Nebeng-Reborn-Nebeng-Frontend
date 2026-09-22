@@ -198,6 +198,36 @@ export default function MyTickets() {
     };
   }, [tickets, refreshData, toast]);
 
+  // 3. Auto Polling untuk Transaksi Pending Payment Xendit
+  useEffect(() => {
+    let interval;
+    const pendingTickets = tickets.filter(
+      (t) => t.status === 'Aktif' && t.currentStatusText === 'pending_payment'
+    );
+
+    if (pendingTickets.length > 0) {
+      interval = setInterval(() => {
+        pendingTickets.forEach(async (ticket) => {
+          try {
+            const res = await apiClient.get(`/payments/check-status/${ticket.rawId}`);
+            if (res.data.status === 'PAID') {
+              toast.success(`Pembayaran untuk tiket #${ticket.rawId} otomatis terkonfirmasi lunas!`, {
+                title: 'Pembayaran Sukses',
+              });
+              refreshData();
+            }
+          } catch {
+            // silent error untuk polling
+          }
+        });
+      }, 3000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [tickets, refreshData, toast]);
+
   // Chat Polling Fallback
   useEffect(() => {
     if (activeModalType !== 'chat') return;
@@ -373,6 +403,33 @@ export default function MyTickets() {
     }
   };
 
+  const handlePayNow = async (ticket) => {
+    try {
+      toast.success('Mengalihkan ke halaman pembayaran Xendit...', { title: 'Tunggu Sebentar' });
+      const res = await apiClient.post('/payments/xendit/create-invoice', { orderId: String(ticket.rawId) });
+      if (res.data && res.data.invoiceUrl) {
+        window.location.href = res.data.invoiceUrl;
+      }
+    } catch {
+      toast.error('Gagal membuat tagihan pembayaran.', { title: 'Gagal' });
+    }
+  };
+
+  const handleCheckStatus = async (ticket) => {
+    try {
+      toast.success('Mengecek status pembayaran ke Xendit...', { title: 'Tunggu Sebentar' });
+      const res = await apiClient.get(`/payments/check-status/${ticket.rawId}`);
+      if (res.data.status === 'PAID') {
+        toast.success(res.data.message || 'Pembayaran berhasil dikonfirmasi!', { title: 'Berhasil' });
+        refreshData();
+      } else {
+        toast.info(res.data.message || `Status saat ini: ${res.data.status}`, { title: 'Info' });
+      }
+    } catch {
+      toast.error('Gagal mengecek status pembayaran.', { title: 'Gagal' });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       {/* Header Halaman */}
@@ -538,6 +595,19 @@ export default function MyTickets() {
                           <QrCode className="w-3.5 h-3.5" />
                           <span>QR Pos</span>
                         </button>
+                      )}
+
+                      {ticket.status === 'Aktif' && ticket.currentStatusText === 'pending_payment' && (
+                        <>
+                          <button onClick={() => handleCheckStatus(ticket)} className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer">
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Cek Status</span>
+                          </button>
+                          <button onClick={() => handlePayNow(ticket)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer">
+                            <ArrowRight className="w-3.5 h-3.5" />
+                            <span>Lanjut Bayar</span>
+                          </button>
+                        </>
                       )}
 
                       {ticket.status === 'Selesai' && (
