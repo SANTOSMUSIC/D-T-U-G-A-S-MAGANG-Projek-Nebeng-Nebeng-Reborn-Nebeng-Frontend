@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useRef, useEffect } from 'react';
 import {
   Settings,
@@ -85,7 +86,7 @@ export default function SuperadminAccountSettings() {
           if (rawAvatar) {
             const baseURL = apiClient.defaults.baseURL 
               ? apiClient.defaults.baseURL.replace('/api', '') 
-              : 'http://localhost:3000';
+              : BASE_URL;
             const fullAvatarUrl = rawAvatar.startsWith('http') ? rawAvatar : `${baseURL}${rawAvatar}`;
             setAvatarPreview(fullAvatarUrl);
             
@@ -164,7 +165,7 @@ export default function SuperadminAccountSettings() {
         if (relativePath) {
           const baseURL = apiClient.defaults.baseURL 
             ? apiClient.defaults.baseURL.replace('/api', '') 
-            : 'http://localhost:3000';
+            : BASE_URL;
           finalAvatarUrl = relativePath.startsWith('http') ? relativePath : `${baseURL}${relativePath}`;
           setAvatarPreview(finalAvatarUrl);
           setAvatarFile(null);

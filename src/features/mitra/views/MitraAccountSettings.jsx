@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useRef, useEffect } from 'react';
 import {
   Settings,
@@ -38,7 +39,7 @@ const getFullFileUrl = (path) => {
 
   const baseURL = apiClient.defaults.baseURL
     ? apiClient.defaults.baseURL.replace('/api', '')
-    : 'http://localhost:3000';
+    : BASE_URL;
 
   return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
 };

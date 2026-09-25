@@ -189,28 +189,27 @@ export default function OperatorHandover() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span
               className="w-2 h-2 rounded-full animate-pulse"
               style={{ backgroundColor: PRIMARY_ACCENT }}
             />
 
             <span
-              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1"
+              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 flex-wrap min-w-0"
               style={{ color: PRIMARY_COLOR }}
             >
               <UserCheck className="w-3 h-3" />
-              KEAMANAN & VALIDASI AKHIR POS (CHECKPOINT)
+              Validasi Handover
             </span>
           </div>
 
-          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
-            Handover Verification & OTP
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800 break-words">
+            Handover & OTP
           </h1>
 
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Validasi kode OTP 6-digit penerima untuk mencairkan dana escrow
-            paket di pos tujuan melalui backend.
+            Validasi OTP untuk pencairan escrow paket.
           </p>
         </div>
 
@@ -238,7 +237,7 @@ export default function OperatorHandover() {
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                NAMA PENERIMA
+                PENERIMA
               </label>
 
               <input
@@ -313,7 +312,7 @@ export default function OperatorHandover() {
               <span>
                 {isSubmitting
                   ? 'Memproses...'
-                  : 'Verifikasi OTP & Selesaikan Serah Terima'}
+                  : 'Verifikasi & Serah Terima'}
               </span>
             </button>
           </form>
@@ -328,11 +327,11 @@ export default function OperatorHandover() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4">HANDOVER ID & WAKTU</th>
-                  <th className="py-3 px-4">PENERIMA</th>
-                  <th className="py-3 px-4">QR TIKET</th>
-                  <th className="py-3 px-4">OTP DIGUNAKAN</th>
-                  <th className="py-3 px-4">STATUS</th>
+                  <th className="py-3 px-2">ID/WAKTU</th>
+                  <th className="py-3 px-2">PENERIMA</th>
+                  <th className="py-3 px-2">TIKET</th>
+                  <th className="py-3 px-2">OTP</th>
+                  <th className="py-3 px-2">STATUS</th>
                 </tr>
               </thead>
 
@@ -482,3 +481,5 @@ export default function OperatorHandover() {
     </div>
   );
 }
+
+

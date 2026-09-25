@@ -10,7 +10,8 @@ import {
   LogOut,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import logoImage from '../../../assets/LOGO.png';
 
@@ -28,6 +29,7 @@ const MENU_GROUPS = [
     items: [
       { name: 'Konfigurasi Tarif', icon: ShoppingBag },
       { name: 'Manajemen Merchandise', icon: Gift },
+      { name: 'Manajemen Banner', icon: ImageIcon },
       { name: 'Audit & Keuangan', icon: Receipt },
       { name: 'User Governance', icon: Users },
     ],
@@ -125,7 +127,7 @@ export default function SuperadminSidebar({ activeMenu = 'Dashboard', onMenuSele
           <button
             onClick={() => setShowLogoutModal(true)}
             aria-label="Keluar Sistem"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-white/10 hover:bg-white/20 transition cursor-pointer border border-white/10"
           >
             <LogOut className="w-4 h-4 text-white shrink-0" />
             <span>Log Out</span>

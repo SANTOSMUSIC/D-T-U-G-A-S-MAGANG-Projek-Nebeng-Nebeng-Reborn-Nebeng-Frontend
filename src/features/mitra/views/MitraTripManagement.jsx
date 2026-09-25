@@ -231,7 +231,7 @@ export default function MitraTripManagement() {
     }
   };
 
-  const visibleTrips = trips.filter((t) => t.status !== 'cancelled');
+  const visibleTrips = trips.filter((t) => t.status !== 'cancelled' && t.status !== 'completed');
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
@@ -312,7 +312,7 @@ export default function MitraTripManagement() {
                 name="originPointId" 
                 value={formData.originPointId} 
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D] truncate"
               >
                 {points.length === 0 ? (
                   <option value="">Belum ada pos terdaftar di sistem</option>
@@ -328,7 +328,7 @@ export default function MitraTripManagement() {
                 name="destinationPointId" 
                 value={formData.destinationPointId} 
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D] truncate"
               >
                 {points.length === 0 ? (
                   <option value="">Belum ada pos terdaftar di sistem</option>
@@ -370,7 +370,7 @@ export default function MitraTripManagement() {
                 name="vehicleId" 
                 value={formData.vehicleId} 
                 onChange={handleVehicleSelect}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D] truncate"
               >
                 {vehicles.length === 0 ? (
                   <option value="">Belum ada kendaraan terdaftar</option>
@@ -428,7 +428,7 @@ export default function MitraTripManagement() {
                     required
                     value={formData.maxWeightCapacityKg} 
                     onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D] truncate"
                   />
                 </div>
               );
@@ -445,7 +445,7 @@ export default function MitraTripManagement() {
                 required
                 value={formData.price} 
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D]"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-neutral-800 focus:outline-none focus:border-[#10367D] truncate"
               />
               <span className="text-[8px] text-neutral-400 mt-1 block">
                 Tarif otomatis diestimasi berdasarkan rute & jenis kendaraan.
@@ -579,3 +579,4 @@ export default function MitraTripManagement() {
     </div>
   );
 }
+

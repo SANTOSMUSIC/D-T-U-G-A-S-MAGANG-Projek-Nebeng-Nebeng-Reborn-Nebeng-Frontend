@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useRef, useEffect } from 'react';
 import {
   Settings,
@@ -96,7 +97,7 @@ export default function OperatorAccountSettings() {
           if (rawAvatar) {
             const baseURL = apiClient.defaults.baseURL
               ? apiClient.defaults.baseURL.replace('/api', '')
-              : 'http://localhost:3000';
+              : BASE_URL;
 
             const fullAvatarUrl =
               rawAvatar.startsWith('http') ||
@@ -208,7 +209,7 @@ export default function OperatorAccountSettings() {
         if (relativePath) {
           const baseURL = apiClient.defaults.baseURL
             ? apiClient.defaults.baseURL.replace('/api', '')
-            : 'http://localhost:3000';
+            : BASE_URL;
 
           finalAvatarUrl = relativePath.startsWith('http')
             ? relativePath

@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useEffect } from 'react';
 import { X, Mail, ShieldCheck, UserCircle, Settings } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
@@ -44,7 +45,7 @@ export default function SuperadminProfileModal({ isOpen, onClose, session, role,
   if (rawAvatar) {
     const baseURL = apiClient.defaults.baseURL 
       ? apiClient.defaults.baseURL.replace('/api', '') 
-      : 'http://localhost:3000';
+      : BASE_URL;
     avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : `${baseURL}${rawAvatar}`;
   }
 

@@ -11,6 +11,7 @@ import { useToast } from '../../../context/ToastContext';
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import apiClient from '../../../services/apiClient';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const PRIMARY_COLOR = '#10367D';
 const PRIMARY_HOVER = '#0C2C66';
@@ -28,7 +29,7 @@ export default function OperatorDualScanner() {
 
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [activeTargetField, setActiveTargetField] = useState(null);
-  const videoRef = useRef(null);
+  const html5QrCode = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -64,39 +65,48 @@ export default function OperatorDualScanner() {
     setActiveTargetField(target);
     setIsCameraActive(true);
 
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Browser tidak mendukung akses kamera.');
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      }, 100);
-    } catch (err) {
-      console.warn(
-        'Gagal akses kamera langsung, menggunakan mode fallback:',
-        err
-      );
-      toast.info(
-        'Kamera fisik tidak terdeteksi/izin diblokir. Gunakan tombol simulasi cepat di bawah.',
-        { title: 'Mode Alternatif Aktif' }
-      );
-    }
+    setTimeout(() => {
+      html5QrCode.current = new Html5Qrcode('qr-reader');
+      html5QrCode.current
+        .start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            if (target === 'trip') {
+              setTripQr(decodedText);
+            } else {
+              setTicketQr(decodedText);
+            }
+            toast.success(`Berhasil memindai QR secara langsung!`, { title: 'Scan Sukses' });
+            stopCamera();
+          },
+          (errorMessage) => {
+            // parse error, ignore
+          }
+        )
+        .catch((err) => {
+          console.warn('Gagal akses kamera langsung:', err);
+          toast.info(
+            'Kamera fisik tidak terdeteksi/izin diblokir. Gunakan tombol simulasi cepat di bawah.',
+            { title: 'Mode Alternatif Aktif' }
+          );
+        });
+    }, 100);
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (html5QrCode.current) {
+      html5QrCode.current
+        .stop()
+        .then(() => {
+          html5QrCode.current.clear();
+          html5QrCode.current = null;
+        })
+        .catch((err) => console.error('Failed to stop camera', err));
     }
-
     setIsCameraActive(false);
     setActiveTargetField(null);
   };
@@ -189,28 +199,27 @@ export default function OperatorDualScanner() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter'] relative">
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span
               className="w-2 h-2 rounded-full animate-pulse"
               style={{ backgroundColor: PRIMARY_COLOR }}
             />
 
             <span
-              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1"
+              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 flex-wrap min-w-0"
               style={{ color: PRIMARY_COLOR }}
             >
               <QrCode className="w-3 h-3" />
-              SISTEM KEAMANAN POS & ESCROW TERINTEGRASI
+              Sistem Keamanan Pos
             </span>
           </div>
 
-          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
-            Dual QR Code Scanner & Handover
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800 break-words">
+            Dual QR Scanner
           </h1>
 
           <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
-            Pemindai pos untuk validasi check-in asal dan pelepasan dana escrow
-            di pos tujuan.
+            Validasi check-in & pelepasan escrow.
           </p>
         </div>
 
@@ -274,7 +283,7 @@ export default function OperatorDualScanner() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
-                  QR CODE TRIP MITRA
+                  QR TRIP MITRA
                 </label>
 
                 <button
@@ -307,7 +316,7 @@ export default function OperatorDualScanner() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
-                  QR TIKET / PAKET CUSTOMER
+                  QR TIKET/PAKET
                 </label>
 
                 <button
@@ -356,7 +365,7 @@ export default function OperatorDualScanner() {
 
               <span>
                 {scanMode === 'origin'
-                  ? 'Proses Scan Asal (Check-in Origin)'
+                  ? 'Proses Scan Asal'
                   : 'Proses Scan Tujuan & Selesaikan Trip'}
               </span>
             </button>
@@ -372,11 +381,11 @@ export default function OperatorDualScanner() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4">LOG ID & WAKTU</th>
-                  <th className="py-3 px-4">TIPE PROSES</th>
-                  <th className="py-3 px-4">QR TRIP</th>
-                  <th className="py-3 px-4">QR TIKET/PAKET</th>
-                  <th className="py-3 px-4">STATUS & ESCROW</th>
+                  <th className="py-3 px-2">ID</th>
+                  <th className="py-3 px-2">TIPE</th>
+                  <th className="py-3 px-2">TRIP</th>
+                  <th className="py-3 px-2">TIKET</th>
+                  <th className="py-3 px-2">STATUS</th>
                 </tr>
               </thead>
 
@@ -461,12 +470,10 @@ export default function OperatorDualScanner() {
             </div>
 
             <div className="relative w-full h-56 bg-neutral-900 rounded-xl overflow-hidden flex items-center justify-center border border-neutral-200">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
+              <div
+                id="qr-reader"
                 className="w-full h-full object-cover"
-              />
+              ></div>
 
               <div
                 className="absolute inset-0 border-2 border-dashed m-6 rounded-lg pointer-events-none flex items-center justify-center"
@@ -506,3 +513,5 @@ export default function OperatorDualScanner() {
     </div>
   );
 }
+
+

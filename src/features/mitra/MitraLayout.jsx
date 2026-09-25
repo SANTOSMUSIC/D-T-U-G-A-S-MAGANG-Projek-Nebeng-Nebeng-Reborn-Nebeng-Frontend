@@ -128,7 +128,7 @@ export default function MitraLayout() {
 
   return (
     <MitraDataProvider>
-      <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
+      <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter'] overflow-x-hidden">
         <MitraSidebar
           activeMenu={activeMenu}
           isVerified={isVerified}
@@ -136,7 +136,7 @@ export default function MitraLayout() {
           onLogout={handleLogout}
         />
 
-        <div className="flex-1 lg:ml-64 min-h-screen w-full flex flex-col">
+        <div className="flex-1 lg:ml-64 min-h-screen w-full flex flex-col pb-20 lg:pb-0">
           <MitraTopbar
             profile={user || mitraProfile}
             onSettingsClick={() => {

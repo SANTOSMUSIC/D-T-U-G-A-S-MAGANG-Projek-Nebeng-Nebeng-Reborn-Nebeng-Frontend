@@ -1,3 +1,5 @@
+import { BASE_URL } from '../../../config/env';
+import logoAsset from '../../../assets/logo.png';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, User, Settings } from 'lucide-react';
@@ -64,7 +66,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
           ) {
             const baseURL = apiClient.defaults.baseURL
               ? apiClient.defaults.baseURL.replace('/api', '')
-              : 'http://localhost:3000';
+              : BASE_URL;
 
             formattedAvatar = `${baseURL}${rawAvatar}`;
           }
@@ -143,9 +145,8 @@ export default function OperatorTopbar({ onSettingsClick }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 bg-white/35 backdrop-blur-xl border-b border-white/40 shadow-[0_1px_12px_rgba(0,0,0,0.04)] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-end font-['Inter']">
-      <div
-        className="relative"
+    <header className="sticky top-0 z-20 bg-white/35 backdrop-blur-xl border-b border-white/40 shadow-[0_1px_12px_rgba(0,0,0,0.04)] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between font-['Inter']"><div className="flex items-center gap-2.5 lg:hidden"><img src={logoAsset} alt="Logo Nebeng" className="h-8 w-8 object-contain shrink-0" /><span className="font-bold text-[20px] text-[#10367D] tracking-wide leading-none">Nebeng</span></div><div
+        className="relative ml-auto"
         ref={dropdownRef}
       >
         <button
@@ -293,3 +294,6 @@ export default function OperatorTopbar({ onSettingsClick }) {
     </header>
   );
 }
+
+
+

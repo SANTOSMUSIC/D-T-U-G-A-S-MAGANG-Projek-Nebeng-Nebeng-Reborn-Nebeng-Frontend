@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
@@ -58,7 +59,7 @@ export default function VerificationCenterPage() {
 
     const baseURL = apiClient.defaults.baseURL
       ? apiClient.defaults.baseURL.replace(/\/api\/?$/, '')
-      : 'http://localhost:3000';
+      : BASE_URL;
 
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
 

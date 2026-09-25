@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Ticket,
@@ -170,7 +171,10 @@ export default function MyTickets() {
 
   // 2. KONEKSI WEBSOCKET REAL-TIME CHECKPOINT
   useEffect(() => {
-    const socket = io('http://localhost:3000/tracking', {
+    const socketUrl = import.meta.env.VITE_API_BASE_URL 
+      ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') 
+      : BASE_URL;
+    const socket = io(`${socketUrl}/tracking`, {
       transports: ['websocket', 'polling'],
     });
 
@@ -403,35 +407,11 @@ export default function MyTickets() {
     }
   };
 
-  const handlePayNow = async (ticket) => {
-    try {
-      toast.success('Mengalihkan ke halaman pembayaran Xendit...', { title: 'Tunggu Sebentar' });
-      const res = await apiClient.post('/payments/xendit/create-invoice', { orderId: String(ticket.rawId) });
-      if (res.data && res.data.invoiceUrl) {
-        window.location.href = res.data.invoiceUrl;
-      }
-    } catch {
-      toast.error('Gagal membuat tagihan pembayaran.', { title: 'Gagal' });
-    }
-  };
-
-  const handleCheckStatus = async (ticket) => {
-    try {
-      toast.success('Mengecek status pembayaran ke Xendit...', { title: 'Tunggu Sebentar' });
-      const res = await apiClient.get(`/payments/check-status/${ticket.rawId}`);
-      if (res.data.status === 'PAID') {
-        toast.success(res.data.message || 'Pembayaran berhasil dikonfirmasi!', { title: 'Berhasil' });
-        refreshData();
-      } else {
-        toast.info(res.data.message || `Status saat ini: ${res.data.status}`, { title: 'Info' });
-      }
-    } catch {
-      toast.error('Gagal mengecek status pembayaran.', { title: 'Gagal' });
-    }
-  };
+  
+  
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+    <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       {/* Header Halaman */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -597,18 +577,7 @@ export default function MyTickets() {
                         </button>
                       )}
 
-                      {ticket.status === 'Aktif' && ticket.currentStatusText === 'pending_payment' && (
-                        <>
-                          <button onClick={() => handleCheckStatus(ticket)} className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer">
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            <span>Cek Status</span>
-                          </button>
-                          <button onClick={() => handlePayNow(ticket)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer">
-                            <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Lanjut Bayar</span>
-                          </button>
-                        </>
-                      )}
+                      {ticket.status === 'Aktif' && ticket.currentStatusText === 'pending_payment' && ( <span className="text-[9px] text-neutral-400 italic flex items-center gap-1 animate-pulse"><RefreshCw className="w-3 h-3 animate-spin" /> Sedang memverifikasi pembayaran...</span> )}
 
                       {ticket.status === 'Selesai' && (
                         <button onClick={() => openModal(ticket, 'review')} className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[9px] font-bold transition flex items-center gap-1 cursor-pointer">
@@ -856,3 +825,8 @@ export default function MyTickets() {
     </div>
   );
 }
+
+
+
+
+

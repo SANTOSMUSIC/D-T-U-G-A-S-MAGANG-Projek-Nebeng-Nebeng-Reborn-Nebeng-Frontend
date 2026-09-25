@@ -11,6 +11,7 @@ const SUPERADMIN_MENU_PATH = {
   'Admin Wilayah': 'admin-wilayah',
   'Konfigurasi Tarif': 'tarif',
   'Manajemen Merchandise': 'merchandise',
+  'Manajemen Banner': 'banner',
   'Audit & Keuangan': 'audit',
   'User Governance': 'governance',
 };

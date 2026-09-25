@@ -14,6 +14,7 @@ import {
 import StatCard from '../../../components/ui/StatCard';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import EmptyState from '../../../components/ui/EmptyState';
+import { BannerSlider } from '../../../components/ui/BannerSlider';
 import apiClient from '../../../services/apiClient';
 
 const PRIMARY_COLOR = '#10367D';
@@ -57,6 +58,7 @@ export default function MitraDashboard() {
     heldEscrowBalance: 0
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [activeService, setActiveService] = useState('all');
 
   useEffect(() => {
     let isMounted = true;
@@ -116,13 +118,30 @@ export default function MitraDashboard() {
     };
   }, []);
 
-  const upcomingTrips = trips
+  const filteredTrips = trips.filter(t => {
+    if (activeService === 'all') return true;
+    const rawType = (t.serviceType || '').toLowerCase();
+    const vehicleType = (t.vehicleType || t.vehicle?.type || '').toLowerCase();
+    
+    if (activeService === 'barang') {
+       return Number(t.maxWeightCapacityKg) > 15 || rawType === 'barang';
+    }
+    if (activeService === 'motor') {
+       return rawType === 'motor' || vehicleType === 'motor';
+    }
+    if (activeService === 'mobil') {
+       return rawType === 'mobil' || vehicleType === 'mobil';
+    }
+    return true;
+  });
+
+  const upcomingTrips = filteredTrips
     .filter(
       (t) => t.status === 'scheduled' || t.status === 'in_transit' || t.status === 'in_origin_pos'
     )
     .slice(0, 2);
 
-  const recentHistory = trips
+  const recentHistory = filteredTrips
     .filter((t) => t.status === 'completed')
     .sort((a, b) => Number(b.id) - Number(a.id))
     .slice(0, 3);
@@ -187,6 +206,31 @@ export default function MitraDashboard() {
               Aktif & Terverifikasi
             </p>
           </div>
+        </div>
+      </div>
+      <BannerSlider role="mitra" />
+
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200">
+        <h2 className="text-[14px] font-extrabold text-neutral-800 mb-4 uppercase tracking-tight">Layanan Kami</h2>
+        <div className="flex justify-around items-center">
+          <button className="flex flex-col items-center gap-2 hover:opacity-80 transition cursor-pointer" onClick={() => setActiveService(activeService === 'motor' ? 'all' : 'motor')}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md transition ${activeService === 'motor' ? 'bg-[#262160]' : 'bg-neutral-300'}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>
+            </div>
+            <span className={`text-[10px] font-bold ${activeService === 'motor' ? 'text-[#262160]' : 'text-neutral-500'}`}>Nebeng Motor</span>
+          </button>
+          <button className="flex flex-col items-center gap-2 hover:opacity-80 transition cursor-pointer" onClick={() => setActiveService(activeService === 'mobil' ? 'all' : 'mobil')}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md transition ${activeService === 'mobil' ? 'bg-[#262160]' : 'bg-neutral-300'}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            </div>
+            <span className={`text-[10px] font-bold ${activeService === 'mobil' ? 'text-[#262160]' : 'text-neutral-500'}`}>Nebeng Mobil</span>
+          </button>
+          <button className="flex flex-col items-center gap-2 hover:opacity-80 transition cursor-pointer" onClick={() => setActiveService(activeService === 'barang' ? 'all' : 'barang')}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md transition ${activeService === 'barang' ? 'bg-[#262160]' : 'bg-neutral-300'}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <span className={`text-[10px] font-bold ${activeService === 'barang' ? 'text-[#262160]' : 'text-neutral-500'}`}>Nebeng Barang</span>
+          </button>
         </div>
       </div>
 

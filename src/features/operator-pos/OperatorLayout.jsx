@@ -33,7 +33,7 @@ export default function OperatorLayout() {
         }}
       />
       
-      <div className="flex-1 lg:ml-64 min-h-screen">
+      <div className="flex-1 lg:ml-64 min-h-screen pb-20 lg:pb-0">
         <OperatorTopbar onSettingsClick={() => navigate('/operator-pos/profile/pengaturan')} />
         <Outlet />
       </div>

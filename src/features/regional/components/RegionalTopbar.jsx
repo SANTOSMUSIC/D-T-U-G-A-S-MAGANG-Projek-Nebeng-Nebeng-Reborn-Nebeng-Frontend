@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import {
   useEffect,
   useRef,
@@ -84,7 +85,7 @@ export default function RegionalTopbar({
   ) {
     const baseURL = apiClient.defaults.baseURL 
       ? apiClient.defaults.baseURL.replace('/api', '') 
-      : 'http://localhost:3000';
+      : BASE_URL;
 
     formattedAvatar =
       `${baseURL}${rawAvatar}`;

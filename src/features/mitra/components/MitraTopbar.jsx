@@ -1,3 +1,5 @@
+import { BASE_URL } from '../../../config/env';
+import logoAsset from '../../../assets/logo.png';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ChevronDown, User, Settings } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
@@ -13,7 +15,7 @@ const getFullFileUrl = (path) => {
   }
   const baseURL = apiClient.defaults.baseURL
     ? apiClient.defaults.baseURL.replace('/api', '')
-    : 'http://localhost:3000';
+    : BASE_URL;
 
   return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
 };
@@ -95,8 +97,6 @@ export default function MitraTopbar({ onSettingsClick }) {
   }, [isDropdownOpen]);
 
   const displayName = userData?.name || 'Mitra Nebeng';
-  const firstName = displayName.split(' ')[0];
-  const displayRole = 'Mitra';
 
   // Mendapatkan path avatar terbaru dari database
   const rawAvatarPath = userData?.avatar || userData?.profilePicture || userData?.photo;
@@ -112,46 +112,34 @@ export default function MitraTopbar({ onSettingsClick }) {
       .toUpperCase() || 'M';
 
   return (
-    <div className="sticky top-0 z-10 bg-[#f8f9fa]/85 backdrop-blur-sm pl-20 pr-4 sm:pr-6 lg:px-8 pt-4 pb-3 font-['Inter'] flex justify-end">
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setIsDropdownOpen((prev) => !prev)}
-          className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full bg-white border border-neutral-100 shadow-sm hover:shadow transition cursor-pointer"
-        >
-          <div
-            className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden"
-            style={{
-              backgroundColor: PRIMARY_COLOR,
-              border: `1px solid ${PRIMARY_ACCENT}`,
-            }}
+    <div className="bg-white text-[#10367D] pl-4 pr-4 sm:pr-6 lg:px-8 pt-4 pb-4 flex items-center justify-between sticky top-0 z-10 font-['Inter'] shadow-sm border-b border-neutral-100"><div className="flex items-center gap-2.5 lg:hidden"><img src={logoAsset} alt="Logo Nebeng" className="h-8 w-8 object-contain shrink-0" /><span className="font-bold text-[20px] tracking-wide leading-none">Nebeng</span></div><div className="flex items-center gap-3 ml-auto"><div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+            className="flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition cursor-pointer"
           >
-            {photoUrl ? (
-              <img
-                src={photoUrl}
-                alt="Foto Profil"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              initials
-            )}
-          </div>
-
-          <div className="hidden sm:block text-left leading-tight max-w-35">
-            <p className="text-[11px] font-bold text-neutral-800 truncate">
-              {firstName}
-            </p>
-            <p className="text-[9px] text-neutral-400 truncate">
-              {displayRole}
-            </p>
-          </div>
-
-          <ChevronDown
-            size={14}
-            className={`text-neutral-400 shrink-0 transition-transform ${
-              isDropdownOpen ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
+            <div
+              className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden"
+              style={{
+                backgroundColor: PRIMARY_COLOR,
+              }}
+            >
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt="Foto Profil"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                initials
+              )}
+            </div>
+            <ChevronDown
+              size={14}
+              className={`text-white shrink-0 transition-transform ${
+                isDropdownOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
 
         {isDropdownOpen && (
           <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-neutral-100 overflow-hidden z-20">
@@ -216,7 +204,7 @@ export default function MitraTopbar({ onSettingsClick }) {
           </div>
         )}
       </div>
-
+    </div>
       <MitraProfileModal
         isOpen={showProfileModal}
         onClose={() => {
@@ -228,3 +216,6 @@ export default function MitraTopbar({ onSettingsClick }) {
     </div>
   );
 }
+
+
+

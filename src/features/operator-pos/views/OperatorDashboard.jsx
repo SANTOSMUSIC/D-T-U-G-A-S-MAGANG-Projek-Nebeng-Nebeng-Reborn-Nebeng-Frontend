@@ -12,6 +12,7 @@ import {
 import { SkeletonTableRows } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatCard from '../../../components/ui/StatCard';
+import { BannerSlider } from '../../../components/ui/BannerSlider';
 import { useAuth } from '../../../context/AuthContext';
 import { operatorService } from '../../../services/operatorService';
 
@@ -243,6 +244,7 @@ export default function OperatorDashboard() {
           </div>
         </div>
       </div>
+      <BannerSlider role="operator" />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard

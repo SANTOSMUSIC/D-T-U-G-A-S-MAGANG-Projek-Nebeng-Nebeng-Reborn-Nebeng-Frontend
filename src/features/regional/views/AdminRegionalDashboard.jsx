@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useEffect } from 'react';
 import {
   MapPin,
@@ -86,7 +87,7 @@ export default function AdminRegionalDashboard() {
 
     const baseUrl = import.meta.env.VITE_API_URL 
       ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') 
-      : 'http://localhost:3000';
+      : BASE_URL;
       
     const socket = io(`${baseUrl}/tracking`, {
       transports: ['websocket'],

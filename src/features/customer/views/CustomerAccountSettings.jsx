@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useEffect, useRef, useState } from 'react';
 
 import {
@@ -42,7 +43,7 @@ const getFullFileUrl = (path) => {
 
   const baseURL = apiClient.defaults.baseURL
     ? apiClient.defaults.baseURL.replace('/api', '')
-    : 'http://localhost:3000';
+    : BASE_URL;
 
   return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
 };
@@ -257,7 +258,7 @@ export default function CustomerAccountSettings() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+    <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -603,3 +604,4 @@ export default function CustomerAccountSettings() {
     </div>
   );
 }
+

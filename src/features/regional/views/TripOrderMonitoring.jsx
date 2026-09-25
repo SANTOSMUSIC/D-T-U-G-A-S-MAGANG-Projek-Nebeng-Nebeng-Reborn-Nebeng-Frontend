@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useEffect, useRef } from 'react';
 import { 
   Navigation, 
@@ -157,7 +158,7 @@ export default function RegionalTripMonitoringPage() {
     let isSubscribed = true;
     const baseURL = apiClient.defaults.baseURL
       ? apiClient.defaults.baseURL.replace(/\/api\/?$/, '')
-      : 'http://localhost:3000';
+      : BASE_URL;
 
     const socket = io(`${baseURL}/tracking`, {
       transports: ['websocket', 'polling']

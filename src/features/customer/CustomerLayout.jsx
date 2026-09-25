@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 import CustomerSidebar from './components/CustomerSidebar';
 import CustomerProfileModal from './components/CustomerProfileModal';
+import CustomerTopbar from './components/CustomerTopbar';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -61,7 +62,7 @@ export default function CustomerLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter']">
+    <div className="flex min-h-screen bg-[#f8f9fa] font-['Inter'] overflow-x-hidden">
       <CustomerSidebar
         activeMenu={activeMenu || 'Onboarding Biometrik'}
         isCustomerVerified={isCustomerVerified}
@@ -80,7 +81,11 @@ export default function CustomerLayout() {
           navigate('/login', { replace: true });
         }}
       />
-      <div className="flex-1 lg:ml-64 min-h-screen pt-14 lg:pt-0 w-full">
+      <div className="flex-1 lg:ml-64 min-h-screen pb-20 lg:pb-0 w-full flex flex-col">
+        <CustomerTopbar 
+          profile={customerProfile} 
+          onProfileClick={() => setShowProfileModal(true)}
+        />
         <Outlet />
       </div>
 

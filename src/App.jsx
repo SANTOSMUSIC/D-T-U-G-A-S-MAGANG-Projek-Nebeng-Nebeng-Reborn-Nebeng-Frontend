@@ -15,6 +15,7 @@ import AuditLedger from './features/superadmin/views/AuditLedger';
 import UserGovernance from './features/superadmin/views/UserGovernance';
 import SuperadminAccountSettings from './features/superadmin/views/SuperadminAccountSettings';
 import MerchandiseManagement from './features/superadmin/views/MerchandiseManagement';
+import BannerManagement from './features/superadmin/views/BannerManagement';
 
 // Regional
 import RegionalLayout from './features/regional/RegionalLayout';
@@ -127,6 +128,7 @@ export default function App() {
         <Route path="admin-wilayah" element={<RegionalAdminsManagement />} />
         <Route path="tarif" element={<PricingManagement />} />
         <Route path="merchandise" element={<MerchandiseManagement />} />
+        <Route path="banner" element={<BannerManagement />} />
         <Route path="audit" element={<AuditLedger />} />
         <Route path="governance" element={<UserGovernance />} />
         <Route path="profile/pengaturan" element={<SuperadminAccountSettings />} />

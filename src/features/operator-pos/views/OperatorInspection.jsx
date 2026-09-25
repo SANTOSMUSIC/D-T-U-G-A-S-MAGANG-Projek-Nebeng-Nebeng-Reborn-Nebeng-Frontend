@@ -234,22 +234,22 @@ export default function OperatorInspection() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span
               className="w-2 h-2 rounded-full animate-pulse"
               style={{ backgroundColor: PRIMARY_ACCENT }}
             />
 
             <span
-              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1"
+              className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 flex-wrap min-w-0"
               style={{ color: PRIMARY_COLOR }}
             >
               <PackageCheck className="w-3 h-3" />
-              POS OPERASIONAL & SECURITY SEALING
+              Inspeksi & Segel
             </span>
           </div>
 
-          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800">
+          <h1 className="text-[18px] sm:text-[20px] font-bold text-neutral-800 break-words">
             Inspeksi & Sealing Checkpoint
           </h1>
 
@@ -374,7 +374,7 @@ export default function OperatorInspection() {
 
             <div>
               <label className="block text-[8px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
-                NOMOR STIKER SEGEL QR (SECURITY SEAL)
+                NOMOR SEGEL
               </label>
 
               <div className="flex gap-2">
@@ -438,11 +438,11 @@ export default function OperatorInspection() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-neutral-100 text-neutral-400 text-[9px] uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4">ID LOG</th>
-                  <th className="py-3 px-4">TRIP QR</th>
-                  <th className="py-3 px-4">TICKET QR</th>
-                  <th className="py-3 px-4">STATUS BACKEND</th>
-                  <th className="py-3 px-4">WAKTU</th>
+                  <th className="py-3 px-2">ID</th>
+                  <th className="py-3 px-2">TRIP</th>
+                  <th className="py-3 px-2">TIKET</th>
+                  <th className="py-3 px-2">STATUS</th>
+                  <th className="py-3 px-2">WAKTU</th>
                 </tr>
               </thead>
 
@@ -496,3 +496,4 @@ export default function OperatorInspection() {
     </div>
   );
 }
+

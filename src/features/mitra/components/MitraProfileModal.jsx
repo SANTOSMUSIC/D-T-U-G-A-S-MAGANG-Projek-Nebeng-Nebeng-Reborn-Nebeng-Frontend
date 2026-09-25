@@ -1,3 +1,4 @@
+import { BASE_URL } from '../../../config/env';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Mail, Phone, Car, ShieldCheck, Settings, X } from 'lucide-react';
@@ -13,7 +14,7 @@ const getFullFileUrl = (path) => {
   }
   const baseURL = apiClient.defaults.baseURL
     ? apiClient.defaults.baseURL.replace('/api', '')
-    : 'http://localhost:3000';
+    : BASE_URL;
 
   return `${baseURL}${path.startsWith('/') ? '' : '/'}${path}`;
 };

@@ -1,3 +1,4 @@
+import { BASE_URL } from '../config/env';
 // src/services/apiClient.js
 import axios from 'axios';
 

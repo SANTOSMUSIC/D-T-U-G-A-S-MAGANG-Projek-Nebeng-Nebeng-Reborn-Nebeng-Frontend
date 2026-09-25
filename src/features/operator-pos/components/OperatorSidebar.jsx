@@ -67,39 +67,38 @@ export default function OperatorSidebar({
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setIsMobileOpen(true)}
-        aria-label="Buka menu navigasi"
-        className="lg:hidden fixed top-4 left-4 z-40 w-11 h-11 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center transition cursor-pointer"
-        style={{
-          color: PRIMARY_COLOR,
-        }}
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 z-50 flex items-center justify-around px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] print:hidden">
+        {menuItems.map((item) => {
+          const IconComponent = item.icon;
+          const isActive = activeMenu === item.name;
 
-      {/* Mobile Overlay */}
-      {isMobileOpen && (
-        <div
-          onClick={() => setIsMobileOpen(false)}
-          className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
-        />
-      )}
+          return (
+            <button
+              key={item.name}
+              onClick={() => handleMenuSelect(item.name)}
+              className={`flex flex-col items-center justify-center gap-1 min-w-[64px] px-1 py-1 rounded-xl transition ${
+                isActive 
+                  ? 'bg-blue-50/50' 
+                  : 'hover:bg-neutral-50'
+              }`}
+            >
+              <div className={`p-1.5 rounded-full transition-colors ${isActive ? 'bg-[#10367D] text-white' : 'text-neutral-500'}`}>
+                <IconComponent className="w-5 h-5" />
+              </div>
+              <span className={`text-[9px] font-semibold text-center leading-tight ${isActive ? 'text-[#10367D]' : 'text-neutral-500'}`}>
+                {item.name.split(' ')[0]}
+              </span>
+              {isActive && <div className="w-1 h-1 rounded-full bg-[#10367D] mt-0.5" />}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Sidebar */}
       <aside
-        className={`w-64 h-screen text-white flex flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] ${
-          isMobileOpen
-            ? 'translate-x-0'
-            : '-translate-x-full'
-        } lg:translate-x-0`}
-        style={{
-          backgroundColor: PRIMARY_COLOR,
-        }}
+        className={`hidden lg:flex w-64 h-screen text-white flex-col justify-between p-5 fixed left-0 top-0 shadow-md overflow-y-auto z-40 transition-transform duration-300 font-['Inter'] print:hidden select-none`}
+        style={{ backgroundColor: PRIMARY_COLOR }}
       >
         <div>
-          {/* Logo */}
           <div className="mb-8 px-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <img
@@ -111,20 +110,10 @@ export default function OperatorSidebar({
                   e.target.src = '/logo.png';
                 }}
               />
-
               <span className="font-bold text-white text-[20px] tracking-wide leading-none">
                 Nebeng
               </span>
             </div>
-
-            {/* Close Mobile Sidebar */}
-            <button
-              onClick={() => setIsMobileOpen(false)}
-              aria-label="Tutup menu navigasi"
-              className="lg:hidden w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white transition hover:bg-white/20"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
 
           <div className="space-y-6">
@@ -136,49 +125,29 @@ export default function OperatorSidebar({
               <nav className="space-y-1">
                 {menuItems.map((item) => {
                   const IconComponent = item.icon;
-                  const isActive =
-                    activeMenu === item.name;
+                  const isActive = activeMenu === item.name;
 
                   return (
                     <button
                       key={item.name}
-                      onClick={() =>
-                        handleMenuSelect(item.name)
-                      }
+                      onClick={() => handleMenuSelect(item.name)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] transition text-left cursor-pointer ${
                         isActive
                           ? 'bg-white font-semibold shadow-sm'
                           : 'text-white/80 font-medium hover:bg-white/10 hover:text-white'
                       }`}
-                      style={
-                        isActive
-                          ? {
-                              color: PRIMARY_COLOR,
-                            }
-                          : undefined
-                      }
+                      style={isActive ? { color: PRIMARY_COLOR } : undefined}
                       onMouseEnter={(e) => {
-                        if (isActive) {
-                          e.currentTarget.style.color =
-                            PRIMARY_HOVER;
-                        }
+                        if (isActive) e.currentTarget.style.color = PRIMARY_HOVER;
                       }}
                       onMouseLeave={(e) => {
-                        if (isActive) {
-                          e.currentTarget.style.color =
-                            PRIMARY_COLOR;
-                        }
+                        if (isActive) e.currentTarget.style.color = PRIMARY_COLOR;
                       }}
                     >
                       <IconComponent
                         className="w-4 h-4"
-                        style={{
-                          color: isActive
-                            ? PRIMARY_COLOR
-                            : 'rgba(255,255,255,0.7)',
-                        }}
+                        style={{ color: isActive ? PRIMARY_COLOR : 'rgba(255,255,255,0.7)' }}
                       />
-
                       {item.name}
                     </button>
                   );
@@ -188,17 +157,13 @@ export default function OperatorSidebar({
           </div>
         </div>
 
-        {/* Logout */}
         <div className="pt-5 border-t border-white/10">
           <button
-            onClick={() =>
-              setShowLogoutModal(true)
-            }
+            onClick={() => setShowLogoutModal(true)}
             aria-label="Keluar Sistem"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-[#FF0055] hover:bg-[#e0004c] transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-white/10 hover:bg-white/20 transition cursor-pointer border border-white/10"
           >
             <LogOut className="w-4 h-4 text-white shrink-0" />
-
             <span>Log Out Shift</span>
           </button>
         </div>

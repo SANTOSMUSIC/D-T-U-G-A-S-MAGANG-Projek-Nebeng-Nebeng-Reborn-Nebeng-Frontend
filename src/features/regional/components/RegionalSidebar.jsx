@@ -221,7 +221,7 @@ export default function RegionalSidebar({
               setShowLogoutModal(true)
             }
             aria-label="Keluar Sistem"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-rose-500 hover:bg-rose-600 transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[12px] font-semibold text-white bg-white/10 hover:bg-white/20 transition cursor-pointer border border-white/10"
           >
             <LogOut className="w-4 h-4 text-white shrink-0" />
 

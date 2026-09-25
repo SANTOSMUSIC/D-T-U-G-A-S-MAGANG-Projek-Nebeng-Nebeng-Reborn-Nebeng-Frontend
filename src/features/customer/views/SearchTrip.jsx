@@ -11,6 +11,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 import EmptyState from '../../../components/ui/EmptyState';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import BaseModal from '../../../components/ui/BaseModal';
+import { BannerSlider } from '../../../components/ui/BannerSlider';
 import { useToast } from '../../../context/ToastContext';
 import apiClient from '../../../services/apiClient';
 
@@ -34,7 +35,7 @@ export default function SearchTrip() {
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState('');
-  const [serviceType, setServiceType] = useState('penumpang');
+  const [activeService, setActiveService] = useState('motor');
 
   const [pickupPoints, setPickupPoints] = useState([]);
   const [trips, setTrips] = useState([]);
@@ -107,8 +108,20 @@ export default function SearchTrip() {
         
         const activeList = list.filter((t) => {
           if (t.status === 'cancelled' || t.status === 'CANCELLED') return false;
-          const tripCategory = inferServiceType(t);
-          return tripCategory === serviceType;
+          
+          const rawType = (t.serviceType || '').toLowerCase();
+          const vehicleType = (t.vehicleType || t.vehicle?.type || '').toLowerCase();
+          
+          if (activeService === 'barang') {
+             return inferServiceType(t) === 'barang';
+          }
+          if (activeService === 'motor') {
+             return rawType === 'motor' || vehicleType === 'motor';
+          }
+          if (activeService === 'mobil') {
+             return rawType === 'mobil' || vehicleType === 'mobil';
+          }
+          return false;
         });
 
         setTrips(activeList);
@@ -126,7 +139,9 @@ export default function SearchTrip() {
     return () => {
       ignore = true;
     };
-  }, [origin, destination, date, serviceType]);
+  }, [origin, destination, date, activeService]);
+
+  const isPassengerService = activeService === 'motor' || activeService === 'mobil';
 
   const maxAllowedSeats = selectedTrip?.vehicle?.type === 'motor' 
     ? 1 
@@ -138,31 +153,31 @@ export default function SearchTrip() {
   const totalAccumulatedWeight = safeItemCount * safeItemWeight;
 
   const isOverWeightCapacity =
-    serviceType === 'barang' &&
+    !isPassengerService &&
     totalAccumulatedWeight > (selectedTrip?.remainingWeightCapacityKg || selectedTrip?.maxWeightCapacityKg || 0);
 
   const isOverSeatCapacity =
-    serviceType === 'penumpang' && (seatCount > maxAllowedSeats || seatCount < 1);
+    isPassengerService && (seatCount > maxAllowedSeats || seatCount < 1);
 
   const isOverCapacity = isOverWeightCapacity || isOverSeatCapacity;
 
   const isPassengerPhoneValid =
-    serviceType === 'penumpang' ? PHONE_REGEX.test(passengerPhone.trim()) : true;
+    isPassengerService ? PHONE_REGEX.test(passengerPhone.trim()) : true;
 
   const isReceiverPhoneValid =
-    serviceType === 'barang' ? PHONE_REGEX.test(receiverPhone.trim()) : true;
+    !isPassengerService ? PHONE_REGEX.test(receiverPhone.trim()) : true;
 
   const isPassengerValid =
-    serviceType === 'penumpang' ? passengerName.trim() !== '' && isPassengerPhoneValid : true;
+    isPassengerService ? passengerName.trim() !== '' && isPassengerPhoneValid : true;
 
   const isBarangValid =
-    serviceType === 'barang' ? receiverName.trim() !== '' && isReceiverPhoneValid : true;
+    !isPassengerService ? receiverName.trim() !== '' && isReceiverPhoneValid : true;
 
   const isPaymentValid = paymentMethod === 'xendit' ? true : pin.length === 6;
 
   const isFormValid = !isOverCapacity && isPassengerValid && isBarangValid && isPaymentValid;
 
-  const quantity = serviceType === 'barang' ? safeItemCount : safeSeatCount;
+  const quantity = !isPassengerService ? safeItemCount : safeSeatCount;
   const basePrice = selectedTrip?.price || 0;
   const totalPrice = basePrice * quantity;
 
@@ -212,8 +227,8 @@ export default function SearchTrip() {
     try {
       const orderPayload = {
         tripId: String(selectedTrip.id),
-        type: serviceType === 'penumpang' ? 'passenger' : 'parcel',
-        ...(serviceType === 'penumpang'
+        type: isPassengerService ? 'passenger' : 'parcel',
+        ...(isPassengerService
           ? { seatsBooked: safeSeatCount }
           : {
               items: [
@@ -267,7 +282,7 @@ export default function SearchTrip() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
+    <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 min-h-screen font-['Inter']">
       <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -282,19 +297,44 @@ export default function SearchTrip() {
           </p>
         </div>
       </div>
+      <BannerSlider role="customer" />
+
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-200">
+        <h2 className="text-[14px] font-extrabold text-neutral-800 mb-4 uppercase tracking-tight">Layanan Kami</h2>
+        <div className="flex justify-around items-center">
+          <button className="flex flex-col items-center gap-2 hover:opacity-80 transition cursor-pointer" onClick={() => setActiveService('motor')}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md transition ${activeService === 'motor' ? 'bg-[#262160]' : 'bg-neutral-300'}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>
+            </div>
+            <span className={`text-[10px] font-bold ${activeService === 'motor' ? 'text-[#262160]' : 'text-neutral-500'}`}>Nebeng Motor</span>
+          </button>
+          <button className="flex flex-col items-center gap-2 hover:opacity-80 transition cursor-pointer" onClick={() => setActiveService('mobil')}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md transition ${activeService === 'mobil' ? 'bg-[#262160]' : 'bg-neutral-300'}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            </div>
+            <span className={`text-[10px] font-bold ${activeService === 'mobil' ? 'text-[#262160]' : 'text-neutral-500'}`}>Nebeng Mobil</span>
+          </button>
+          <button className="flex flex-col items-center gap-2 hover:opacity-80 transition cursor-pointer" onClick={() => setActiveService('barang')}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md transition ${activeService === 'barang' ? 'bg-[#262160]' : 'bg-neutral-300'}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <span className={`text-[10px] font-bold ${activeService === 'barang' ? 'text-[#262160]' : 'text-neutral-500'}`}>Nebeng Barang</span>
+          </button>
+        </div>
+      </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 sm:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-[10px]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-[10px]">
           <div>
             <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Pos Asal</label>
-            <select value={origin} onChange={(e) => setOrigin(e.target.value)} className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium focus:outline-none">
+            <select value={origin} onChange={(e) => setOrigin(e.target.value)} className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium focus:outline-none truncate">
               <option value="">Semua Pos Asal</option>
               {pickupPoints.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Pos Tujuan</label>
-            <select value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium focus:outline-none">
+            <select value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium focus:outline-none truncate">
               <option value="">Semua Pos Tujuan</option>
               {pickupPoints.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -302,25 +342,6 @@ export default function SearchTrip() {
           <div>
             <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Tanggal</label>
             <input type="date" min={TODAY_ISO} value={date} onChange={(e) => setDate(e.target.value)} className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-medium focus:outline-none" />
-          </div>
-          <div>
-            <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">Tipe Layanan</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => setServiceType('penumpang')} 
-                className={`py-2 px-2 rounded-xl text-[10px] font-bold cursor-pointer transition ${serviceType === 'penumpang' ? 'text-white' : 'bg-neutral-50 border border-neutral-200 text-neutral-600'}`}
-                style={serviceType === 'penumpang' ? { backgroundColor: PRIMARY_COLOR } : undefined}
-              >
-                Penumpang
-              </button>
-              <button 
-                onClick={() => setServiceType('barang')} 
-                className={`py-2 px-2 rounded-xl text-[10px] font-bold cursor-pointer transition ${serviceType === 'barang' ? 'text-white' : 'bg-neutral-50 border border-neutral-200 text-neutral-600'}`}
-                style={serviceType === 'barang' ? { backgroundColor: PRIMARY_COLOR } : undefined}
-              >
-                Barang
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -369,7 +390,7 @@ export default function SearchTrip() {
                       <span>
                         ⚡ Sisa Kuota: {' '}
                         <strong style={{ color: PRIMARY_COLOR }}>
-                          {serviceType === 'barang' 
+                          {activeService === 'barang' 
                             ? `${trip.remainingWeightCapacityKg ?? trip.maxWeightCapacityKg ?? 0} Kg` 
                             : `${trip.seatAvailable ?? trip.totalSeats ?? 0} Kursi`}
                         </strong>
@@ -423,7 +444,7 @@ export default function SearchTrip() {
         maxWidth="max-w-md"
       >
         <form onSubmit={handleCheckout} className="space-y-3 text-[10px]">
-          {serviceType === 'penumpang' ? (
+          {isPassengerService ? (
             <>
               <div>
                 <label className="block text-[8px] font-bold text-neutral-400 uppercase mb-1">
@@ -582,3 +603,9 @@ export default function SearchTrip() {
     </div>
   );
 }
+
+
+
+
+
+
