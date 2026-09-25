@@ -158,7 +158,7 @@ export default function OperatorTopbar({ onSettingsClick }) {
         >
           <span className="relative shrink-0">
             <span
-              className="w-8 h-8 rounded-full text-white text-[11px] font-bold flex items-center justify-center overflow-hidden"
+              className="w-10 h-10 md:w-8 md:h-8 rounded-full text-white text-[11px] font-bold flex items-center justify-center overflow-hidden"
               style={{
                 backgroundColor: PRIMARY_COLOR,
                 border: `1px solid ${PRIMARY_ACCENT}`,

@@ -102,6 +102,7 @@ export default function Register({ onSwitchToLogin }) {
 
     if (!trimmedName) nextErrors.name = 'Nama wajib diisi';
     if (!trimmedEmail) nextErrors.email = 'Email wajib diisi';
+    else if (trimmedEmail.endsWith('@gmil.com')) nextErrors.email = 'Domain @gmil.com tidak diperbolehkan, mungkin maksud Anda @gmail.com?';
     if (!form.phone) nextErrors.phone = 'Nomor telepon wajib diisi';
     if (!form.regionId) nextErrors.regionId = 'Wilayah operasional wajib dipilih';
     if (!form.password) nextErrors.password = 'Password wajib diisi';

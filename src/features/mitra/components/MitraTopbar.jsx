@@ -118,7 +118,7 @@ export default function MitraTopbar({ onSettingsClick }) {
             className="flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition cursor-pointer"
           >
             <div
-              className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden"
+              className="w-9 h-9 md:w-7 md:h-7 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden"
               style={{
                 backgroundColor: PRIMARY_COLOR,
               }}

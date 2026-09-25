@@ -184,8 +184,10 @@ export default function RegionalTopbar({
           {/* AVATAR */}
           <div
             className="
-              w-8
-              h-8
+              w-10
+              md:w-8
+              h-10
+              md:h-8
               rounded-full
               bg-[#10367D]
               text-white

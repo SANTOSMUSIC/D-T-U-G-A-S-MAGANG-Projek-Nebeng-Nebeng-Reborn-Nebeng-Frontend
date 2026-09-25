@@ -61,7 +61,7 @@ export default function CustomerTopbar({ profile, onProfileClick }) {
       <div className="flex items-center gap-3 ml-auto">
         <button 
           onClick={onProfileClick}
-          className="w-9 h-9 rounded-full bg-[#10367D] flex items-center justify-center text-white hover:bg-[#0C2C66] transition font-bold text-[14px] cursor-pointer overflow-hidden"
+          className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-[#10367D] flex items-center justify-center text-white hover:bg-[#0C2C66] transition font-bold text-[14px] cursor-pointer overflow-hidden"
         >
           {photoUrl ? (
             <img src={photoUrl} alt="Profil" className="w-full h-full object-cover" />
